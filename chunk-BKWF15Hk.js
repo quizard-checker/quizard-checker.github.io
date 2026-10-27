@@ -1,0 +1,1 @@
+function s(t){return new Date(t).toLocaleDateString(void 0,{month:`short`,day:`numeric`})}function u(t){let e=String(t?.id||t?.name||``),n=0;for(let r=0;r<e.length;r++)n=n*31+e.charCodeAt(r)>>>0;return`th-`+n%6}function d(t){return(String(t?.section||``).trim().charAt(0)||String(t?.name||`?`).trim().charAt(0)||`?`).toUpperCase()}export{s as n,u as r,d as t};
