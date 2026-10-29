@@ -1,1 +1,0 @@
-import{Vt as U}from"./main-T4IUCGKI.js";var t=/^localhost$|^127(\.\d+){3}$/.test(globalThis.location?.hostname||``);var i=U.isNativePlatform()?`https://quizard-checker.github.io/quizard-docs/`:t?`/site/`:`/quizard-docs/`;export{i as t};
