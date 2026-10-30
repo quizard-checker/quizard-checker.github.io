@@ -329,12 +329,8 @@
         @if (previewBusy()) {
           <p class="parse-note">Building the preview…</p>
         } @else {
-          <p class="faint" style="font-size:11.5px;text-align:center;margin:0 0 10px">
-            @if (previewPages() > 1) {
-              Sheet {{ previewPage() }} of {{ previewPages() }} — one page per student
-            } @else {
-              Sheet 1 of 1
-            }
+          <p class="preview-count">
+            {{ previewPages() }} sheet{{ previewPages() === 1 ? '' : 's' }} in this PDF · one per student
           </p>
           <div class="preview-canvas-wrap">
             <canvas class="preview-canvas"></canvas>
@@ -342,14 +338,26 @@
           @if (previewPages() > 1) {
             <div class="preview-pager">
               <button class="icon-btn" [disabled]="previewPage() <= 1" (click)="previewPrev()" aria-label="Previous sheet" [innerHTML]="'chevronLeft' | ico"></button>
-              <span class="preview-pager-label">Sheet {{ previewPage() }} of {{ previewPages() }}<span class="faint"> · each one carries its student in the QR</span></span>
+              <span class="preview-pager-label">Previewing sheet {{ previewPage() }} of {{ previewPages() }}<span class="faint"> · arrows only change the preview</span></span>
               <button class="icon-btn" [disabled]="previewPage() >= previewPages()" (click)="previewNext()" aria-label="Next sheet" [innerHTML]="'chevronRight' | ico"></button>
             </div>
           }
           <div class="org-sheet-actions">
             <button class="btn btn-secondary" (click)="closePreview()">Close</button>
-            <button class="btn btn-primary" (click)="downloadPreview()"><span [innerHTML]="'download' | ico"></span> Download PDF</button>
+            <button class="btn btn-primary" (click)="downloadPreview()">
+              <span [innerHTML]="'download' | ico"></span>
+              {{ native
+                ? (previewPages() > 1 ? 'Save ' + previewPages() + ' sheets' : 'Save PDF')
+                : (previewPages() > 1 ? 'Download all ' + previewPages() : 'Download PDF') }}
+            </button>
           </div>
+          @if (previewPages() > 1) {
+            <p class="preview-download-note">
+              {{ native
+                ? 'One file has all ' + previewPages() + ' sheets — the share sheet lets you save it or print it.'
+                : 'One download saves every sheet — no need to download them one by one.' }}
+            </p>
+          }
         }
       </div>
     </div>

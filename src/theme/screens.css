@@ -3071,6 +3071,8 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 .preview-pager .icon-btn svg { width: 15px; height: 15px; }
 .preview-pager-label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-align: center; }
 .preview-pager-label .faint { font-weight: 500; }
+.preview-count { font-size: 11.5px; font-weight: 600; color: var(--text-dim); text-align: center; margin: 0 0 10px; }
+.preview-download-note { font-size: 11px; color: var(--text-faint); text-align: center; margin: 8px 0 0; line-height: 1.35; }
 
 /* ── Checking: in-app pickers (native <select> popups can't be styled) ── */
 button.text-input { font: inherit; text-align: left; cursor: pointer; }

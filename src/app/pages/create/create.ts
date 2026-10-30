@@ -2,6 +2,9 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { extractText } from '../../core/engine/extract/index.js';
 import { parseKeyText } from '../../core/engine/answerkey.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
@@ -31,6 +34,10 @@ export class CreatePage {
   ui = inject(UiStateService);
   readonly byok = inject(ByokService);
   private toast = inject(ToastService);
+
+  // Android WebView has no download manager for blob URLs, so the native build
+  // hands the PDF to the system share sheet instead of a browser download.
+  readonly native = Capacitor.isNativePlatform();
 
   readonly modes = MODES;
   readonly maxItems = MAX_ITEMS;
@@ -424,7 +431,7 @@ export class CreatePage {
       }
       this.previewDoc = await buildBubbleSheetsPdf(quiz, cls.students, this.paper());
       this.previewFilename = `quizard-bubble-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
-      this.previewLabel.set(`Bubble answer sheets — ${cls.name} (${cls.students.length}, one per student)`);
+      this.previewLabel.set(`Bubble answer sheets — ${cls.name}`);
       // a new document always starts at sheet 1, and the cached pdfjs doc
       // belongs to the old one
       this.previewPdfDoc = null;
@@ -496,9 +503,36 @@ export class CreatePage {
     await this.renderPreview();
   }
 
-  downloadPreview() {
-    if (this.previewDoc) this.previewDoc.save(`${this.previewFilename}.pdf`);
-    this.toast.toast('PDF downloaded ✓');
+  async downloadPreview() {
+    if (!this.previewDoc) return;
+    const filename = `${this.previewFilename}.pdf`;
+    const n = this.previewPages();
+    if (!this.native) {
+      this.previewDoc.save(filename);
+      this.toast.toast(n > 1 ? `PDF downloaded — all ${n} sheets ✓` : 'PDF downloaded ✓');
+      return;
+    }
+    // In the Android app the WebView cannot download a blob. Write the whole
+    // multi-page PDF to the app cache and open the system share sheet, where
+    // the teacher can save it to Files or send it to a printer.
+    try {
+      const dataUri = this.previewDoc.output('datauristring') as string;
+      const data = dataUri.slice(dataUri.indexOf(',') + 1);
+      const file = await Filesystem.writeFile({
+        path: filename,
+        data,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+      await Share.share({
+        title: 'Bubble answer sheets',
+        text: n > 1 ? `${n} sheets — one per student` : filename,
+        files: [file.uri],
+        dialogTitle: 'Save or print the PDF',
+      });
+    } catch (e: any) {
+      this.toast.toast('Could not create the PDF' + (e?.message ? ' — ' + e.message : ''), true);
+    }
   }
 
   closePreview() {
