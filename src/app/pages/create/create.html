@@ -484,27 +484,43 @@
         <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Add a class on the Classes tab first — sheets print exactly that class's students.</p>
       }
 
-      <div class="section-title">Scan &amp; results</div>
-      <div class="export-grid">
-        <button class="btn btn-primary" (click)="scanSaved()" data-tooltip="Scan filled bubble sheets against the key above"><span [innerHTML]="'scan' | ico"></span> Scan papers</button>
-        <button class="btn btn-secondary" (click)="resultsSaved()" data-tooltip="Grades and item analysis for this quiz"><span [innerHTML]="'chart' | ico"></span> Results</button>
-      </div>
-      <p class="faint center" style="font-size:11.5px;margin:8px 0 0">The scanner marks against the answer key at the top of this page — one quiz, one key.</p>
-
-      @if (selectedQuiz(); as q) {
-        @if (hasQuestionsIn(q)) {
-          <div class="section-title">Questions (read-only)</div>
-          <div class="doc-list">
-            @for (it of q.items; track $index) {
-              <div class="weak-row">
-                <span class="qnum">{{ $index + 1 }}</span>
-                <span class="weak-q">{{ it.question }}</span>
-                <span class="weak-rate dim">{{ letters[it.answerIndex] }}</span>
-              </div>
+      <div class="section-title">Class &amp; progress</div>
+      @if (quizProgress(); as p) {
+        <div class="quiz-progress-card">
+          <div class="qp-head">
+            <span class="qp-ico" [innerHTML]="'users' | ico"></span>
+            <div class="qp-head-txt">
+              <b>{{ p.cls?.name || 'No class yet' }}</b>
+              <span>@if (p.roster) { {{ p.roster }} student{{ p.roster === 1 ? '' : 's' }} } @else { Assign a class in Print sheets }</span>
+            </div>
+            @if (p.roster) { <span class="qp-pct">{{ p.pct }}% scanned</span> }
+          </div>
+          @if (p.roster) {
+            <div class="qp-bar" role="progressbar" [attr.aria-valuenow]="p.scanned" [attr.aria-valuemin]="0" [attr.aria-valuemax]="p.roster" [attr.aria-label]="p.scanned + ' of ' + p.roster + ' papers scanned'">
+              <i [style.width.%]="p.pct"></i>
+            </div>
+          }
+          <p class="qp-line">
+            @if (p.scanned) {
+              {{ p.scanned }} of {{ p.roster }} papers scanned@if (p.avg != null) { · class average {{ p.avg }}% }@if (p.last) { · last scan {{ dateOf(p.last) }} }
+            } @else if (p.roster) {
+              No papers scanned yet — print the sheets, hand them out, then scan them here.
+            } @else {
+              This quiz has no class. Pick one in Print sheets above to track scanning progress.
+            }
+          </p>
+          <div class="qp-actions">
+            @if (p.roster && p.remaining > 0) {
+              <button class="btn btn-primary" (click)="scanSaved()">
+                <span [innerHTML]="'scan' | ico"></span>
+                {{ p.scanned ? 'Scan remaining (' + p.remaining + ')' : 'Scan papers' }}
+              </button>
+            }
+            @if (p.scanned) {
+              <button class="btn btn-secondary" (click)="resultsSaved()"><span [innerHTML]="'chart' | ico"></span> View results</button>
             }
           </div>
-        }
-        <p class="faint center" style="font-size:11.5px;padding:12px 0">Saved quizzes are permanent — export them any time, even offline.</p>
+        </div>
       }
     </div>
   }

@@ -218,6 +218,16 @@ export class CreatePage {
       this.homeQuizzes.set(quizzes);
       this.sheets.set(sheets);
     }
+    // Coming back from Scan papers should refresh the progress card (and the
+    // quiz itself, in case its class was changed elsewhere).
+    if (this.stage() === 'export') {
+      this.sheets.set(await listSheets());
+      const id = this.selectedQuiz()?.id || this.quizId();
+      if (id) {
+        const fresh = await getQuiz(id);
+        if (fresh) this.selectedQuiz.set(fresh);
+      }
+    }
     if (this.stage() === 'setup') {
       this.savedKeys.set(await listKeys());
       // One class means there is nothing to choose; preselect it. With several
@@ -636,6 +646,33 @@ export class CreatePage {
   }
   readonly sheetClass = computed(() =>
     this.classList().find(c => c.id === this.sheetClassId()) || null);
+
+  // Progress for the quiz's own class: how many roster students already have a
+  // result, the class average, and the latest scan. Rescans replace a row, so
+  // count the latest sheet per student to avoid double-counting old data.
+  readonly quizProgress = computed(() => {
+    const q = this.selectedQuiz();
+    const cls = this.quizClass();
+    const roster = Array.isArray((cls as any)?.students) ? (cls as any).students.length : 0;
+    const rows = q && cls
+      ? this.sheets().filter(s => s.quizId === q.id && s.classId === cls.id)
+      : [];
+    const byStudent = new Map<string, any>();
+    for (const s of rows) {
+      const key = s.studentNo != null ? `n:${s.studentNo}` : `name:${s.studentName}`;
+      const prev = byStudent.get(key);
+      if (!prev || (s.createdAt || 0) > (prev.createdAt || 0)) byStudent.set(key, s);
+    }
+    const unique = [...byStudent.values()];
+    const scanned = unique.length;
+    const avg = scanned
+      ? Math.round(unique.reduce((sum, s) => sum + (Number(s.percent) || 0), 0) / scanned)
+      : null;
+    const last = unique.reduce((max, s) => Math.max(max, Number(s.createdAt) || 0), 0);
+    const remaining = Math.max(0, roster - scanned);
+    const pct = roster ? Math.min(100, Math.round((scanned / roster) * 100)) : 0;
+    return { cls, roster, scanned, avg, last, remaining, pct };
+  });
 
   backToSetup() {
     this.keyPickOpen.set(false);

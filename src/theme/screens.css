@@ -1990,6 +1990,29 @@ textarea.roster-paste { height: auto; min-height: 150px; resize: vertical; line-
 }
 .cq-body .key-chip.cls.none { color: var(--text-faint); background: transparent; border-style: dashed; }
 .cq-body .key-chip.cls.missing { color: var(--warn, #b45309); border-color: var(--warn-border, #b45309); background: transparent; }
+/* Quiz detail: class + scanning progress (replaces the duplicate read-only list). */
+.quiz-progress-card {
+  border: 1px solid var(--border); border-radius: 16px; background: var(--surface);
+  padding: 16px; box-shadow: var(--shadow-sm); margin-bottom: 12px;
+}
+.qp-head { display: flex; align-items: center; gap: 10px; }
+.qp-ico {
+  width: 36px; height: 36px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-strong);
+}
+.qp-ico svg { width: 18px; height: 18px; }
+.qp-head-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.qp-head-txt b { font-size: 14px; font-weight: 800; color: var(--text); }
+.qp-head-txt span { font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
+.qp-pct { font-size: 12px; font-weight: 800; color: var(--accent-strong); white-space: nowrap; }
+.qp-bar {
+  height: 8px; border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border); overflow: hidden; margin: 12px 0 8px;
+}
+.qp-bar i { display: block; height: 100%; background: var(--grad-accent); border-radius: 999px; transition: width .3s ease; }
+.qp-line { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+.qp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.qp-actions .btn { flex: 1; min-width: 150px; }
 /* quiz detail page: back pill + read-only key strip (button-styled .key-strip without the pointer) */
 .qf-back {
   display: inline-flex; align-items: center; gap: 2px; align-self: flex-start;

@@ -7,7 +7,7 @@ mkdirSync(OUT, { recursive: true })
 
 const targets = {
   'web.svg': 'https://quizard-checker.github.io/',
-  'apk.svg': 'https://github.com/quizard-checker/quizard-checker.github.io/releases/download/v2.0.9/Quizard.apk',
+  'apk.svg': 'https://github.com/quizard-checker/quizard-checker.github.io/releases/download/v2.0.10/Quizard.apk',
 }
 
 for (const [name, url] of Object.entries(targets)) {
