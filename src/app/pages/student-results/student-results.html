@@ -1,13 +1,17 @@
 <ion-content [fullscreen]="true">
+  <header class="back-header">
+    <button class="icon-btn" aria-label="Back to class" (click)="back()" [innerHTML]="'chevronLeft' | ico"></button>
+    <h2>Student results</h2>
+    <div class="spacer"></div>
+  </header>
   <div class="screen sr-screen">
     @if (cls(); as c) {
       @if (student(); as st) {
         <div class="sr-top {{ bannerTheme(c) }}">
           <div class="sr-topbar">
-            <button class="sr-back" aria-label="Back to class" (click)="back()" [innerHTML]="'chevronLeft' | ico"></button>
             <div class="sr-head-txt">
               <h1>{{ st.name }}</h1>
-              <p>{{ c.name }} · Student results</p>
+              <p>{{ c.name }}</p>
             </div>
             <span class="sr-avatar" aria-hidden="true">{{ initials() }}</span>
           </div>
