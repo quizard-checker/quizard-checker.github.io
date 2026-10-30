@@ -73,7 +73,7 @@ export class SettingsPage implements OnInit {
   testing = false;
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.0.7'; }
+  get version() { return '2.0.8'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──

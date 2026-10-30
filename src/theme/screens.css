@@ -2838,7 +2838,12 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
   display: grid; place-items: end center;
 }
 .org-sheet {
-  width: min(100%, 560px); max-height: 84vh; overflow: auto;
+  width: min(100%, 560px);
+  /* `100%` is the overlay's height, which is already above the tab bar on the
+     device; subtract the status-bar inset so a tall sheet cannot slide up
+     behind the system icons. */
+  max-height: min(84vh, calc(100% - env(safe-area-inset-top, 0px)));
+  overflow: auto;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
@@ -3060,7 +3065,13 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 .acc-content { --padding-start: 0; --padding-end: 0; }
 
 /* ── Create tab: print preview modal ── */
-.preview-sheet { width: min(92vw, 400px); max-height: 86vh; overflow: auto; }
+.preview-sheet {
+  width: min(92vw, 400px);
+  /* The preview is the tallest sheet: cap it inside the safe area so its title
+     never sits under the phone's status bar. */
+  max-height: min(86vh, calc(100% - env(safe-area-inset-top, 0px)));
+  overflow: auto;
+}
 .preview-canvas-wrap { display: grid; place-items: center; background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px; }
 .preview-canvas { max-width: 100%; height: auto; border: 1px solid var(--border); background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
 

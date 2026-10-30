@@ -5,6 +5,7 @@ import { IonContent } from '@ionic/angular';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { extractText } from '../../core/engine/extract/index.js';
 import { parseKeyText } from '../../core/engine/answerkey.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
@@ -437,6 +438,9 @@ export class CreatePage {
       this.previewPdfDoc = null;
       this.previewPage.set(1);
       this.previewOpen.set(true);
+      // The dim overlay sits behind the status bar; light system icons stay
+      // readable against it (the app theme's own style is restored on close).
+      void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
       this.previewBusy.set(false); // the canvas mounts in the non-busy branch
       await this.renderPreview();
     } catch (e: any) {
@@ -540,6 +544,14 @@ export class CreatePage {
     this.previewDoc = null;
     this.previewPdfDoc = null;
     this.previewPage.set(1);
+    const style = this.ui.theme() === 'dark' ? Style.Dark : Style.Light;
+    void StatusBar.setStyle({ style }).catch(() => {});
+  }
+
+  // Leaving the tab with the overlay open would also leave the status-bar
+  // icons in their light-on-dark variant over a light page.
+  ionViewWillLeave() {
+    if (this.previewOpen()) this.closePreview();
   }
 
   paper = signal<'letter' | 'a4' | 'long'>('letter');
