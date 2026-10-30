@@ -2198,6 +2198,18 @@ button.scan-cls:not(.on):hover { opacity: 1; }
   background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12px; font-weight: 700;
   text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Scan failures are rendered over the viewfinder — the inline error below the
+   buttons sits off-screen once the camera is open. */
+.camera-error {
+  position: absolute; left: 10px; right: 10px; bottom: 48px;
+  display: flex; gap: 7px; align-items: flex-start;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(153, 27, 27, 0.94); color: #fff;
+  font-size: 12px; font-weight: 600; line-height: 1.35;
+  text-align: left; max-height: 55%; overflow-y: auto;
+}
+.camera-error-ico { display: inline-flex; flex: none; margin-top: 1px; }
+.camera-error-ico svg { width: 15px; height: 15px; }
 .camera-auto {
   position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.28);

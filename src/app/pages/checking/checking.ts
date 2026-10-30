@@ -83,6 +83,7 @@ export class CheckingPage {
   livePhase = signal<'off' | 'looking' | 'locking' | 'waiting'>('off');
   readonly liveText = computed(() => {
     if (!this.autoScan()) return 'Auto-scan off — tap Capture now';
+    if (this.scanError()) return 'Scan needs attention';
     switch (this.livePhase()) {
       case 'locking': return 'Sheet found — hold still…';
       case 'waiting': return 'Move to the next sheet';
@@ -228,6 +229,7 @@ export class CheckingPage {
   async startSession() {
     if (!this.classId()) return;
     await this.refreshSession();
+    this.scanError.set('');
     this.stage.set('scan');
   }
 
@@ -238,6 +240,7 @@ export class CheckingPage {
   // ── camera ──
   async openCamera() {
     if (this.cameraActive()) return;
+    this.scanError.set('');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } },
@@ -438,9 +441,23 @@ export class CheckingPage {
     void this.processImage(data);
   }
 
+  // A thrown storage or vision error used to reject silently and leave the
+  // "Analyzing…" overlay (or the camera) with no explanation.
   private async processImage(data: ImageData, fromLive = false) {
+    try {
+      await this.processImageInner(data, fromLive);
+    } catch (e: any) {
+      this.processing.set(false);
+      this.scanError.set('Could not read that sheet' + (e?.message ? ' — ' + e.message : '') + '. Try again, or use Check from photo.');
+    }
+  }
+
+  private async processImageInner(data: ImageData, fromLive = false) {
     this.processing.set(true);
-    this.scanError.set('');
+    // A live retry keeps the previous message on screen until it succeeds or
+    // fails again, so the viewfinder does not flicker while the teacher
+    // reframes the sheet.
+    if (!fromLive) this.scanError.set('');
     // let the spinner paint before the synchronous CV work blocks the frame
     await new Promise(r => setTimeout(r, 60));
 
@@ -483,13 +500,14 @@ export class CheckingPage {
     const result = readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length);
     if (!result.ok) {
       this.processing.set(false);
-      this.scanError.set('Could not align the sheet — make sure all four corner squares and the black frame are fully visible, then try again.');
+      this.scanError.set('Could not align the sheet — fit all four corner squares and the black frame inside the frame. It will retry automatically.');
       // a framing miss is worth another automatic try once the phone is moved
       if (fromLive) this.scannedQr = null;
       return;
     }
     const answers = result.answers, flags = result.flags;
     this.zone.run(() => {
+      this.scanError.set('');
       this.qrHit.set(result.qr);
       this.detectedQuiz.set(quiz);
       this.answers.set(answers);
@@ -511,7 +529,14 @@ export class CheckingPage {
         // Nothing left to confirm, so record it now and pop the score up over
         // the scanner — the teacher never taps through a result screen.
         this.stage.set('scan');
-        void this.recordResult().then(row => { if (row) this.scorePop.set(row); });
+        void this.recordResult()
+          .then(row => {
+            if (row) this.scorePop.set(row);
+            else this.scanError.set('The sheet was read, but it could not be saved. Move the phone away and scan it again.');
+          })
+          .catch((e: any) => {
+            this.scanError.set('The sheet was read, but saving failed' + (e?.message ? ' — ' + e.message : '') + '. Try again, or use Check from photo.');
+          });
       } else {
         this.attachStudent(null, null);
         this.qrUnknownName.set(parsed?.studentName || null);
@@ -577,10 +602,18 @@ export class CheckingPage {
   }
 
   async saveResult() {
-    const row = await this.recordResult();
-    if (!row) return;
-    this.stage.set('scan');
-    this.scorePop.set(row);
+    this.scanError.set('');
+    try {
+      const row = await this.recordResult();
+      if (!row) {
+        this.scanError.set('Could not save this result — check that the student and quiz are still on this device.');
+        return;
+      }
+      this.stage.set('scan');
+      this.scorePop.set(row);
+    } catch (e: any) {
+      this.scanError.set('Could not save this result' + (e?.message ? ' — ' + e.message : '') + '. Try again.');
+    }
   }
 
   // A misread must not be permanent: drop the row that was just written and

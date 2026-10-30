@@ -120,6 +120,12 @@
                   [attr.aria-label]="'Automatic scanning is ' + (autoScan() ? 'on' : 'off')">
             <span class="camera-auto-dot" aria-hidden="true"></span> Auto-scan {{ autoScan() ? 'on' : 'off' }}
           </button>
+          @if (scanError()) {
+            <div class="camera-error" role="alert">
+              <span class="camera-error-ico" [innerHTML]="'alert' | ico"></span>
+              <span>{{ scanError() }}</span>
+            </div>
+          }
           <div class="camera-status" role="status" aria-live="polite">{{ liveText() }}</div>
         </div>
         <p class="faint center camera-hint">Hold the whole sheet in the frame — it scans by itself, no shutter needed.</p>
@@ -133,7 +139,7 @@
         <input type="file" accept="image/*" capture="environment" (change)="onPhoto($event)" hidden />
       </label>
 
-      @if (scanError()) {
+      @if (scanError() && !cameraActive()) {
         <div class="gen-error"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> {{ scanError() }}</div>
       }
 
@@ -163,6 +169,9 @@
         </div>
       </div>
 
+      @if (scanError()) {
+        <p class="gen-error" style="margin-bottom:10px"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> {{ scanError() }}</p>
+      }
       @if (subjectMismatch()) {
         <p class="gen-error" style="margin-bottom:10px"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> <span>Heads up: this sheet is <b>{{ detectedQuiz()?.subject }}</b> but the class subject is <b>{{ pickedClass()?.subject }}</b> — double-check you're scanning the right pile.</span></p>
       }
