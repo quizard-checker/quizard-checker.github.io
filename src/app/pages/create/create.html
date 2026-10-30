@@ -414,36 +414,6 @@
         </div>
       </div>
 
-      <div class="section-title">Answer key</div>
-      @if (!hasQuestionsIn(selectedQuiz())) {
-        <p class="parse-note" style="margin:0 0 8px">Letters-only key — the questions live on your own printed paper; bubble sheets carry only each student's answers.</p>
-      }
-      @if (hasQuestionsIn(selectedQuiz())) {
-        <!-- the key written out the way the teacher pasted it: question, its
-             choices, then "Answer: B. ..." under each number -->
-        <div class="akey-list">
-          @for (it of selectedQuiz()!.items; track $index) {
-            <div class="akey-item">
-              <div class="akey-q">{{ $index + 1 }}. {{ it.question }}</div>
-              @for (o of it.options; track $index; let oi = $index) {
-                <div class="akey-opt" [class.correct]="it.answerIndex === oi">{{ 'ABCD'[oi] }}. {{ o }}</div>
-              }
-              <div class="akey-answer">Answer: <b>{{ 'ABCD'[it.answerIndex] }}</b>@if (it.options[it.answerIndex]?.trim()) {. {{ it.options[it.answerIndex] }}}
-              </div>
-            </div>
-          }
-        </div>
-      } @else {
-        <div class="key-strip qk-strip" role="list" aria-label="Answer key, one letter per question">
-          @for (c of keyStripOf(selectedQuiz()); track c.n) {
-            <span class="ks-cell" role="listitem" [title]="c.full"><i>{{ c.n }}</i><b>{{ c.a }}</b></span>
-          }
-        </div>
-      }
-      <div class="export-grid">
-        <button class="btn btn-secondary" (click)="editSaved()" data-tooltip="Change what the scanner marks as correct"><span [innerHTML]="'pencil' | ico"></span> {{ !hasQuestionsIn(selectedQuiz()) ? 'Edit key' : 'Edit questions & key' }}</button>
-      </div>
-
       <div class="section-title">Print sheets</div>
       <div class="copies-row" style="margin-top:6px">
         <span class="faint">Class:</span>
@@ -522,6 +492,42 @@
           </div>
         </div>
       }
+
+      <details class="akey-collapse">
+        <summary>
+          <span class="akey-sum-title">Answer key</span>
+          <span class="akey-sum-count">{{ (selectedQuiz()?.items?.length || 0) }} {{ hasQuestionsIn(selectedQuiz()) ? 'questions' : 'letters' }}</span>
+          <span class="akey-chev" [innerHTML]="'chevronDown' | ico"></span>
+        </summary>
+        <div class="akey-body">
+          @if (!hasQuestionsIn(selectedQuiz())) {
+            <p class="parse-note" style="margin:0 0 8px">Letters-only key — the questions live on your own printed paper; bubble sheets carry only each student's answers.</p>
+          }
+          @if (hasQuestionsIn(selectedQuiz())) {
+            <div class="akey-list">
+              @for (it of selectedQuiz()!.items; track $index) {
+                <div class="akey-item">
+                  <div class="akey-q">{{ $index + 1 }}. {{ it.question }}</div>
+                  @for (o of it.options; track $index; let oi = $index) {
+                    <div class="akey-opt" [class.correct]="it.answerIndex === oi">{{ 'ABCD'[oi] }}. {{ o }}</div>
+                  }
+                  <div class="akey-answer">Answer: <b>{{ 'ABCD'[it.answerIndex] }}</b>@if (it.options[it.answerIndex]?.trim()) {. {{ it.options[it.answerIndex] }}}
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="key-strip qk-strip" role="list" aria-label="Answer key, one letter per question">
+              @for (c of keyStripOf(selectedQuiz()); track c.n) {
+                <span class="ks-cell" role="listitem" [title]="c.full"><i>{{ c.n }}</i><b>{{ c.a }}</b></span>
+              }
+            </div>
+          }
+          <div class="export-grid">
+            <button class="btn btn-secondary" (click)="editSaved()" data-tooltip="Change what the scanner marks as correct"><span [innerHTML]="'pencil' | ico"></span> {{ !hasQuestionsIn(selectedQuiz()) ? 'Edit key' : 'Edit questions & key' }}</button>
+          </div>
+        </div>
+      </details>
     </div>
   }
 
