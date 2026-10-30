@@ -103,6 +103,40 @@ export const DEMO_SNAPSHOT = {
         }
       ],
       "demo": true
+    },
+    {
+      "id": "demo-cls-ict",
+      "name": "ICT 9-A",
+      "grade": "9",
+      "section": "Narra",
+      "subject": "Computer",
+      "students": [
+        {
+          "name": "Paolo Cruz",
+          "no": 1
+        },
+        {
+          "name": "Bea Lim",
+          "no": 2
+        },
+        {
+          "name": "Carlo Reyes",
+          "no": 3
+        },
+        {
+          "name": "Dana Sy",
+          "no": 4
+        },
+        {
+          "name": "Eli Tan",
+          "no": 5
+        },
+        {
+          "name": "Faith Uy",
+          "no": 6
+        }
+      ],
+      "demo": true
     }
   ],
   "keys": [
@@ -321,8 +355,9 @@ export const DEMO_SNAPSHOT = {
   "quizzes": [
     {
       "id": "04a2026e-cd20-4de9-99c7-237070be77ac",
-      "subject": "English",
-      "title": "",
+      "subject": "Computer",
+      "title": "Computer Basics",
+      "classId": "demo-cls-ict",
       "source": "key",
       "items": [
         {
@@ -406,7 +441,8 @@ export const DEMO_SNAPSHOT = {
     {
       "id": "6ceb133a-20e9-4e18-9655-1a81ebd573b5",
       "subject": "Science",
-      "title": "",
+      "title": "Science — answer key",
+      "classId": "demo-cls-sci",
       "source": "key",
       "items": [
         {
@@ -566,6 +602,7 @@ export const DEMO_SNAPSHOT = {
       "id": "demo-quiz-3",
       "subject": "Science",
       "title": "Plate Tectonics — quick check",
+      "classId": "demo-cls-sci",
       "source": "key",
       "items": [
         {
@@ -686,6 +723,7 @@ export const DEMO_SNAPSHOT = {
       "id": "demo-quiz-2",
       "subject": "English",
       "title": "Verb Tenses",
+      "classId": "demo-cls-eng",
       "source": "key",
       "items": [
         {
@@ -783,6 +821,7 @@ export const DEMO_SNAPSHOT = {
       "id": "demo-quiz-1",
       "subject": "Science",
       "title": "Cell Basics",
+      "classId": "demo-cls-sci",
       "source": "ai",
       "items": [
         {
@@ -902,13 +941,13 @@ export const DEMO_SNAPSHOT = {
   "sheets": [
     {
       "id": "1c3780e3-398d-4447-ba38-85aa6a2c4809",
-      "classId": "demo-cls-eng",
-      "className": "English 8-B",
+      "classId": "demo-cls-sci",
+      "className": "Science 7-A",
       "quizId": "demo-quiz-3",
-      "studentNo": 1,
-      "studentName": "Ivan Ramos",
-      "grade": "8",
-      "section": "Molave",
+      "studentNo": 6,
+      "studentName": "Fina Mercado",
+      "grade": "7",
+      "section": "Sampaguita",
       "answers": [
         1,
         2,

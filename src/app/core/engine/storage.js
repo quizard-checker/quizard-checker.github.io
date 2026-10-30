@@ -477,7 +477,9 @@ export async function deleteKey(id) {
 
 /**
  * @typedef {{ id: string, accountId: string, subject: string, title: string,
- *   source: 'ai'|'key'|'format', keyOnly?: boolean, items: { n: number,
+ *   source: 'ai'|'key'|'format', keyOnly?: boolean,
+ *   classId?: string, className?: string,
+ *   items: { n: number,
  *   question: string, options: string[], answerIndex: number }[],
  *   createdAt: number }} TeacherQuiz
  */

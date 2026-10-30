@@ -68,31 +68,48 @@
         </button>
       </div>
 
-      <div class="section-title">{{ homeQuizzes().length ? 'Saved quizzes' : 'Start here' }}</div>
+      <div class="section-title">{{ homeQuizzes().length ? 'Saved quizzes by class' : 'Start here' }}</div>
       <div class="create-grid">
         <button class="cq-new" (click)="startNewQuiz()">
           <span class="cq-new-ico" [innerHTML]="'plus' | ico"></span>
           <span class="cq-new-title">New quiz</span>
           <span class="cq-new-sub">Full AI · From my key · Match my format</span>
         </button>
-        @for (q of homeQuizzes(); track q.id) {
-          <div class="doc-card cq-card" (click)="openSaved(q.id)" data-tooltip="Export this quiz">
-            <div class="cls-banner cq-banner {{ bannerTheme(q.id) }}">
-              <div class="cls-title">{{ q.subject }}</div>
-              @if (q.title) { <div class="cls-sub">{{ q.title }}</div> }
-            </div>
-            <div class="cq-body">
-              <span class="key-chip">{{ q.items.length }} item{{ q.items.length === 1 ? '' : 's' }}</span>
-              <span class="key-chip src">{{ sourceLabel(q) }}</span>
-              @if (gradedOf(q)) {
-                <span class="key-chip graded" data-tooltip="Papers scanned against this quiz">{{ gradedOf(q) }} graded</span>
-              }
-              <span class="cq-date">{{ dateOf(q.createdAt) }}</span>
-              <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
-            </div>
-          </div>
-        }
       </div>
+      @for (g of quizGroups(); track g.id) {
+        <div class="quiz-class-head">
+          <span class="quiz-class-dot" [class.missing]="g.missing" [class.unassigned]="g.unassigned" aria-hidden="true"></span>
+          <div class="quiz-class-txt">
+            <b>{{ g.name }}</b>
+            <span>
+              @if (g.unassigned) { Assign a class to organize {{ g.quizzes.length === 1 ? 'this quiz' : 'these quizzes' }} }
+              @else if (g.missing) { Class removed — pick a new class }
+              @else { {{ g.subject || 'No subject' }} }
+              · {{ g.quizzes.length }} quiz{{ g.quizzes.length === 1 ? '' : 'zes' }}
+            </span>
+          </div>
+        </div>
+        <div class="create-grid">
+          @for (q of g.quizzes; track q.id) {
+            <div class="doc-card cq-card" (click)="openSaved(q.id)" data-tooltip="Export this quiz">
+              <div class="cls-banner cq-banner {{ bannerTheme(q.id) }}">
+                <div class="cls-title">{{ quizTitle(q) }}</div>
+                @if (q.subject) { <div class="cls-sub">{{ q.subject }}</div> }
+              </div>
+              <div class="cq-body">
+                <span class="key-chip cls" [class.none]="!quizClassOf(q)" [class.missing]="quizClassOf(q)?.missing" [title]="quizClassLabel(q)">{{ quizClassLabel(q) }}</span>
+                <span class="key-chip">{{ q.items.length }} item{{ q.items.length === 1 ? '' : 's' }}</span>
+                <span class="key-chip src">{{ sourceLabel(q) }}</span>
+                @if (gradedOf(q)) {
+                  <span class="key-chip graded" data-tooltip="Papers scanned against this quiz">{{ gradedOf(q) }} graded</span>
+                }
+                <span class="cq-date">{{ dateOf(q.createdAt) }}</span>
+                <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
+              </div>
+            </div>
+          }
+        </div>
+      }
     </div>
   }
 
@@ -207,6 +224,20 @@
       }
 
       <div class="section-title title-center">{{ stepDetails() }} · Questions & details</div>
+
+      <div class="section-title" style="margin-top:2px">Class</div>
+      <button type="button" class="text-input picker-btn" (click)="classPickOpen.set(true)" [disabled]="!classList().length">
+        @if (quizClass(); as c) {
+          <span>{{ c.name }} <span class="faint">· {{ c.subject || 'no subject' }}</span></span>
+        } @else {
+          <span class="picker-placeholder">— pick the class this quiz is for —</span>
+        }
+      </button>
+      @if (!classList().length) {
+        <p class="faint" style="font-size:11.5px;margin:6px 2px 0">No classes yet. A quiz belongs to one class, so add a class first.</p>
+        <button class="btn btn-secondary" style="margin-top:8px" (click)="router.navigateByUrl('/tabs/classes')"><span [innerHTML]="'plus' | ico"></span> Add a class</button>
+      }
+
       @if (mode() === 'key') {
         <p class="parse-note" style="margin:2px 0 12px">
           <b>{{ keySource()?.items?.length || 0 }} question{{ (keySource()?.items?.length || 0) === 1 ? '' : 's' }}</b> — fixed by your answer key.
@@ -267,6 +298,13 @@
         </div>
       </div>
 
+      <div class="copies-row" style="margin:0 0 12px">
+        <span class="faint">Class:</span>
+        <button class="btn btn-secondary" style="padding:7px 12px" (click)="classPickOpen.set(true)" [disabled]="!classList().length">
+          {{ quizClass()?.name || 'Pick a class' }}
+        </button>
+      </div>
+
       @if (keyOnly()) {
         <p class="parse-note" style="margin-bottom:10px">
           Letters-only key — your paper carries the questions, so this quiz prints bubble sheets on its own.
@@ -315,9 +353,12 @@
         <button class="btn btn-secondary" style="max-width:200px;margin:6px auto 12px;display:flex" (click)="addItem()"><span [innerHTML]="'plus' | ico"></span> Add question</button>
       }
 
-      <button class="btn btn-primary gen-btn" [disabled]="!itemsValid() || quizId()" (click)="save()">
-        @if (!quizId()) { <span [innerHTML]="'check' | ico"></span> }
-        {{ quizId() ? 'Saved ✓' : 'Save quiz' }}
+      @if (!quizClassId()) {
+        <p class="gen-needs"><span class="gen-needs-ico" [innerHTML]="'info' | ico"></span> Pick a class for this quiz before saving.</p>
+      }
+      <button class="btn btn-primary gen-btn" [disabled]="!itemsValid() || !quizClassId()" (click)="save()">
+        <span [innerHTML]="'check' | ico"></span>
+        {{ quizId() ? 'Save changes' : 'Save quiz' }}
       </button>
     </div>
   }
@@ -368,8 +409,8 @@
       <div class="hero lib-hero">
         <div class="hero-ico" [innerHTML]="'fileText' | ico"></div>
         <div>
-          <h1>{{ selectedQuiz()?.subject }}@if (selectedQuiz()?.title) { — {{ selectedQuiz()?.title }} }</h1>
-          <p>@if (selectedQuiz(); as q) { {{ q.items.length }} items · {{ sourceLabel(q) }}@if (gradedOf(q)) { · {{ gradedOf(q) }} graded } — everything for this quiz lives here. }</p>
+          <h1>{{ quizTitle(selectedQuiz()) }}</h1>
+          <p>@if (selectedQuiz(); as q) { {{ q.subject }} · {{ q.items.length }} items · {{ sourceLabel(q) }}@if (gradedOf(q)) { · {{ gradedOf(q) }} graded } — for {{ quizClassLabel(q) }} }</p>
         </div>
       </div>
 
@@ -404,17 +445,22 @@
       </div>
 
       <div class="section-title">Print sheets</div>
-      <div class="export-grid" style="margin-top:6px">
-        <button class="btn btn-primary" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> Bubble sheets</button>
-      </div>
-      <div class="copies-row">
-        <span class="faint">Print for:</span>
-        <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Print sheets for'" (change)="setSheetClassId($any($event.target).value)">
+      <div class="copies-row" style="margin-top:6px">
+        <span class="faint">Class:</span>
+        <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Class for this quiz'" (change)="setSheetClassId($any($event.target).value)">
           <option value="" [selected]="!sheetClassId()" disabled>— pick a class —</option>
           @for (c of classList(); track c.id) {
             <option [value]="c.id" [selected]="sheetClassId() === c.id">{{ c.name }} · {{ c.students.length }} students</option>
           }
         </select>
+      </div>
+      @if (quizClass(); as qc) {
+        <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">Assigned to <b>{{ qc.name }}</b>. Picking another class moves this quiz; past results stay under their original class.</p>
+      } @else {
+        <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">No class yet — pick one here and it will be saved with the quiz.</p>
+      }
+      <div class="export-grid" style="margin-top:0">
+        <button class="btn btn-primary" [disabled]="!sheetClassId()" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> Bubble sheets</button>
       </div>
       <div class="copies-row">
         @if (sheetClass(); as c) {
@@ -460,6 +506,30 @@
         }
         <p class="faint center" style="font-size:11.5px;padding:12px 0">Saved quizzes are permanent — export them any time, even offline.</p>
       }
+    </div>
+  }
+
+  @if (classPickOpen()) {
+    <div class="org-overlay" (click)="classPickOpen.set(false)">
+      <div class="org-sheet picker-sheet" (click)="$event.stopPropagation()">
+        <h3>Which class is this quiz for?</h3>
+        <p class="faint" style="font-size:12px;margin:4px 0 10px">A quiz belongs to one class. Its sheets print that class's roster, one page per student.</p>
+        @if (classList().length) {
+          <div class="picker-list">
+            @for (c of classList(); track c.id) {
+              <button type="button" class="roster-row" [class.on]="quizClassId() === c.id" (click)="pickClass(c)">
+                <span class="roster-name">{{ c.name }}</span>
+                <span class="roster-cls">{{ c.subject || 'No subject' }} · {{ c.students.length }} student{{ c.students.length === 1 ? '' : 's' }}</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="parse-note">No classes yet. Add a class on the Classes tab first.</p>
+        }
+        <div class="org-sheet-actions">
+          <button type="button" class="btn btn-secondary" (click)="classPickOpen.set(false)">Cancel</button>
+        </div>
+      </div>
     </div>
   }
 </ion-content>

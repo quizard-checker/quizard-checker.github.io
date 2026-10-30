@@ -13,6 +13,7 @@ import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz } fro
 import { fmtDate, bannerTheme } from '../../shared/helpers.js';
 import { DOCS_URL } from '../../shared/docs-url';
 import { buildBubbleSheetsPdf } from '../../core/engine/export.js';
+import { quizTitle, quizClassLabel, groupQuizzesByClass, resolveQuizClass } from '../../core/engine/quiz-classes.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -116,6 +117,7 @@ export class CreatePage {
   });
   readonly canGenerate = computed(() => {
     if (this.generating()) return false;
+    if (!this.quizClassId()) return false;
     if (!this.subject().trim()) return false;
     if (this.mode() !== 'key' && !this.lessonText()) return false;
     if (this.mode() === 'key') return !!this.keySource() && !!this.keySource().items.length;
@@ -126,6 +128,7 @@ export class CreatePage {
   // still missing so the teacher knows exactly which field to fill.
   readonly generateNeeds = computed(() => {
     const needs: string[] = [];
+    if (!this.quizClassId()) needs.push('a class');
     if (!this.subject().trim()) needs.push('a subject');
     if (this.mode() === 'key') {
       if (!this.keySource()?.items?.length) needs.push('an answer key or a saved key');
@@ -166,6 +169,35 @@ export class CreatePage {
 
   classList = signal<any[]>([]);
 
+  // A quiz belongs to one class now. `quizClassNameSnap` keeps the stored name
+  // visible if that class was deleted; the live class wins when it still exists.
+  quizClassId = signal<string | null>(null);
+  quizClassNameSnap = signal('');
+  classPickOpen = signal(false);
+  readonly quizClass = computed(() => {
+    const id = this.quizClassId();
+    if (!id) return null;
+    return resolveQuizClass({ classId: id, className: this.quizClassNameSnap() }, this.classList());
+  });
+  readonly quizGroups = computed(() => groupQuizzesByClass(this.homeQuizzes(), this.classList()));
+  readonly quizTitle = quizTitle;
+  readonly quizClassLabel = (q: any) => quizClassLabel(q, this.classList());
+  readonly quizClassOf = (q: any) => resolveQuizClass(q, this.classList());
+
+  pickClass(c: any) {
+    if (!c) return;
+    const prevSubject = String(this.quizClass()?.subject || '').trim();
+    const currentSubject = this.subject().trim();
+    const nextSubject = String(c.subject || '').trim();
+    // Fill the subject from the class unless the teacher typed something of
+    // their own (or it still matches the previous class).
+    if (!currentSubject || currentSubject === prevSubject) this.subject.set(nextSubject);
+    this.quizClassId.set(c.id);
+    this.quizClassNameSnap.set(c.name || '');
+    this.sheetClassId.set(c.id);
+    this.classPickOpen.set(false);
+  }
+
   // subjects the teacher actually uses on classes — quick-fill chips in setup
   readonly knownSubjects = computed(() =>
     [...new Set(this.classList().map(c => c.subject).filter(Boolean))]);
@@ -188,10 +220,13 @@ export class CreatePage {
     }
     if (this.stage() === 'setup') {
       this.savedKeys.set(await listKeys());
-      // prefill the subject: from the key we arrived with, else from the classes
+      // One class means there is nothing to choose; preselect it. With several
+      // classes the teacher picks one explicitly (it also names the subject).
+      if (!this.quizClassId() && this.classList().length === 1) this.pickClass(this.classList()[0]);
+      // prefill the subject: from the key we arrived with, else from the class
       if (!this.subject().trim()) {
         const fromKey = this.pickedKey()?.subject;
-        const fromClass = this.classList().find(c => c.subject)?.subject;
+        const fromClass = this.quizClass()?.subject;
         const subj = fromKey || fromClass;
         if (subj) this.subject.set(subj);
       }
@@ -313,6 +348,11 @@ export class CreatePage {
 
   async save() {
     if (!this.itemsValid()) return;
+    const qc = this.quizClass();
+    if (!qc) {
+      this.toast.toast('Pick a class for this quiz first', true);
+      return;
+    }
     // An id means we're editing a saved quiz (from its detail page) — update
     // that same record instead of stacking a duplicate.
     const editing = !!this.quizId();
@@ -320,6 +360,8 @@ export class CreatePage {
       id: this.quizId() || undefined,
       subject: this.subject().trim(),
       title: this.title().trim(),
+      classId: qc.id,
+      className: qc.name,
       source: this.editingSource || this.mode(),
       keyOnly: this.keyOnly(),
       items: this.items(),
@@ -348,6 +390,9 @@ export class CreatePage {
     if (!quiz) return;
     this.keyPickOpen.set(false);
     this.selectedQuiz.set(quiz);
+    this.quizClassId.set(quiz.classId || null);
+    this.quizClassNameSnap.set(quiz.className || '');
+    this.sheetClassId.set(quiz.classId || null);
     this.sheets.set(await listSheets());
     this.wizardExport.set(false);
     this.stage.set('export');
@@ -373,6 +418,9 @@ export class CreatePage {
     if (!q) return;
     this.quizId.set(q.id);
     this.editingSource = q.source || null;
+    this.quizClassId.set(q.classId || null);
+    this.quizClassNameSnap.set(q.className || '');
+    this.sheetClassId.set(q.classId || null);
     this.subject.set(q.subject || '');
     this.title.set(q.title || '');
     this.items.set((q.items || []).map((it: any) => ({ ...it })));
@@ -391,19 +439,27 @@ export class CreatePage {
 
   backHome() {
     this.keyPickOpen.set(false);
+    this.classPickOpen.set(false);
     this.stage.set('home');
     this.selectedQuiz.set(null);
     this.quizId.set(null);
+    this.quizClassId.set(null);
+    this.quizClassNameSnap.set('');
+    this.sheetClassId.set(null);
     void this.ionViewWillEnter();
   }
 
   startNewQuiz() {
     this.keyPickOpen.set(false);
+    this.classPickOpen.set(false);
     this.stage.set('setup');
     this.items.set([]);
     this.quizId.set(null);
     this.selectedQuiz.set(null);
     this.editingSource = null;
+    this.quizClassId.set(null);
+    this.quizClassNameSnap.set('');
+    this.sheetClassId.set(null);
     this.mode.set('key');
     this.subject.set(''); this.title.set(''); this.fileText.set(''); this.fileName.set('');
     this.lessonPaste.set(''); this.keyPaste.set(''); this.pickedKeyId.set(null);
@@ -560,7 +616,24 @@ export class CreatePage {
   // Sheets print for exactly one class: one page per student on its roster,
   // each with that student's name in the QR and on the header.
   sheetClassId = signal<string | null>(null);
-  setSheetClassId(id: any) { this.sheetClassId.set(id || null); }
+  async setSheetClassId(id: any) {
+    this.sheetClassId.set(id || null);
+    const c = this.sheetClass();
+    const q = this.selectedQuiz();
+    if (!c || !q?.id) return;
+    if (q.classId === c.id && (q.className || '') === c.name) return;
+    // One quiz belongs to one class: picking a print class moves the quiz there
+    // so the card on the home board never lies about its class.
+    try {
+      const updated = await saveQuiz({ ...q, classId: c.id, className: c.name });
+      this.selectedQuiz.set(updated);
+      this.quizClassId.set(c.id);
+      this.quizClassNameSnap.set(c.name);
+      this.toast.toast(`Quiz assigned to ${c.name}`);
+    } catch {
+      this.toast.toast('Could not assign the class', true);
+    }
+  }
   readonly sheetClass = computed(() =>
     this.classList().find(c => c.id === this.sheetClassId()) || null);
 

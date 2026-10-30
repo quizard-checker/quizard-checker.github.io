@@ -61,6 +61,10 @@ export function buildDemoWorld(accountId = '') {
     ...clone(q),
     id: quizIds.get(q.id),
     demoKey: q.id,
+    // The snapshot points at source class ids; this profile's classes were
+    // re-keyed above, so store both the local id and a display snapshot.
+    classId: q.classId ? classIds.get(q.classId) : undefined,
+    className: q.classId ? (DEMO_SNAPSHOT.classes.find(c => c.id === q.classId)?.name || '') : '',
     createdAt: now - i * MINUTE,
     demo: true,
   }))

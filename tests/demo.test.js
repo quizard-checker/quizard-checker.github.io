@@ -52,6 +52,22 @@ describe('bundled demo world', () => {
     for (const rec of world.quizzes) expect(rec.demoKey).toBeTruthy()
     expect(world.classes.find(c => c.name === 'English 8-B')?.demoKey).toBe('demo-cls-eng')
     expect(world.quizzes.find(q => q.title === 'Verb Tenses')?.demoKey).toBe('demo-quiz-2')
+    // Every demo quiz is assigned to a real demo class, and every graded sheet
+    // sits under the class its quiz belongs to.
+    const english = world.classes.find(c => c.demoKey === 'demo-cls-eng')
+    const science = world.classes.find(c => c.demoKey === 'demo-cls-sci')
+    const ict = world.classes.find(c => c.demoKey === 'demo-cls-ict')
+    const byTitle = (title) => world.quizzes.find(q => q.title === title)
+    expect(byTitle('Verb Tenses')?.classId).toBe(english.id)
+    expect(byTitle('Verb Tenses')?.className).toBe('English 8-B')
+    expect(byTitle('Plate Tectonics — quick check')?.classId).toBe(science.id)
+    expect(byTitle('Computer Basics')?.classId).toBe(ict.id)
+    expect(byTitle('Science — answer key')?.classId).toBe(science.id)
+    for (const q of world.quizzes) expect(q.classId).toBeTruthy()
+    const quizById = new Map(world.quizzes.map(q => [q.id, q]))
+    for (const sheet of world.sheets) {
+      expect(sheet.classId).toBe(quizById.get(sheet.quizId).classId)
+    }
     const sheetMatch = resolveDemoSheet({ demo: DEMO_SHEET }, world.classes, world.quizzes)
     expect(sheetMatch?.student.name).toBe('Ivan Ramos')
     expect(sheetMatch?.quiz.title).toBe('Verb Tenses')
