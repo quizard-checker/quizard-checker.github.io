@@ -156,12 +156,36 @@ export function sheetQrPayload(quizId, student) {
 }
 
 /**
+ * The bundled demo sheet uses stable snapshot keys (`demo-cls-eng`,
+ * `demo-quiz-2`) and a roster number instead of the per-account storage ids.
+ * That lets one printed demo sheet link to the demo data on any device.
+ */
+export function demoSheetQrPayload(classKey, quizKey, studentNo) {
+  return `QZD1:${classKey}:${quizKey}:${studentNo}`
+}
+
+/**
  * @param {string | null} text raw QR contents
- * @returns {{ quizId: string, studentId: string | null, studentName: string | null } | null}
+ * @returns {{ quizId: string | null, studentId: string | null,
+ *   studentName: string | null, demo?: { classKey: string, quizKey: string,
+ *   studentNo: number } } | null}
  *   null for anything that isn't a Quizard sheet code
  */
 export function parseSheetQr(text) {
   if (typeof text !== 'string' || !text) return null
+  if (text.startsWith('QZD1:')) {
+    const parts = text.slice(5).split(':')
+    if (parts.length !== 3) return null
+    const [classKey, quizKey, noText] = parts
+    const studentNo = Number(noText)
+    if (!classKey || !quizKey || !Number.isInteger(studentNo) || studentNo < 1 || studentNo > 999) return null
+    return {
+      quizId: null,
+      studentId: null,
+      studentName: null,
+      demo: { classKey, quizKey, studentNo }
+    }
+  }
   if (text.startsWith('QZ2:')) {
     const first = text.indexOf('|')
     const second = first < 0 ? -1 : text.indexOf('|', first + 1)

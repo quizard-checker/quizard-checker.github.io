@@ -73,6 +73,7 @@ export class CreatePage {
   lessonPaste = signal('');
   keyPaste = signal('');
   pickedKeyId = signal<string | null>(null);
+  keyPickOpen = signal(false);
   savedKeys = signal<any[]>([]);
   generating = signal(false);
   error = signal('');
@@ -112,6 +113,27 @@ export class CreatePage {
     if (this.mode() === 'key') return !!this.keySource() && !!this.keySource().items.length;
     if (this.mode() === 'format') return this.mcqExamples().length > 0;
     return true;
+  });
+  // The disabled Generate button used to be a dead end. Spell out what is
+  // still missing so the teacher knows exactly which field to fill.
+  readonly generateNeeds = computed(() => {
+    const needs: string[] = [];
+    if (!this.subject().trim()) needs.push('a subject');
+    if (this.mode() === 'key') {
+      if (!this.keySource()?.items?.length) needs.push('an answer key or a saved key');
+    } else {
+      if (!this.lessonText()) needs.push('lesson text or an uploaded file');
+      if (this.mode() === 'format' && !this.mcqExamples().length) {
+        needs.push('example questions with a * on the correct option');
+      }
+    }
+    return needs;
+  });
+  readonly generateNeedText = computed(() => {
+    const needs = this.generateNeeds();
+    if (!needs.length) return '';
+    if (needs.length === 1) return needs[0];
+    return needs.slice(0, -1).join(', ') + ' and ' + needs[needs.length - 1];
   });
   // letters-only key: every item is an empty scoring grid row (the teacher's
   // own paper carries the questions). Those rows can now be filled in from the
@@ -187,6 +209,12 @@ export class CreatePage {
     // an *anchor*, meaningless once you leave key mode.
     if (id !== 'key') this.pickedKeyId.set(null);
     this.mode.set(id);
+  }
+
+  pickKey(id: string | null) {
+    this.pickedKeyId.set(id);
+    this.keyPaste.set('');
+    this.keyPickOpen.set(false);
   }
   // Buttons step by 5 and typing accepts anything 1–50; junk (empty, 0,
   // negative) simply keeps the current count instead of snapping to a default.
@@ -310,6 +338,7 @@ export class CreatePage {
   async openSaved(id: string) {
     const quiz = await getQuiz(id);
     if (!quiz) return;
+    this.keyPickOpen.set(false);
     this.selectedQuiz.set(quiz);
     this.sheets.set(await listSheets());
     this.wizardExport.set(false);
@@ -353,6 +382,7 @@ export class CreatePage {
   }
 
   backHome() {
+    this.keyPickOpen.set(false);
     this.stage.set('home');
     this.selectedQuiz.set(null);
     this.quizId.set(null);
@@ -360,6 +390,7 @@ export class CreatePage {
   }
 
   startNewQuiz() {
+    this.keyPickOpen.set(false);
     this.stage.set('setup');
     this.items.set([]);
     this.quizId.set(null);
@@ -488,6 +519,7 @@ export class CreatePage {
     this.classList().find(c => c.id === this.sheetClassId()) || null);
 
   backToSetup() {
+    this.keyPickOpen.set(false);
     this.stage.set('setup');
     this.items.set([]);
     this.quizId.set(null);

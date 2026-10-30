@@ -41,6 +41,131 @@ export function weakestItems(sheets, items, limit = 5) {
     .slice(0, limit)
 }
 
+/**
+ * Average score per quiz for one class, oldest quiz first.
+ * Chronology comes from the newest sheet timestamp in each quiz; `listSheets`
+ * returns newest-first, so `firstSeen` is only a tiebreaker for records that
+ * predate `createdAt`.
+ * @param {{ quizId?: string, percent?: number, createdAt?: number }[]} sheets
+ * @returns {{ quizId: string, count: number, avg: number,
+ *   newestAt: number, oldestAt: number }[]}
+ */
+export function quizAverages(sheets) {
+  const by = new Map()
+  sheets.forEach((s, i) => {
+    const quizId = String(s.quizId || '')
+    if (!quizId) return
+    const at = Number(s.createdAt) || 0
+    const g = by.get(quizId) || {
+      quizId, count: 0, sum: 0,
+      newestAt: 0, oldestAt: Number.POSITIVE_INFINITY, firstSeen: i,
+    }
+    g.count++
+    g.sum += Number(s.percent) || 0
+    g.newestAt = Math.max(g.newestAt, at)
+    g.oldestAt = Math.min(g.oldestAt, at)
+    if (i < g.firstSeen) g.firstSeen = i
+    by.set(quizId, g)
+  })
+  return [...by.values()]
+    .map(g => ({
+      quizId: g.quizId,
+      count: g.count,
+      avg: Math.round(g.sum / g.count),
+      newestAt: g.newestAt,
+      oldestAt: g.oldestAt,
+      firstSeen: g.firstSeen,
+    }))
+    .sort((a, b) =>
+      a.newestAt - b.newestAt ||
+      a.oldestAt - b.oldestAt ||
+      b.firstSeen - a.firstSeen ||
+      a.quizId.localeCompare(b.quizId))
+    .map(({ firstSeen, ...row }) => row)
+}
+
+/**
+ * Did the class improve between its two latest quizzes?
+ *
+ * When at least two students took both quizzes, this is a per-student vote:
+ * improving when more than half scored higher, slipping when more than half
+ * scored lower, otherwise mixed. With too little overlap it reports
+ * `insufficient` (basis `average` carries the two class averages for context)
+ * rather than calling one student — or a changed class size — a trend.
+ *
+ * @param {{ quizId?: string, studentNo?: number | null, studentName?: string,
+ *   percent?: number, createdAt?: number }[]} sheets
+ * @returns {{ status: 'improving' | 'slipping' | 'mixed' | 'insufficient',
+ *   basis: 'students' | 'average' | 'none', compared: number, improved: number,
+ *   declined: number, unchanged: number, fromQuizId: string | null,
+ *   toQuizId: string | null, fromAvg: number | null, toAvg: number | null,
+ *   fromCount: number | null, toCount: number | null, avgDelta: number }}
+ */
+export function learningTrend(sheets) {
+  const quizzes = quizAverages(sheets)
+  if (quizzes.length < 2) {
+    const only = quizzes[0]
+    return {
+      status: 'insufficient', basis: 'none',
+      compared: 0, improved: 0, declined: 0, unchanged: 0,
+      fromQuizId: only?.quizId || null, toQuizId: null,
+      fromAvg: only?.avg ?? null, toAvg: null,
+      fromCount: only?.count ?? null, toCount: null, avgDelta: 0,
+    }
+  }
+
+  const from = quizzes[quizzes.length - 2]
+  const to = quizzes[quizzes.length - 1]
+  const keyOf = (s) => s.studentNo != null
+    ? `no:${s.studentNo}`
+    : `name:${String(s.studentName || '').trim().toLowerCase()}`
+
+  // One row per student per quiz — the newest, in case a legacy duplicate
+  // survived. Sheets arrive newest-first, but compare timestamps explicitly.
+  const take = (quizId) => {
+    const map = new Map()
+    for (const s of sheets) {
+      if (s.quizId !== quizId) continue
+      const key = keyOf(s)
+      const prev = map.get(key)
+      if (!prev || (Number(s.createdAt) || 0) > (Number(prev.createdAt) || 0)) map.set(key, s)
+    }
+    return map
+  }
+
+  const before = take(from.quizId)
+  const now = take(to.quizId)
+  let improved = 0, declined = 0, unchanged = 0
+  for (const [key, s] of now) {
+    const old = before.get(key)
+    if (!old) continue
+    const delta = (Number(s.percent) || 0) - (Number(old.percent) || 0)
+    if (delta > 0) improved++
+    else if (delta < 0) declined++
+    else unchanged++
+  }
+
+  const compared = improved + declined + unchanged
+  const avgDelta = to.avg - from.avg
+  const base = {
+    compared, improved, declined, unchanged,
+    fromQuizId: from.quizId, toQuizId: to.quizId,
+    fromAvg: from.avg, toAvg: to.avg,
+    fromCount: from.count, toCount: to.count, avgDelta,
+  }
+
+  if (compared >= 2) {
+    const status = improved > compared / 2 ? 'improving'
+      : declined > compared / 2 ? 'slipping'
+      : 'mixed'
+    return { ...base, status, basis: 'students' }
+  }
+
+  // One shared student cannot speak for the class, and a different class size
+  // makes a raw average change incomparable — report the averages, not a verdict.
+  return { ...base, status: 'insufficient', basis: 'average' }
+}
+
 const CSV_ESC = (v) => {
   const s = String(v ?? '')
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s

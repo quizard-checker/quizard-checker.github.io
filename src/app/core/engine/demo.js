@@ -39,6 +39,9 @@ export function buildDemoWorld(accountId = '') {
   const classes = DEMO_SNAPSHOT.classes.map((c, i) => ({
     ...clone(c),
     id: classIds.get(c.id),
+    // Stable across profiles and devices: the printed demo sheet can point at
+    // this class even though the storage id is re-keyed per account.
+    demoKey: c.id,
     students: (c.students || []).map((st, si) => ({
       ...clone(st),
       id: `${prefix}st-${i + 1}-${st.no || si + 1}`,
@@ -57,6 +60,7 @@ export function buildDemoWorld(accountId = '') {
   const quizzes = DEMO_SNAPSHOT.quizzes.map((q, i) => ({
     ...clone(q),
     id: quizIds.get(q.id),
+    demoKey: q.id,
     createdAt: now - i * MINUTE,
     demo: true,
   }))

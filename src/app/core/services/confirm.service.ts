@@ -23,7 +23,8 @@ export class ConfirmService {
     this.visible.set(true);
     return new Promise(resolve => {
       this.resolve = resolve;
-      setTimeout(() => globalThis.document?.getElementById('confirm-accept')?.focus(), 0);
+      // Default to the safe action: a stray Enter must not delete data.
+      setTimeout(() => globalThis.document?.getElementById('confirm-cancel')?.focus(), 0);
     });
   }
 

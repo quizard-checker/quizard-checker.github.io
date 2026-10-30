@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import qrModule from 'qrcode-generator'
-import { sheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
+import { sheetQrPayload, demoSheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
 
 const moduleCount = (payload, level) => {
   const qr = (qrModule.default || qrModule)(0, level)
@@ -35,6 +35,28 @@ describe('sheetQrPayload / parseSheetQr', () => {
     expect(parseSheetQr('QZ2:quiz-only')).toBeNull()
     expect(parseSheetQr('')).toBeNull()
     expect(parseSheetQr(null)).toBeNull()
+  })
+})
+
+describe('bundled demo sheet QR', () => {
+  it('round-trips the stable demo keys and roster number', () => {
+    const p = demoSheetQrPayload('demo-cls-eng', 'demo-quiz-2', 1)
+    expect(p).toBe('QZD1:demo-cls-eng:demo-quiz-2:1')
+    expect(parseSheetQr(p)).toEqual({
+      quizId: null,
+      studentId: null,
+      studentName: null,
+      demo: { classKey: 'demo-cls-eng', quizKey: 'demo-quiz-2', studentNo: 1 },
+    })
+  })
+
+  it('rejects malformed demo codes', () => {
+    for (const bad of [
+      'QZD1:', 'QZD1:a', 'QZD1:a:b', 'QZD1:a:b:0', 'QZD1:a:b:1000',
+      'QZD1:a:b:x', 'QZD1:a:b:1:2',
+    ]) {
+      expect(parseSheetQr(bad)).toBeNull()
+    }
   })
 })
 

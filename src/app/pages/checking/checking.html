@@ -6,7 +6,7 @@
       } @else if (stage() === 'scan') {
         <button class="icon-btn" (click)="closeCamera(); endSession()" aria-label="End session" [innerHTML]="'chevronLeft' | ico"></button>
       }
-      <span class="mark" [innerHTML]="'logo' | ico"></span>Check papers
+      <span class="mark" [innerHTML]="'logo' | ico"></span>Scan papers
     </div>
     <div style="display:flex;gap:2px;align-items:center">
       <button class="icon-btn" [class.ai-down]="byok.aiDown()" aria-label="AI key" (click)="byok.open()" [attr.data-tooltip]="byok.aiDown() ? 'AI is out of requests — tap to add a free key' : 'AI key — keep AI working when the relay is busy'" [innerHTML]="'sparkles' | ico"></button>
@@ -20,7 +20,7 @@
       <div class="hero lib-hero">
         <div class="hero-ico" [innerHTML]="'scan' | ico"></div>
         <div>
-          <h1>Check papers</h1>
+          <h1>Scan papers</h1>
           <p>Scan filled bubble sheets — offline, scored against your key.</p>
         </div>
       </div>
@@ -109,8 +109,21 @@
       </div>
 
       @if (cameraActive()) {
-        <video class="camera-view" autoplay playsinline muted></video>
-        <button class="btn btn-primary gen-btn" (click)="captureFromCamera()"><span [innerHTML]="'camera' | ico"></span> Capture sheet</button>
+        <div class="camera-stage">
+          <video class="camera-view" autoplay playsinline muted></video>
+          <div class="camera-guides" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          @if (autoScan() && livePhase() !== 'waiting') {
+            <span class="camera-scanline" aria-hidden="true"></span>
+          }
+          <button type="button" class="camera-auto" [class.off]="!autoScan()" role="switch"
+                  [attr.aria-checked]="autoScan()" (click)="toggleAutoScan()"
+                  [attr.aria-label]="'Automatic scanning is ' + (autoScan() ? 'on' : 'off')">
+            <span class="camera-auto-dot" aria-hidden="true"></span> Auto-scan {{ autoScan() ? 'on' : 'off' }}
+          </button>
+          <div class="camera-status" role="status" aria-live="polite">{{ liveText() }}</div>
+        </div>
+        <p class="faint center camera-hint">Hold the whole sheet in the frame — it scans by itself, no shutter needed.</p>
+        <button class="btn btn-secondary gen-btn" (click)="captureFromCamera()"><span [innerHTML]="'camera' | ico"></span> Capture now</button>
         <button class="btn btn-secondary gen-btn" style="margin-top:0" (click)="closeCamera()">Close camera</button>
       } @else {
         <button class="btn btn-primary gen-btn" (click)="openCamera()"><span [innerHTML]="'camera' | ico"></span> Open camera</button>

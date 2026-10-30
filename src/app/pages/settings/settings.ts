@@ -1,4 +1,5 @@
 import { Component, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { IonContent } from '@ionic/angular';
@@ -10,6 +11,7 @@ import {
 import { testApiKey, getApiKey, setApiKey, hasApiKey, hasRelay } from '../../core/engine/gemini.js';
 import { setAiConfig, activeModel } from '../../core/engine/ai-providers.js';
 import { IcoPipe } from '../../shared/ico.pipe';
+import { assetUrl } from '../../shared/assets.js';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
@@ -42,8 +44,16 @@ export class SettingsPage implements OnInit {
   ui = inject(UiStateService);
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
+  private location = inject(Location);
   readonly byok = inject(ByokService);
   readonly docsUrl = DOCS_URL;
+  readonly demoSheets = [
+    { file: 'demo/answered-sheet.png', label: 'Perfect — Ivan (100%)', url: assetUrl('demo/answered-sheet.png') },
+    { file: 'demo/answered-sheet-joy.png', label: 'Missed two — Joy (75%)', url: assetUrl('demo/answered-sheet-joy.png') },
+    { file: 'demo/answered-sheet-kat.png', label: 'Double-shaded — Kat (88%)', url: assetUrl('demo/answered-sheet-kat.png') },
+    { file: 'demo/answered-sheet-leo.png', label: 'Messy — Leo (63%)', url: assetUrl('demo/answered-sheet-leo.png') },
+  ];
+  removePickerOpen = signal(false);
 
   @ViewChild('importInput') importInput?: ElementRef<HTMLInputElement>;
   @ViewChild('encImportInput') encImportInput?: ElementRef<HTMLInputElement>;
@@ -63,7 +73,7 @@ export class SettingsPage implements OnInit {
   testing = false;
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '1.1'; }
+  get version() { return '2.0.3'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──
@@ -319,6 +329,13 @@ export class SettingsPage implements OnInit {
   setSkipIntro(on: boolean) { saveSettings({ skipIntro: on }); this.refreshSettings(); this.toast.toast(on ? 'Intro will be skipped' : 'Intro plays on launch'); }
 
 
+  goBack() {
+    // Settings can be opened from any screen's header, so return to where the
+    // teacher came from instead of always dumping them on Classes.
+    if (history.length > 1) this.location.back();
+    else this.router.navigateByUrl('/tabs/classes');
+  }
+
   switchAccount() {
     setActiveAccount(null);
     this.ui.account.set(null);
@@ -326,12 +343,16 @@ export class SettingsPage implements OnInit {
   }
   addAccount() { this.router.navigate(['/accounts'], { queryParams: { mode: 'create', from: 'picker' } }); }
 
-  async removeAccountFlow() {
-    const others = this.accounts.filter(a => a.id !== this.account?.id);
-    const name = window.prompt(`Type the profile name to remove:\n\n${others.map(o => '· ' + o.name).join('\n')}`);
-    if (!name) return;
-    const target = others.find(o => o.name.toLowerCase() === name.trim().toLowerCase());
-    if (!target) { this.toast.toast('No profile with that name', true); return; }
+  otherAccounts() {
+    return this.accounts.filter(a => a.id !== this.account?.id);
+  }
+
+  openRemoveAccount() {
+    if (this.otherAccounts().length) this.removePickerOpen.set(true);
+  }
+
+  async confirmRemoveAccount(target: any) {
+    this.removePickerOpen.set(false);
     if (!await this.confirm.confirm('Delete profile?', 'All documents, quizzes, history, and mistakes for this profile will be permanently removed.', 'Delete', target.name)) return;
     await deleteAccount(target.id);
     this.toast.toast(`Removed ${target.name}`);

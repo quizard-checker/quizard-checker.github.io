@@ -14,6 +14,7 @@ const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'dist', 'q
 const SITE_ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'site')
 const RELAY = 'https://quizard-relay.quizard-app.workers.dev/gemini'
 const RELAY_EXTRACT = 'https://quizard-relay.quizard-app.workers.dev/extract'
+const RELAY_RATINGS = 'https://quizard-relay.quizard-app.workers.dev/ratings'
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
@@ -60,6 +61,29 @@ const server = createServer(async (req, res) => {
       let out = null
       try {
         out = await fetch(RELAY_EXTRACT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: Buffer.concat(chunks) })
+      } catch (e) {
+        res.writeHead(502, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'proxy_relay_unreachable: ' + e.message }))
+        return
+      }
+      res.writeHead(out.status, { 'Content-Type': out.headers.get('content-type') || 'application/json' })
+      res.end(Buffer.from(await out.arrayBuffer()))
+      return
+    }
+
+    // docs ratings — same-origin locally so the docs page can call it without
+    // CORS; production calls the relay directly.
+    if (url.pathname === '/ratings' && (req.method === 'GET' || req.method === 'POST')) {
+      const init = { method: req.method, headers: {} }
+      if (req.method === 'POST') {
+        const chunks = []
+        for await (const c of req) chunks.push(c)
+        init.headers['Content-Type'] = 'application/json'
+        init.body = Buffer.concat(chunks)
+      }
+      let out = null
+      try {
+        out = await fetch(RELAY_RATINGS, init)
       } catch (e) {
         res.writeHead(502, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'proxy_relay_unreachable: ' + e.message }))

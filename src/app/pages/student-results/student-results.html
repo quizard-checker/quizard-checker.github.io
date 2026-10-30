@@ -1,0 +1,147 @@
+<ion-content [fullscreen]="true">
+  <div class="screen sr-screen">
+    @if (cls(); as c) {
+      @if (student(); as st) {
+        <div class="sr-top {{ bannerTheme(c) }}">
+          <div class="sr-topbar">
+            <button class="sr-back" aria-label="Back to class" (click)="back()" [innerHTML]="'chevronLeft' | ico"></button>
+            <div class="sr-head-txt">
+              <h1>{{ st.name }}</h1>
+              <p>{{ c.name }} · Student results</p>
+            </div>
+            <span class="sr-avatar" aria-hidden="true">{{ initials() }}</span>
+          </div>
+
+          <div class="sr-summary">
+            <div class="sr-sum">
+              <span class="sr-sum-ico quiz" [innerHTML]="'fileText' | ico"></span>
+              <div><b>{{ records().length }}</b><span>quiz{{ records().length === 1 ? '' : 'zes' }} reviewed</span></div>
+            </div>
+            <div class="sr-sep"></div>
+            <div class="sr-sum good">
+              <span class="sr-sum-ico" [innerHTML]="'check' | ico"></span>
+              <div><b>{{ quizSummary().correct }}/{{ quizSummary().total }}</b><span>Correct</span></div>
+            </div>
+            <div class="sr-sep"></div>
+            <div class="sr-sum bad">
+              <span class="sr-sum-ico" [innerHTML]="'x' | ico"></span>
+              <div><b>{{ quizSummary().incorrect }}</b><span>Incorrect</span></div>
+            </div>
+          </div>
+        </div>
+
+        @if (records().length) {
+          <div class="section-title">Quiz</div>
+          <div class="sr-quiz-tabs" role="tablist" aria-label="Choose a quiz">
+            @for (rec of records(); track rec.quizId) {
+              <button type="button" role="tab" class="sr-quiz-tab" [class.on]="selectedRecord()?.quizId === rec.quizId" [attr.aria-selected]="selectedRecord()?.quizId === rec.quizId" (click)="selectQuiz(rec.quizId)">
+                <span class="sr-tab-name">{{ rec.quiz }}</span>
+                <span class="sr-tab-score">{{ rec.correct }}/{{ rec.total }} · {{ rec.percent }}%</span>
+              </button>
+            }
+          </div>
+
+          @if (selectedRecord(); as rec) {
+            <div class="sr-filters" role="tablist" aria-label="Filter questions in this quiz">
+              <button type="button" role="tab" [class.on]="filter() === 'all'" [attr.aria-selected]="filter() === 'all'" (click)="setFilter('all')">All questions ({{ quizSummary().total }})</button>
+              <button type="button" role="tab" [class.on]="filter() === 'incorrect'" [attr.aria-selected]="filter() === 'incorrect'" (click)="setFilter('incorrect')">Incorrect ({{ quizSummary().incorrect }})</button>
+              <button type="button" role="tab" [class.on]="filter() === 'blank'" [attr.aria-selected]="filter() === 'blank'" (click)="setFilter('blank')">Unanswered ({{ quizSummary().unanswered }})</button>
+            </div>
+
+            @if (visibleRows().length) {
+              <section class="sr-quiz">
+                <div class="sr-quiz-bar">
+                  <span class="sr-quiz-date">{{ dateOf(rec.date) }} · checked</span>
+                  <button type="button" class="sr-del" (click)="remove(rec)" [attr.aria-label]="'Remove ' + rec.quiz + ' result'" data-tooltip="Remove result" [innerHTML]="'trash' | ico"></button>
+                </div>
+
+                <div class="sr-legend">
+                  <span class="ok"><i></i>Correct</span>
+                  <span class="bad"><i></i>Incorrect</span>
+                  <span class="blank"><i></i>Unanswered</span>
+                </div>
+
+                <div class="sr-rows">
+                  @for (a of visibleRows(); track a.n) {
+                    <div class="sr-row" [class.ok]="a.right" [class.bad]="!a.right && !a.blank" [class.blank]="a.blank">
+                      <span class="sr-qn">Q{{ a.n }}</span>
+                      <span class="sr-state" [class.ok]="a.right" [class.bad]="!a.right && !a.blank" [class.blank]="a.blank">{{ a.right ? '✓' : (a.blank ? '–' : '✗') }}</span>
+                      <span class="sr-answers">
+                        @if (a.blank) {
+                          <span class="sr-answer muted">Not answered</span>
+                        } @else {
+                          <span class="sr-answer">Student <b class="sr-letter" [class.bad]="!a.right">{{ a.pick }}</b></span>
+                        }
+                        <span class="sr-key">Answer key <b class="sr-letter ok">{{ a.key || '—' }}</b></span>
+                      </span>
+                      <button type="button" class="sr-view" (click)="toggleQuestion(rec.quizId, a.n)">
+                        {{ isQuestionOpen(rec.quizId, a.n) ? 'Hide' : 'View question' }}
+                      </button>
+                    </div>
+
+                    @if (isQuestionOpen(rec.quizId, a.n)) {
+                      <div class="sr-detail">
+                        @if (a.question) {
+                          <p class="sr-question">{{ a.question }}</p>
+                        } @else {
+                          <p class="sr-question faint">Question text wasn’t saved for this quiz.</p>
+                        }
+
+                        @if (hasOptions(a)) {
+                          <div class="sr-choices">
+                            @for (opt of a.options; track $index) {
+                              <div class="sr-choice" [class.key]="$index === a.keyIndex" [class.picked]="$index === a.pickIndex" [class.wrong]="$index === a.pickIndex && !a.right">
+                                <span class="sr-choice-l">{{ letter($index) }}</span>
+                                <span class="sr-choice-t">{{ opt || '—' }}</span>
+                                @if ($index === a.keyIndex) { <span class="sr-choice-tag key">Correct answer</span> }
+                                @if ($index === a.pickIndex) { <span class="sr-choice-tag picked" [class.wrong]="!a.right">Student’s answer</span> }
+                              </div>
+                            }
+                          </div>
+                        } @else {
+                          <p class="sr-detail-note">This quiz was saved as an answer key only, so the choices aren’t stored. The correct answer is <b>{{ a.key || '—' }}</b>.</p>
+                        }
+                      </div>
+                    }
+                  }
+                </div>
+              </section>
+            } @else {
+              <div class="empty-state sr-empty-filter">
+                <div class="empty-ico" [innerHTML]="'search' | ico"></div>
+                <h3>No {{ filter() === 'blank' ? 'unanswered' : 'incorrect' }} questions in this quiz</h3>
+                <p>Switch back to All questions to see the full review.</p>
+                <button class="btn btn-secondary" style="max-width:220px;margin:0 auto" (click)="setFilter('all')">All questions</button>
+              </div>
+            }
+
+            <div class="sr-actions">
+              <button class="btn btn-secondary" (click)="back()">Close</button>
+            </div>
+          }
+        } @else if (loaded()) {
+          <div class="empty-state">
+            <div class="empty-ico" [innerHTML]="'chart' | ico"></div>
+            <h3>No results yet</h3>
+            <p>Check a bubble sheet for {{ st.name }} and the answer review will appear here.</p>
+            <button class="btn btn-secondary" style="max-width:220px;margin:0 auto" (click)="back()">Back to class</button>
+          </div>
+        }
+      } @else if (loaded()) {
+        <div class="empty-state">
+          <div class="empty-ico" [innerHTML]="'users' | ico"></div>
+          <h3>Student not found</h3>
+          <p>This student may have been removed from the roster.</p>
+          <button class="btn btn-secondary" style="max-width:220px;margin:0 auto" (click)="back()">Back to class</button>
+        </div>
+      }
+    } @else if (loaded()) {
+      <div class="empty-state">
+        <div class="empty-ico" [innerHTML]="'users' | ico"></div>
+        <h3>Class not found</h3>
+        <p>This class may have been deleted on this device.</p>
+        <button class="btn btn-secondary" style="max-width:220px;margin:0 auto" (click)="back()">Back to classes</button>
+      </div>
+    }
+  </div>
+</ion-content>

@@ -40,7 +40,7 @@
     "url": "https://quizard-checker.github.io/quizard-docs/",
     "installUrl": "https://quizard-checker.github.io/",
     "downloadUrl": "https://github.com/quizard-checker/quizard-checker.github.io/releases/latest/download/Quizard.apk",
-    "softwareVersion": "2.0.0",
+    "softwareVersion": "2.0.3",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "description": "Turn an answer key or lesson into printable bubble sheets, scan them with a phone, and score offline."
   }
@@ -150,6 +150,56 @@
       </div>
     </section>
 
+    <section class="rating-section" id="rate">
+      <div class="wrap">
+        <div class="rating-card reveal" data-rating>
+          <svg class="rating-star-defs" aria-hidden="true" focusable="false">
+            <symbol id="rating-star" viewBox="0 0 24 24">
+              <path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5-5.9-3.1-5.9 3.1 1.2-6.5L2.5 9.5l6.6-.9z"/>
+            </symbol>
+          </svg>
+
+          <div class="rating-copy">
+            <span class="eyebrow">Rate Quizard</span>
+            <h2>How's it working for you?</h2>
+            <p>Tap a star. Your rating is anonymous and helps other teachers decide whether to try Quizard.</p>
+          </div>
+
+          <div class="rating-widget">
+            <div class="rating-score">
+              <b data-rating-average>&mdash;</b>
+              <div class="rating-average-stars" aria-hidden="true">
+                <div class="rating-stars-base">
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                </div>
+                <div class="rating-stars-fill" data-rating-fill>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                  <svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg>
+                </div>
+              </div>
+              <span class="rating-count" data-rating-count>Loading ratings&hellip;</span>
+            </div>
+
+            <div class="rating-input" role="group" aria-label="Rate Quizard from 1 to 5 stars">
+              <button type="button" data-star="1" aria-label="Rate 1 star" aria-pressed="false"><svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg></button>
+              <button type="button" data-star="2" aria-label="Rate 2 stars" aria-pressed="false"><svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg></button>
+              <button type="button" data-star="3" aria-label="Rate 3 stars" aria-pressed="false"><svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg></button>
+              <button type="button" data-star="4" aria-label="Rate 4 stars" aria-pressed="false"><svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg></button>
+              <button type="button" data-star="5" aria-label="Rate 5 stars" aria-pressed="false"><svg class="rating-star" viewBox="0 0 24 24"><use href="#rating-star"></use></svg></button>
+            </div>
+            <p class="rating-message" data-rating-message aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="features">
       <div class="wrap">
         <div class="section-head reveal">
@@ -196,7 +246,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
             </span>
             <h3>Results &amp; reports</h3>
-            <p>Class average, best and lowest, most-missed questions, section breakdown, and score distribution — with CSV and PDF exports.</p>
+            <p>Every quiz's class average, the point change, whether most students improved, and score distribution — plus a per-student answer review with the full question, every choice, and the key. Item analysis rides along in the CSV and PDF exports.</p>
           </article>
 
           <article class="feature-card reveal">
@@ -225,7 +275,7 @@
           </figure>
           <figure class="shot reveal">
             <div class="phone-frame"><img src="assets/screens/02-roster.webp" alt="Class roster showing students and quiz scores" loading="lazy" width="780" height="1688" /></div>
-            <figcaption><b>Live gradebook</b><span>Latest score per quiz, completed count, and per-student answers.</span></figcaption>
+            <figcaption><b>Live gradebook</b><span>Latest score per quiz, which students have scores, and per-student answers.</span></figcaption>
           </figure>
           <figure class="shot reveal">
             <div class="phone-frame"><img src="assets/screens/03-create-modes.webp" alt="Create quiz screen showing the three creation modes" loading="lazy" width="780" height="1688" /></div>
@@ -248,8 +298,8 @@
             <figcaption><b>Scan papers</b><span>Pick a class, then scan — each QR names its quiz and student.</span></figcaption>
           </figure>
           <figure class="shot reveal">
-            <div class="phone-frame"><img src="assets/screens/07-results.webp" alt="Results screen with average, best, lowest, most-missed questions, and section breakdown" loading="lazy" width="780" height="1688" /></div>
-            <figcaption><b>Know what to reteach</b><span>Averages, most-missed items, section bars, and score spread.</span></figcaption>
+            <div class="phone-frame"><img src="assets/screens/07-results.webp" alt="Results screen showing each quiz's class average, the point change, and whether most students improved" loading="lazy" width="780" height="1688" /></div>
+            <figcaption><b>See the trend</b><span>Every quiz's class average, the point change, and whether most students improved.</span></figcaption>
           </figure>
         </div>
       </div>
@@ -286,11 +336,29 @@
           <li class="step reveal">
             <span class="step-n">5</span>
             <h3>See the results</h3>
-            <p>Scores attach to the right student. Open results to see averages and the questions to reteach.</p>
+            <p>Scores attach to the right student. The Quizzes home has labeled Answer keys and Results shortcuts; open Results to see each quiz's class average and whether most students improved.</p>
           </li>
         </ol>
 
         <p class="offline-note reveal"><b>All five steps work offline.</b> AI is only used when you choose Full AI or Match my format — an answer key never needs it.</p>
+      </div>
+    </section>
+
+    <section class="demo-sheet-band" id="demo-sheet">
+      <div class="wrap">
+        <div class="demo-sheet-card reveal">
+          <div>
+            <span class="eyebrow">Try the scanner</span>
+            <h3>Scan the built-in demo sheets</h3>
+            <p>Load demo data in the app, open any of these filled sheets on another screen, and scan it with the phone. Each sheet links to its own demo student. Open one full-screen and zoom to fit the whole sheet.</p>
+            <div class="demo-sheet-links">
+              <a href="assets/demo/answered-sheet.png" target="_blank" rel="noopener"><b>Perfect — Ivan Ramos</b><span>8/8 · 100% · no flags</span></a>
+              <a href="assets/demo/answered-sheet-joy.png" target="_blank" rel="noopener"><b>Missed two — Joy Aquino</b><span>6/8 · 75% · no flags</span></a>
+              <a href="assets/demo/answered-sheet-kat.png" target="_blank" rel="noopener"><b>Double-shaded — Kat Bautista</b><span>7/8 · 88% · MULTI flag</span></a>
+              <a href="assets/demo/answered-sheet-leo.png" target="_blank" rel="noopener"><b>Messy — Leo Mendoza</b><span>5/8 · 63% · BLANK + MULTI flags</span></a>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -340,7 +408,7 @@
               <li>Open Quizard and allow camera access when you first scan.</li>
             </ol>
             <a class="btn btn-gold" href="https://github.com/quizard-checker/quizard-checker.github.io/releases/latest/download/Quizard.apk">Download Quizard.apk</a>
-            <p class="fine">Version 2.0.0 · Android 7.0+ · about 9.4 MB. Sideloaded APKs do not auto-update; download the latest release when a new version is out.</p>
+            <p class="fine">Version 2.0.3 · Android 7.0+ · about 9.9 MB. Sideloaded APKs do not auto-update; download the latest release when a new version is out.</p>
           </article>
         </div>
 
@@ -510,6 +578,10 @@
             <p>Android blocks installs from unknown sources by default. When the prompt appears, allow installs from the browser or file manager you used, then try again. Quizard requires Android 7.0 or newer.</p>
           </details>
           <details class="faq reveal">
+            <summary>What if I delete a class, key, or result by mistake?</summary>
+            <p>Single deletes show an <b>Undo</b> action in the toast for a few seconds. <b>Erase all data</b> and profile removal are permanent and cannot be undone.</p>
+          </details>
+          <details class="faq reveal">
             <summary>How do updates work?</summary>
             <p>The web app updates itself in the background; a reload may be requested when a new version is ready. The APK does not auto-update — download the latest release and install it over the old version.</p>
           </details>
@@ -557,12 +629,12 @@
         <b>Project</b>
         <a href="https://github.com/quizard-checker/quizard-checker.github.io">GitHub</a>
         <a href="https://github.com/quizard-checker/quizard-checker.github.io/releases">Releases</a>
-        <span class="footer-version">Version 2.0.0</span>
+        <span class="footer-version">Version 2.0.3</span>
       </div>
     </div>
     <div class="wrap footer-bottom">
       <span>© 2026 Quizard</span>
-      <span>No accounts. No tracking. No uploads.</span>
+      <span>No accounts. No uploads. Anonymous ratings.</span>
     </div>
   </footer>
 

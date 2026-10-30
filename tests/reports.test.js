@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemAnalysis, weakestItems, resultsCsv, sectionBreakdown, scoreDistribution } from '../src/app/core/engine/reports.js'
+import { itemAnalysis, weakestItems, resultsCsv, sectionBreakdown, scoreDistribution, quizAverages, learningTrend } from '../src/app/core/engine/reports.js'
 
 const items = [
   { n: 1, question: 'Q1', answerIndex: 0 },
@@ -154,6 +154,123 @@ describe('resultsCsv — heavy injection', () => {
     ], [{ answerIndex: 0 }])
     const lines = csv.split('\r\n')
     expect(lines.length).toBe(2) // header + one (escaped) row
+  })
+})
+
+describe('quizAverages', () => {
+  it('averages each quiz and orders quizzes oldest first', () => {
+    const rows = quizAverages([
+      { quizId: 'new', percent: 40, createdAt: 3000 },
+      { quizId: 'old', percent: 80, createdAt: 1000 },
+      { quizId: 'new', percent: 60, createdAt: 3001 },
+      { quizId: 'old', percent: 70, createdAt: 1001 },
+    ])
+    expect(rows.map(r => r.quizId)).toEqual(['old', 'new'])
+    expect(rows[0]).toMatchObject({ count: 2, avg: 75 })
+    expect(rows[1]).toMatchObject({ count: 2, avg: 50 })
+  })
+
+  it('skips sheets with no quiz and treats a missing percent as zero', () => {
+    const rows = quizAverages([
+      { quizId: '', percent: 100 },
+      { quizId: 'q1', percent: undefined },
+      { quizId: 'q1', percent: 100 },
+    ])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].avg).toBe(50)
+  })
+
+  it('returns an empty list for no sheets', () => {
+    expect(quizAverages([])).toEqual([])
+  })
+})
+
+describe('learningTrend', () => {
+  const at = (quizId, studentNo, percent, createdAt) => ({
+    quizId, studentNo, studentName: `S${studentNo}`, percent, createdAt,
+  })
+
+  it('says the majority is improving when most students scored higher', () => {
+    const trend = learningTrend([
+      at('q1', 1, 50, 1000), at('q2', 1, 80, 2000),
+      at('q1', 2, 60, 1000), at('q2', 2, 90, 2000),
+      at('q1', 3, 70, 1000), at('q2', 3, 60, 2000),
+    ])
+    expect(trend).toMatchObject({
+      status: 'improving', basis: 'students', compared: 3, improved: 2, declined: 1,
+      fromQuizId: 'q1', toQuizId: 'q2',
+    })
+  })
+
+  it('says most students are slipping when more than half dropped', () => {
+    const trend = learningTrend([
+      at('q1', 1, 90, 1000), at('q2', 1, 70, 2000),
+      at('q1', 2, 80, 1000), at('q2', 2, 50, 2000),
+      at('q1', 3, 60, 1000), at('q2', 3, 70, 2000),
+    ])
+    expect(trend).toMatchObject({ status: 'slipping', basis: 'students', compared: 3, declined: 2 })
+  })
+
+  it('reports a split when no side holds the majority', () => {
+    const trend = learningTrend([
+      at('q1', 1, 50, 1000), at('q2', 1, 70, 2000),
+      at('q1', 2, 70, 1000), at('q2', 2, 50, 2000),
+      at('q1', 3, 60, 1000), at('q2', 3, 60, 2000),
+    ])
+    expect(trend).toMatchObject({ status: 'mixed', basis: 'students', unchanged: 1 })
+  })
+
+  it('does not call one shared student a trend, but keeps the averages', () => {
+    const trend = learningTrend([
+      at('q1', 1, 50, 1000),
+      at('q2', 1, 80, 2000), at('q2', 2, 40, 2001),
+    ])
+    expect(trend).toMatchObject({
+      status: 'insufficient', basis: 'average', compared: 1,
+      fromAvg: 50, toAvg: 60, fromCount: 1, toCount: 2, avgDelta: 10,
+    })
+  })
+
+  it('does not call a changed class size a trend when nobody overlaps', () => {
+    const trend = learningTrend([
+      at('q1', 1, 40, 1000), at('q1', 2, 50, 1001),
+      at('q2', 3, 90, 2000), at('q2', 4, 95, 2001),
+    ])
+    expect(trend).toMatchObject({
+      status: 'insufficient', basis: 'average', compared: 0,
+      fromCount: 2, toCount: 2, avgDelta: 48,
+    })
+  })
+
+  it('does not invent a trend from one quiz', () => {
+    const trend = learningTrend([at('q1', 1, 80, 1000)])
+    expect(trend).toMatchObject({ status: 'insufficient', basis: 'none', compared: 0 })
+  })
+
+  it('ignores students who did not take both quizzes', () => {
+    const trend = learningTrend([
+      at('q1', 1, 50, 1000), at('q1', 2, 60, 1001),
+      at('q2', 1, 90, 2000), at('q2', 3, 20, 2001),
+    ])
+    expect(trend.compared).toBe(1) // only student 1 is in both
+  })
+
+  it('takes the newest row when a legacy duplicate exists', () => {
+    const trend = learningTrend([
+      at('q1', 1, 50, 1000), at('q1', 1, 90, 1500), // same student, newer 90
+      at('q2', 1, 80, 2000), at('q2', 2, 40, 2001),
+      at('q1', 2, 40, 1002),
+    ])
+    // student 1: 90 -> 80 (down); student 2: 40 -> 40 (same)
+    expect(trend).toMatchObject({ status: 'mixed', basis: 'students', declined: 1, unchanged: 1 })
+  })
+
+  it('averages quizzes in chronological order even when sheets arrive newest-first', () => {
+    const trend = learningTrend([
+      at('new', 1, 70, 3000),
+      at('old', 1, 50, 1000),
+    ])
+    expect(trend).toMatchObject({ fromQuizId: 'old', toQuizId: 'new', avgDelta: 20 })
   })
 })
 

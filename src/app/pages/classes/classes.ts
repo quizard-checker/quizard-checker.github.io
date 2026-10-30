@@ -155,6 +155,13 @@ export class ClassesPage {
     if (!await this.confirm.confirm(`Delete “${cls.name}”?`, 'The roster will be removed. Saved scan results are kept.', 'Delete')) return;
     await deleteClass(cls.id);
     await this.load();
-    this.toast.toast('Class deleted');
+    this.toast.toast('Class deleted', false, {
+      text: 'Undo',
+      handler: async () => {
+        await saveClass(cls);
+        await this.load();
+        this.toast.toast('Class restored');
+      }
+    });
   }
 }

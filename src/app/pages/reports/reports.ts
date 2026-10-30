@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { IonContent } from '@ionic/angular';
 import { listSheets, listClasses, listQuizzes, getQuiz, type SheetResult } from '../../core/engine/storage.js';
-import { itemAnalysis, weakestItems, resultsCsv, sectionBreakdown, scoreDistribution } from '../../core/engine/reports.js';
+import { itemAnalysis, resultsCsv, sectionBreakdown, scoreDistribution, quizAverages, learningTrend } from '../../core/engine/reports.js';
 import { exportClassReportPdf, exportReviewPdf } from '../../core/engine/export.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { fmtDate, bannerTheme } from '../../shared/helpers.js';
@@ -51,9 +51,19 @@ export class ReportsPage {
     return parts.join(' · ');
   };
 
-  classAvgOf(classId: string) {
-    const list = this.sheets().filter(s => s.classId === classId);
-    return list.length ? Math.round(list.reduce((sum, s) => sum + s.percent, 0) / list.length) : 0;
+  // Overview cards: every class's average on every quiz it has checked, plus
+  // whether the majority improved — no blended average across different tests.
+  readonly classSummaries = computed(() =>
+    this.classes().map(cls => {
+      const sheets = this.sheets().filter(s => s.classId === cls.id);
+      const rows = quizAverages(sheets).map(r => ({ ...r, label: this.quizLabel(r.quizId) }));
+      return { cls, checked: sheets.length, rows, learning: learningTrend(sheets) };
+    }));
+
+  private quizLabel(id: string | null): string {
+    if (!id) return '';
+    const q = this.quizzes().find(x => x.id === id);
+    return q ? `${q.subject || 'Quiz'}${q.title ? ' — ' + q.title : ''}` : 'Quiz';
   }
 
   async ionViewWillEnter() {
@@ -93,20 +103,74 @@ export class ReportsPage {
     return [...new Set(this.sheets().filter(s => s.classId === classId).map(s => s.quizId))];
   }
 
-  // The quizzes a class has checked, as filter pills — every quizId present in
-  // its saved sheets, labeled from the quiz record.
-  readonly quizOptions = computed(() => {
-    const cid = this.selectedClassId();
-    if (!cid) return [];
-    return this.quizIdsOf(cid).map(id => {
-      const q = this.quizzes().find(x => x.id === id);
+  // One row per quiz the class has checked, oldest first, with the point
+  // change from the previous quiz. Rows act as the quiz filter.
+  readonly quizRows = computed(() => {
+    const rows = quizAverages(this.classSheets());
+    return rows.map((r, i) => {
+      const prev = i > 0 ? rows[i - 1] : null;
       return {
-        id,
-        label: q ? `${q.subject || 'Quiz'}${q.title ? ' — ' + q.title : ''}` : 'Quiz',
-        items: q?.items?.length || 0,
+        ...r,
+        label: this.quizLabel(r.quizId),
+        delta: prev ? r.avg - prev.avg : null,
+        // A one-paper quiz can swing the average wildly; only color a change
+        // when both quizzes have at least two papers behind them.
+        deltaComparable: !!prev && prev.count >= 2 && r.count >= 2,
       };
     });
   });
+
+  readonly learning = computed(() => learningTrend(this.classSheets()));
+  readonly learningFrom = computed(() => this.quizLabel(this.learning().fromQuizId));
+
+  learningTitle(): string {
+    const l = this.learning();
+    if (l.status === 'insufficient') {
+      return l.basis === 'average' ? 'Not enough shared students' : 'Not enough data for a trend';
+    }
+    if (l.basis === 'students') {
+      if (l.status === 'improving') return 'Majority of the class is improving';
+      if (l.status === 'slipping') return 'Most students are not improving yet';
+      return 'The class is split';
+    }
+    if (l.status === 'improving') return 'Class average is up';
+    if (l.status === 'slipping') return 'Class average is down';
+    return 'Class average held steady';
+  }
+
+  learningSub(): string {
+    const l = this.learning();
+    if (l.status === 'insufficient') {
+      if (l.basis === 'average') {
+        const who = l.compared === 1
+          ? 'Only one student took both quizzes'
+          : 'No student took both quizzes';
+        const papers = (n: number | null) => `${n ?? 0} paper${n === 1 ? '' : 's'}`;
+        return `${who}, so this is not a majority trend. Class averages: ${l.fromAvg}% (${papers(l.fromCount)}) → ${l.toAvg}% (${papers(l.toCount)}).`;
+      }
+      return 'This class has one checked quiz. Check another quiz to compare.';
+    }
+    if (l.basis === 'students') {
+      if (l.status === 'improving') return `${l.improved} of ${l.compared} students scored higher than on ${this.learningFrom()}.`;
+      if (l.status === 'slipping') return `${l.declined} of ${l.compared} students scored lower than on ${this.learningFrom()}.`;
+      return `${l.improved} improved and ${l.declined} slipped since ${this.learningFrom()}.`;
+    }
+    return `${l.fromAvg}% → ${l.toAvg}% since ${this.learningFrom()}.`;
+  }
+
+  // Compact badge for the overview cards.
+  learningChip(l: any): string {
+    if (l.status === 'insufficient') {
+      if (l.basis === 'average') return l.compared === 1 ? '1 in both' : 'none in both';
+      return '1 quiz';
+    }
+    if (l.basis === 'students') {
+      if (l.status === 'improving') return `${l.improved}/${l.compared} up`;
+      if (l.status === 'slipping') return `${l.declined}/${l.compared} down`;
+      return `${l.improved} up · ${l.declined} down`;
+    }
+    return l.avgDelta === 0 ? 'avg flat' : `avg ${l.avgDelta > 0 ? '+' : ''}${l.avgDelta}`;
+  }
 
   setQuizFilter(id: string) {
     this.pickedQuizId.set(id);
@@ -132,11 +196,6 @@ export class ReportsPage {
     const q = this.quiz();
     if (!q) return [];
     return itemAnalysis(this.activeSheets(), q.items);
-  });
-  readonly weak = computed(() => {
-    const q = this.quiz();
-    if (!q) return [];
-    return weakestItems(this.activeSheets(), q.items, 5);
   });
   readonly sections = computed(() => sectionBreakdown(this.activeSheets()));
   readonly distribution = computed(() => scoreDistribution(this.activeSheets()));
@@ -178,7 +237,7 @@ export class ReportsPage {
     const quiz = this.quiz();
     if (!quiz) return;
     await exportReviewPdf(quiz, this.activeSheets());
-    this.toast.toast('Answer review PDF downloaded ✓');
+    this.toast.toast('Review PDF downloaded ✓');
   }
 
   private download(filename: string, content: string, mime: string) {

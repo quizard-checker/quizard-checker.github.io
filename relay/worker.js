@@ -51,12 +51,14 @@ const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:4301',
   'http://localhost:4302',
   'http://127.0.0.1:4302',
+  'http://localhost:4310',
+  'http://127.0.0.1:4310',
   'https://localhost'
 ])
 
 function corsHeaders(origin) {
   const base = {
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-quizard-key',
     Vary: 'Origin',
     'X-Content-Type-Options': 'nosniff'
@@ -786,6 +788,61 @@ async function handleTts(request, sec) {
   })
 }
 
+// ── Docs ratings ──
+// One anonymous rating per browser id, stored in the same KV namespace as the
+// sync locker under a different prefix. The aggregate is a five-slot count
+// array so reading the average costs one KV read. This is a low-traffic docs
+// page; a rare concurrent write can lose one vote, which is acceptable here.
+const RATING_SUMMARY_KEY = 'ratings:summary'
+const RATING_CLIENT_RE = /^[A-Za-z0-9_-]{8,64}$/
+
+function ratingCounts(raw) {
+  return Array.isArray(raw) && raw.length === 5
+    ? raw.map(n => Math.max(0, Number(n) || 0))
+    : [0, 0, 0, 0, 0]
+}
+
+function ratingPayload(raw) {
+  const counts = ratingCounts(raw)
+  const count = counts.reduce((a, b) => a + b, 0)
+  const sum = counts.reduce((total, n, i) => total + n * (i + 1), 0)
+  return {
+    average: count ? Math.round((sum / count) * 10) / 10 : 0,
+    count,
+    counts
+  }
+}
+
+async function handleRatings(request, sec, method) {
+  const kv = env.SYNC
+  if (!kv?.get) return fail(503, 'ratings_not_configured', sec)
+  if (method === 'GET') {
+    const stored = await kv.get(RATING_SUMMARY_KEY, 'json')
+    return json(ratingPayload(stored?.counts), sec)
+  }
+
+  let body
+  try { body = await request.json() } catch { return fail(400, 'invalid_json', sec) }
+  const stars = Number(body?.stars)
+  const clientId = String(body?.clientId || '')
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return fail(400, 'bad_stars', sec)
+  if (!RATING_CLIENT_RE.test(clientId)) return fail(400, 'bad_client', sec)
+
+  const key = 'rating:' + clientId
+  const prior = await kv.get(key, 'json')
+  const stored = await kv.get(RATING_SUMMARY_KEY, 'json')
+  const counts = ratingPayload(stored?.counts).counts
+  // A browser changing its rating updates the tally instead of adding a vote.
+  if (prior?.stars >= 1 && prior.stars <= 5) {
+    counts[prior.stars - 1] = Math.max(0, counts[prior.stars - 1] - 1)
+  }
+  counts[stars - 1]++
+
+  await kv.put(key, JSON.stringify({ stars, at: new Date().toISOString() }))
+  await kv.put(RATING_SUMMARY_KEY, JSON.stringify({ counts }))
+  return json({ ...ratingPayload(counts), yourRating: stars }, sec)
+}
+
 function ok(text, headers = {}) {
   return new Response(text, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...headers } })
 }
@@ -803,7 +860,6 @@ export default {
     const origin = request.headers.get('origin')
     const sec = corsHeaders(origin)
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: sec })
-    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: sec })
     if (!isAllowedOrigin(origin)) return fail(403, 'origin_not_allowed', sec)
 
     // Periodic cleanup of key usage stats
@@ -814,6 +870,21 @@ export default {
     }
 
     const route = (new URL(request.url).pathname.replace(/\/+$/, '').split('/').pop() || '').toLowerCase()
+    if (route === 'ratings') {
+      // Public, anonymous docs ratings. GET is the average; POST records one
+      // browser's rating and returns the updated average.
+      if (request.method === 'GET') {
+        if (rateLimit(clientIp(request), 60) === false) return fail(429, 'rate_limited', sec)
+        return handleRatings(request, sec, 'GET')
+      }
+      if (request.method === 'POST') {
+        if (rateLimit(clientIp(request), 10) === false) return fail(429, 'rate_limited', sec)
+        if (tooLarge(request, 2000)) return fail(413, 'payload_too_large', sec)
+        return handleRatings(request, sec, 'POST')
+      }
+      return fail(405, 'method_not_allowed', sec)
+    }
+    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: sec })
     if (route === 'gemini') {
       if (rateLimit(clientIp(request), 40) === false) return fail(429, 'rate_limited', sec)
       if (tooLarge(request)) return fail(413, 'payload_too_large', sec)

@@ -30,14 +30,96 @@ export class App {
   readonly byok = inject(ByokService);
   readonly confirm = inject(ConfirmService);
   private ui = inject(UiStateService);
+  private tooltipRaf = 0;
+  private confirmWasOpen = false;
+  private byokWasOpen = false;
+  private returnFocus: HTMLElement | null = null;
 
   openKeyPage() {
     const url = this.byok.providerConfig?.keyUrl;
     if (url) window.open(url, '_blank', 'noopener');
   }
 
+  // The templates have always carried `data-tooltip`, but nothing rendered it.
+  // Mirror it to the native title attribute so icon-only controls at least get
+  // a desktop hover hint; the important actions also have visible labels now.
+  private startTooltipFallback() {
+    const apply = () => {
+      document.querySelectorAll<HTMLElement>('[data-tooltip]').forEach(el => {
+        const text = el.getAttribute('data-tooltip');
+        if (text && el.getAttribute('title') !== text) el.setAttribute('title', text);
+      });
+    };
+    apply();
+    const observer = new MutationObserver(() => {
+      if (this.tooltipRaf) return;
+      this.tooltipRaf = requestAnimationFrame(() => {
+        this.tooltipRaf = 0;
+        apply();
+      });
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-tooltip']
+    });
+  }
+
+  private focusDialog(id: string) {
+    this.returnFocus = document.activeElement as HTMLElement | null;
+    setTimeout(() => {
+      const dialog = document.getElementById(id);
+      if (!dialog) return;
+      const first = dialog.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled])');
+      (first || dialog).focus();
+    }, 0);
+  }
+
+  private restoreDialogFocus() {
+    this.returnFocus?.focus?.();
+    this.returnFocus = null;
+  }
+
+  // Keep Tab inside the open dialog instead of letting focus fall behind it.
+  trapDialogFocus(event: KeyboardEvent, id: string) {
+    if (event.key !== 'Tab') return;
+    const dialog = document.getElementById(id);
+    if (!dialog) return;
+    const items = [...dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )];
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   constructor() {
-    afterNextRender(() => this.preload.start());
+    afterNextRender(() => {
+      this.preload.start();
+      this.startTooltipFallback();
+    });
+    effect(() => {
+      const open = this.confirm.visible();
+      if (open === this.confirmWasOpen) return;
+      this.confirmWasOpen = open;
+      if (open) this.focusDialog('confirm-dialog');
+      else this.restoreDialogFocus();
+    });
+    effect(() => {
+      const open = this.byok.visible();
+      if (open === this.byokWasOpen) return;
+      this.byokWasOpen = open;
+      if (open) this.focusDialog('byok-dialog');
+      else this.restoreDialogFocus();
+    });
     if (Capacitor.isNativePlatform()) {
       // An APK upgrade must never run the previous build out of a service
       // worker cache: the bundled assets are the truth on the device. Older

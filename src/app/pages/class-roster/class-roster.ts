@@ -4,9 +4,8 @@ import { IonContent } from '@ionic/angular';
 import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
 import { diffRoster, parseRoster } from '../../core/engine/roster.js';
-import { fmtDate, scorePill, bannerTheme, bannerAvatar } from '../../shared/helpers.js';
+import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
 import { ToastService } from '../../core/services/toast.service';
-import { ConfirmService } from '../../core/services/confirm.service';
 import { IcoPipe } from '../../shared/ico.pipe';
 
 // One scanned sheet, resolved to the roster student it belongs to.
@@ -36,15 +35,11 @@ export class ClassRosterPage {
   router = inject(Router);
   private route = inject(ActivatedRoute);
   private toast = inject(ToastService);
-  private confirm = inject(ConfirmService);
 
   cls = signal<any>(null);
   bannerTheme = bannerTheme;
   bannerAvatar = bannerAvatar;
   missing = signal(false);
-  // The Answers button per student opens this modal — the full attempt list
-  // with the per-number answer strip, instead of expanding the table row.
-  answersStudent = signal<any | null>(null);
   rosterOpen = signal(false);
   // Replace rewrites the whole list (box prefilled); Add appends just the new
   // names a teacher pastes or uploads — real classes arrive in batches.
@@ -139,7 +134,6 @@ export class ClassRosterPage {
     const cls = id ? await getClass(id) : null;
     this.cls.set(cls);
     this.missing.set(!cls);
-    this.answersStudent.set(null);
     if (!cls) { this.sheets.set([]); return; }
     const [sheets, quizzes] = await Promise.all([listSheets({ classId: cls.id }), listQuizzes()]);
     this.sheets.set(sheets);
@@ -157,40 +151,12 @@ export class ClassRosterPage {
     return this.recordsByStudent().get(st.id) || [];
   }
 
-  // Per-number answer list for an expanded attempt: every question with the
-  // student's letter — green when right, red when wrong (keyed letter shown
-  // after the arrow), grey dash when left blank.
-  readonly answersOf = (rec: any) => {
-    const quiz = this.quizzes().find((z: any) => z.id === rec.quizId);
-    const picked = rec.answers || [];
-    if (!quiz?.items) return [];
-    return quiz.items.map((it: any, i: number) => {
-      const pick = picked[i];
-      const has = pick != null && pick >= 0;
-      const right = has && pick === it.answerIndex;
-      const key = it.answerIndex != null && it.answerIndex >= 0 ? 'ABCD'[it.answerIndex] : '';
-      return {
-        n: it.n || i + 1,
-        pick: has ? 'ABCD'[pick] : '',
-        right,
-        blank: !has,
-        key: right ? '' : key,
-      };
-    });
-  };
-  pill = scorePill;
-  fmtDate = fmtDate;
-  openAnswers(st: any) { this.answersStudent.set(st); }
-  closeAnswers() { this.answersStudent.set(null); }
-
-  // Delete lives on the expanded row, next to the date — the grid cell shows
-  // the score, the row underneath acts on it. Same confirm pattern as Reports.
-  async removeRecord(st: any, rec: StudentRecord) {
-    if (!await this.confirm.confirm(`Remove ${st.name}'s ${rec.quiz} result?`, 'The sheet scan will be deleted.', 'Remove')) return;
-    const { deleteSheet } = await import('../../core/engine/storage.js');
-    await deleteSheet(rec.id);
-    if (this.cls()) this.sheets.set(await listSheets({ classId: this.cls().id }));
-    this.toast.toast('Result removed');
+  // The Answers button opens the student's full review page: per quiz, every
+  // question with the student's pick, the keyed answer and the full choices.
+  openAnswers(st: any) {
+    const cls = this.cls();
+    if (!cls) return;
+    this.router.navigate(['/tabs/classes', cls.id, 'students', st.id]);
   }
 
   // Edit roster stays on this page: the sheet just edits the student list —
@@ -282,7 +248,6 @@ export class ClassRosterPage {
       })),
     });
     this.cls.set(record);
-    this.answersStudent.set(null);
     this.rosterOpen.set(false);
     this.toast.toast(`${parsed.students.length} student${parsed.students.length === 1 ? '' : 's'} saved to “${cls.name}”`);
   }

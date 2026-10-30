@@ -158,6 +158,13 @@ export class KeysPage {
     if (!await this.confirm.confirm(`Delete the ${key.subject} key?`, 'Scanned results already saved are kept.', 'Delete')) return;
     await deleteKey(key.id);
     await this.load();
-    this.toast.toast('Key deleted');
+    this.toast.toast('Key deleted', false, {
+      text: 'Undo',
+      handler: async () => {
+        await saveKey(key);
+        await this.load();
+        this.toast.toast('Key restored');
+      }
+    });
   }
 }

@@ -1,9 +1,11 @@
-import { Component, computed, inject, signal, NgZone } from '@angular/core';
+import { Component, computed, inject, signal, NgZone, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz } from '../../core/engine/storage.js';
 import { readSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
+import { resolveDemoSheet } from '../../core/engine/demo-sheet.js';
+import { liveScanStep, LIVE_SCAN } from '../../core/engine/live-scan.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -74,7 +76,32 @@ export class CheckingPage {
   scorePop = signal<{ id: string; name: string; section: string; percent: number; correct: number; total: number } | null>(null);
 
   cameraActive = signal(false);
+  // The live viewfinder scans by itself: it waits for a sheet QR to sit still
+  // for a couple of frames, then captures and scores without a shutter tap.
+  // Auto-scan can be switched off to go back to manual captures.
+  autoScan = signal(true);
+  livePhase = signal<'off' | 'looking' | 'locking' | 'waiting'>('off');
+  readonly liveText = computed(() => {
+    if (!this.autoScan()) return 'Auto-scan off — tap Capture now';
+    switch (this.livePhase()) {
+      case 'locking': return 'Sheet found — hold still…';
+      case 'waiting': return 'Move to the next sheet';
+      case 'looking': return 'Looking for a sheet…';
+      default: return 'Starting camera…';
+    }
+  });
   private stream: MediaStream | null = null;
+  private liveTimer: ReturnType<typeof setInterval> | null = null;
+  private liveCanvas: HTMLCanvasElement | null = null;
+  private liveBusy = false;
+  private liveCandidate: string | null = null;
+  private liveHits = 0;
+  private liveAbsent = 0;
+  private scannedQr: string | null = null;
+  private cooldownUntil = 0;
+  private detector: any = null;
+  private detectorFails = 0;
+  private detectorMisses = 0;
 
   readonly flag = FLAG;
   readonly pickedClass = computed(() => this.classes().find(c => c.id === this.classId()) || null);
@@ -151,6 +178,20 @@ export class CheckingPage {
     if (qm) this.quizOverrideId.set(qm[1]);
   }
 
+  // Leaving the tab mid-scan must release the camera and stop the live loop;
+  // Ionic caches the page, so nothing else would switch it off.
+  ionViewWillLeave() {
+    this.closeCamera();
+  }
+
+  // Browsers freeze or suspend camera tracks when the tab/app is hidden; a
+  // frozen viewfinder that still claims to scan is worse than asking the
+  // teacher to reopen the camera.
+  @HostListener('document:visibilitychange')
+  onVisibilityChange() {
+    if (document.hidden) this.closeCamera();
+  }
+
   // Per-class scan totals, so a class card shows whether a pile was started —
   // the same count the roster hero and Results use.
   readonly checkedCount = (cls: any): number =>
@@ -196,38 +237,187 @@ export class CheckingPage {
 
   // ── camera ──
   async openCamera() {
+    if (this.cameraActive()) return;
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } },
         audio: false,
       });
       this.cameraActive.set(true);
-      setTimeout(() => {
-        const video = document.querySelector('video.camera-view') as HTMLVideoElement | null;
-        if (video) { video.srcObject = this.stream; void video.play(); }
-      });
+      this.makeDetector();
+      this.attachVideo();
     } catch {
       this.toast.toast('Camera unavailable — use “Check from photo” instead', true);
     }
   }
 
+  // BarcodeDetector is hardware-backed on Android and reads a video frame far
+  // faster than jsQR; where it is missing (iOS Safari, older WebViews) the live
+  // loop falls back to jsQR on a downscaled frame.
+  private makeDetector() {
+    try {
+      const BD = (window as any).BarcodeDetector;
+      this.detector = BD ? new BD({ formats: ['qr_code'] }) : null;
+    } catch {
+      this.detector = null;
+    }
+    this.detectorFails = 0;
+    this.detectorMisses = 0;
+  }
+
+  private videoEl(): HTMLVideoElement | null {
+    return document.querySelector('video.camera-view') as HTMLVideoElement | null;
+  }
+
+  private attachVideo(attempt = 0) {
+    const video = this.videoEl();
+    if (!video) {
+      if (attempt < 12) setTimeout(() => this.attachVideo(attempt + 1), 50);
+      return;
+    }
+    if (this.stream && video.srcObject !== this.stream) video.srcObject = this.stream;
+    void video.play().catch(() => {});
+    this.startLiveLoop();
+  }
+
+  private startLiveLoop() {
+    this.stopLiveLoop();
+    if (!this.autoScan()) {
+      this.livePhase.set('off');
+      return;
+    }
+    this.liveCandidate = null;
+    this.liveHits = 0;
+    this.liveAbsent = 0;
+    this.livePhase.set('looking');
+    this.liveTimer = setInterval(() => { void this.tickLive(); }, LIVE_SCAN.tickMs);
+  }
+
+  private stopLiveLoop() {
+    if (this.liveTimer) {
+      clearInterval(this.liveTimer);
+      this.liveTimer = null;
+    }
+    this.liveBusy = false;
+  }
+
+  toggleAutoScan() {
+    const on = !this.autoScan();
+    this.autoScan.set(on);
+    if (on && this.cameraActive()) this.startLiveLoop();
+    else {
+      this.stopLiveLoop();
+      this.livePhase.set('off');
+    }
+  }
+
+  // One live tick: read the QR from the preview, let liveScanStep decide, and
+  // only grab a full-resolution frame when it says the sheet has been held
+  // still. The stream stays open after a scan so the next sheet can be read
+  // without reopening the camera.
+  private async tickLive() {
+    if (this.liveBusy || !this.cameraActive() || !this.autoScan()) return;
+    if (this.processing() || this.scorePop() || this.stage() !== 'scan') return;
+    const video = this.videoEl();
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
+    this.liveBusy = true;
+    try {
+      const now = performance.now();
+      let text: string | null = null;
+      if (this.detector) {
+        text = await this.detectWithDetector(video);
+        if (text) {
+          this.detectorMisses = 0;
+        } else if (++this.detectorMisses % 3 === 0) {
+          // Some WebViews expose BarcodeDetector but return nothing (no
+          // barcode module installed). Probe with jsQR every third empty tick
+          // so the live scanner cannot end up blind.
+          text = this.decodeLiveFrame(video);
+        }
+      } else {
+        text = this.decodeLiveFrame(video);
+      }
+      const step = liveScanStep({
+        text,
+        candidate: this.liveCandidate,
+        hits: this.liveHits,
+        absent: this.liveAbsent,
+        scannedQr: this.scannedQr,
+        cooldownUntil: this.cooldownUntil,
+        now,
+      });
+      this.liveCandidate = step.candidate;
+      this.liveHits = step.hits;
+      this.liveAbsent = step.absent;
+      // Seeing nothing for a moment re-arms the paper that was just scanned,
+      // so a deliberate rescan works by lifting the phone away and back.
+      if (step.absent >= LIVE_SCAN.rearmTicks) this.scannedQr = null;
+      this.livePhase.set(step.status);
+      if (!step.scan) return;
+      this.cooldownUntil = now + LIVE_SCAN.cooldownMs;
+      this.liveCandidate = null;
+      this.liveHits = 0;
+      if ('vibrate' in navigator) navigator.vibrate?.(35);
+      void this.processImage(this.grabFrame(video), true);
+    } finally {
+      this.liveBusy = false;
+    }
+  }
+
+  private async detectWithDetector(video: HTMLVideoElement): Promise<string | null> {
+    try {
+      const codes = await this.detector.detect(video);
+      this.detectorFails = 0;
+      return codes?.[0]?.rawValue || null;
+    } catch {
+      // an API that exists but always throws (e.g. no barcode module) must not
+      // leave the scanner blind — drop it and use jsQR from the next tick
+      if (++this.detectorFails >= 3) this.detector = null;
+      return null;
+    }
+  }
+
+  private decodeLiveFrame(video: HTMLVideoElement): string | null {
+    const width = Math.min(900, video.videoWidth);
+    const height = Math.round(video.videoHeight * (width / video.videoWidth));
+    let canvas = this.liveCanvas;
+    if (!canvas) canvas = this.liveCanvas = document.createElement('canvas');
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, width, height);
+    const frame = ctx.getImageData(0, 0, width, height);
+    return decodeQr(frame.data, width, height, { inversionAttempts: 'dontInvert' });
+  }
+
+  private grabFrame(video: HTMLVideoElement, maxWidth = 1600): ImageData {
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
+
   closeCamera() {
+    this.stopLiveLoop();
     this.stream?.getTracks().forEach(t => t.stop());
     this.stream = null;
     this.cameraActive.set(false);
+    this.livePhase.set('off');
+    this.liveCandidate = null;
+    this.liveHits = 0;
+    this.liveAbsent = 0;
+    this.scannedQr = null;
   }
 
   captureFromCamera() {
-    const video = document.querySelector('video.camera-view') as HTMLVideoElement | null;
+    const video = this.videoEl();
     if (!video || !video.videoWidth) return;
-    const canvas = document.createElement('canvas');
-    const scale = Math.min(1, 1600 / video.videoWidth);
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
-    this.closeCamera();
-    void this.processImage(data);
+    this.cooldownUntil = performance.now() + LIVE_SCAN.cooldownMs;
+    void this.processImage(this.grabFrame(video), true);
   }
 
   async onPhoto(ev: Event) {
@@ -242,10 +432,13 @@ export class CheckingPage {
     canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
     input.value = '';
+    // A photo replaces the viewfinder for this sheet — releasing the camera
+    // keeps the live loop from scanning something else while it is read.
+    this.closeCamera();
     void this.processImage(data);
   }
 
-  private async processImage(data: ImageData) {
+  private async processImage(data: ImageData, fromLive = false) {
     this.processing.set(true);
     this.scanError.set('');
     // let the spinner paint before the synchronous CV work blocks the frame
@@ -253,9 +446,28 @@ export class CheckingPage {
 
     // the QR identifies the quiz — and, on roster-printed sheets, the student
     // — before any geometry work: one CV pass total
-    const parsed = parseSheetQr(decodeQr(data.data, data.width, data.height));
-    const quizId = parsed?.quizId || this.quizOverrideId();
-    const quiz = quizId ? await getQuiz(quizId) : null;
+    const qrText = decodeQr(data.data, data.width, data.height);
+    const parsed = parseSheetQr(qrText);
+    let quiz: any = null;
+    let demoMatch: { cls: any; student: any } | null = null;
+    if (parsed?.demo) {
+      // The bundled demo sheet points at stable demo keys, not this profile's
+      // storage ids. Resolve it against the demo records loaded here.
+      const match = resolveDemoSheet(parsed, this.classes(), await listQuizzes());
+      if (!match) {
+        this.processing.set(false);
+        this.scanError.set('This is the built-in demo sheet. Open Settings → Demo data → Load demo data, then scan it again.');
+        // the sheet is still in frame: do not fire on it again until the
+        // teacher has fixed the data and deliberately moves away and back
+        if (fromLive) this.scannedQr = qrText;
+        return;
+      }
+      quiz = match.quiz;
+      demoMatch = { cls: match.cls, student: match.student };
+    } else {
+      const quizId = parsed?.quizId || this.quizOverrideId();
+      quiz = quizId ? await getQuiz(quizId) : null;
+    }
     if (!quiz) {
       this.processing.set(false);
       // two different failures wore one message before: a photo with no
@@ -264,6 +476,7 @@ export class CheckingPage {
       this.scanError.set(parsed
         ? `This sheet’s quiz isn’t on this device${parsed.studentName ? ` (the QR names ${parsed.studentName})` : ''} — it was printed somewhere else or deleted here. Pick the quiz manually on the setup screen and scan again.`
         : 'No QR code found on that photo — fill the frame with the sheet, keep it flat and well-lit, then try again. Or pick the quiz manually on the setup screen to scan without one.');
+      if (fromLive && parsed) this.scannedQr = qrText;
       return;
     }
 
@@ -271,6 +484,8 @@ export class CheckingPage {
     if (!result.ok) {
       this.processing.set(false);
       this.scanError.set('Could not align the sheet — make sure all four corner squares and the black frame are fully visible, then try again.');
+      // a framing miss is worth another automatic try once the phone is moved
+      if (fromLive) this.scannedQr = null;
       return;
     }
     const answers = result.answers, flags = result.flags;
@@ -284,8 +499,13 @@ export class CheckingPage {
       // names whose paper this is — it attaches with nothing to confirm. Only
       // a sheet whose QR names nobody (or names a student this device doesn't
       // have) waits for the teacher, and that pick happens on the result screen.
-      const qrStudent = this.matchRosterStudent(parsed);
+      const qrStudent = demoMatch
+        ? this.rosterEntry(demoMatch.cls, demoMatch.student)
+        : this.matchRosterStudent(parsed);
       if (qrStudent) {
+        // Remember the paper that was just read so the live loop moves on to
+        // the next sheet instead of firing on this one again.
+        if (fromLive) this.scannedQr = qrText;
         this.qrUnknownName.set(null);
         this.attachStudent(qrStudent, 'qr');
         // Nothing left to confirm, so record it now and pop the score up over
@@ -295,7 +515,9 @@ export class CheckingPage {
       } else {
         this.attachStudent(null, null);
         this.qrUnknownName.set(parsed?.studentName || null);
-        // Nobody in the QR: the result screen's picker decides whose paper it is
+        // Nobody in the QR: the result screen's picker decides whose paper it
+        // is. That screen has no viewfinder, so release the camera.
+        this.closeCamera();
         this.stage.set('result');
       }
       this.processing.set(false);
@@ -368,6 +590,7 @@ export class CheckingPage {
     const pop = this.scorePop();
     this.scorePop.set(null);
     if (!pop) return;
+    this.closeCamera();
     await deleteSheet(pop.id);
     await this.refreshSession();
     this.stage.set('result');
@@ -377,11 +600,15 @@ export class CheckingPage {
     const last = this.session()[0];
     if (!last) return;
     await deleteSheet(last.id);
+    // The paper may still be in front of the camera: re-arm it so Undo can be
+    // followed by a rescan without moving away first.
+    this.scannedQr = null;
     await this.refreshSession();
     this.toast.toast('Last result removed');
   }
 
   endSession() {
+    this.closeCamera();
     this.stage.set('setup');
     this.detectedQuiz.set(null);
     this.answers.set([]);

@@ -4,13 +4,13 @@
 
 @if (byok.visible()) {
   <div class="byok-overlay" (click)="byok.close()">
-    <div class="byok-modal" (click)="$event.stopPropagation()">
+    <div class="byok-modal" id="byok-dialog" role="dialog" aria-modal="true" aria-labelledby="byok-title" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="byok.dismiss()" (keydown)="trapDialogFocus($event, 'byok-dialog')">
       <div class="byok-badge"><span [innerHTML]="'sparkles' | ico"></span> Quizard AI</div>
-      <h3 class="byok-title">{{ byok.aiDown() ? 'AI is out of requests' : 'Get your free AI key' }}</h3>
+      <h3 class="byok-title" id="byok-title">{{ byok.aiDown() ? 'AI is out of requests' : 'Get your free AI key' }}</h3>
       <p class="byok-text">You can keep going right now with your own AI key — a free one works. Pick a provider, paste a key, about one minute:</p>
       <div class="byok-providers" role="group" aria-label="Key provider">
         @for (p of byok.providerList; track p.id) {
-          <button type="button" class="pchip" [class.on]="byok.provider() === p.id" (click)="byok.chooseProvider(p.id)">{{ p.label }}</button>
+          <button type="button" class="pchip" [class.on]="byok.provider() === p.id" [attr.aria-pressed]="byok.provider() === p.id" (click)="byok.chooseProvider(p.id)">{{ p.label }}</button>
         }
       </div>
       <ol class="byok-steps">
@@ -61,11 +61,15 @@
   <div class="confirm-mask" tabindex="-1" (click)="confirm.cancel()" (keydown.escape)="confirm.cancel()">
     <section
       class="confirm-modal"
+      id="confirm-dialog"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
       aria-describedby="confirm-message"
+      tabindex="-1"
       (click)="$event.stopPropagation()"
+      (keydown.escape)="confirm.cancel()"
+      (keydown)="trapDialogFocus($event, 'confirm-dialog')"
     >
       <div class="confirm-icon" [class.destructive]="confirm.destructive()">
         <span [innerHTML]="(confirm.icon() === 'trash' ? 'trash' : 'alert') | ico"></span>

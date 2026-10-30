@@ -1,6 +1,6 @@
 <ion-content [fullscreen]="true">
   <header class="back-header">
-    <button class="icon-btn" (click)="router.navigateByUrl('/tabs/classes')" [innerHTML]="'chevronLeft' | ico"></button>
+    <button class="icon-btn" (click)="goBack()" aria-label="Back" [innerHTML]="'chevronLeft' | ico"></button>
     <h2>Settings</h2>
     <div class="spacer"></div>
   </header>
@@ -46,7 +46,7 @@
         @if (accounts.length > 1) {
           <div class="row" style="border-bottom:none">
             <div><div class="label bad-text">Remove an account</div><div class="sub">Deletes that profile with all its data</div></div>
-            <button class="icon-btn" (click)="removeAccountFlow()" data-tooltip="Remove a profile" style="color:var(--bad)" [innerHTML]="'trash' | ico"></button>
+            <button class="icon-btn" (click)="openRemoveAccount()" [attr.aria-label]="'Remove a profile'" data-tooltip="Remove a profile" style="color:var(--bad)" [innerHTML]="'trash' | ico"></button>
           </div>
         }
         <div class="row" style="border-bottom:none">
@@ -63,13 +63,13 @@
       <div class="row" data-tooltip="App color theme — auto-saved locally">
         <div><div class="label">Theme</div><div class="sub">Follows your choice, saved locally</div></div>
         <div class="seg" style="grid-auto-columns:auto;width:auto">
-          <button [class.on]="theme() === 'dark'" (click)="ui.setTheme('dark')" data-tooltip="Dark theme — easier on eyes at night">Dark</button>
-          <button [class.on]="theme() === 'light'" (click)="ui.setTheme('light')" data-tooltip="Light theme — bright and clean">Light</button>
+          <button [class.on]="theme() === 'dark'" [attr.aria-pressed]="theme() === 'dark'" (click)="ui.setTheme('dark')" data-tooltip="Dark theme — easier on eyes at night">Dark</button>
+          <button [class.on]="theme() === 'light'" [attr.aria-pressed]="theme() === 'light'" (click)="ui.setTheme('light')" data-tooltip="Light theme — bright and clean">Light</button>
         </div>
       </div>
       <div class="row" style="border-bottom:none" data-tooltip="Skip the welcome splash — go straight to the app on launch">
         <div><div class="label">Skip intro on launch</div><div class="sub">Open directly into the app every time</div></div>
-        <div class="switch" [class.on]="s.skipIntro" (click)="setSkipIntro(!s.skipIntro)" data-tooltip="Toggle skip intro"></div>
+        <button type="button" class="switch" role="switch" [attr.aria-checked]="!!s.skipIntro" [class.on]="s.skipIntro" (click)="setSkipIntro(!s.skipIntro)" aria-label="Skip intro on launch" data-tooltip="Toggle skip intro"></button>
       </div>
     </div>
 
@@ -101,15 +101,13 @@
         <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Groq</a>:
         it is stored only on this device and used before the shared relay.
       </p>
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <select class="text-input" style="flex:0 0 150px;padding:11px 10px" aria-label="Key provider" data-tooltip="Which service your personal key belongs to" (change)="setProvider($any($event.target).value)">
-          @for (p of byok.providerList; track p.id) {
-            <option [value]="p.id" [selected]="byok.provider() === p.id">{{ p.label }}</option>
-          }
-        </select>
-        <input type="password" id="gemini-key-input" [placeholder]="keyPlaceholder()" autocomplete="off" spellcheck="false" aria-label="Personal AI API key"
-          style="flex:1;min-width:180px;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text);font-size:13px" [(ngModel)]="keyInput" />
+      <div class="byok-providers" role="group" aria-label="Key provider">
+        @for (p of byok.providerList; track p.id) {
+          <button type="button" class="pchip" [class.on]="byok.provider() === p.id" [attr.aria-pressed]="byok.provider() === p.id" (click)="setProvider(p.id)">{{ p.label }}</button>
+        }
       </div>
+      <input type="password" id="gemini-key-input" [placeholder]="keyPlaceholder()" autocomplete="off" spellcheck="false" aria-label="Personal AI API key"
+        style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text);font-size:13px" [(ngModel)]="keyInput" />
       <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <button class="btn btn-primary" style="flex:1;min-width:110px" (click)="saveKey()"><span [innerHTML]="'check' | ico"></span> Save key</button>
         <button class="btn btn-secondary" style="flex:1;min-width:110px" (click)="removeKey()"><span [innerHTML]="'trash' | ico"></span> Remove</button>
@@ -229,6 +227,12 @@
         <button class="btn btn-secondary" (click)="removeDemo()" data-tooltip="Strip out every demo-tagged record; your own data stays"><span [innerHTML]="'trash' | ico"></span> Remove demo</button>
       </div>
       <p class="faint" style="font-size:11.5px;margin-top:10px;text-align:center">{{ demoBlurb }} — safe to re-run, tagged so Remove demo only ever strips the samples.</p>
+      <div class="demo-sheet-grid">
+        @for (s of demoSheets; track s.file) {
+          <a class="demo-sheet-item" [href]="s.url" target="_blank" rel="noopener" [attr.aria-label]="'Open demo answer sheet — ' + s.label">{{ s.label }}</a>
+        }
+      </div>
+      <p class="faint demo-sheet-note">Load demo data first. Display a sheet on another screen and scan it with the phone — each one links to its student.</p>
     </div>
 
     <div class="section-title"><span class="set-sec-ico" [innerHTML]="'trash' | ico"></span>Danger zone</div>
@@ -251,4 +255,24 @@
       </div>
     </div>
   </div>
+
+  @if (removePickerOpen()) {
+    <div class="org-overlay" (click)="removePickerOpen.set(false)">
+      <div class="org-sheet" (click)="$event.stopPropagation()">
+        <h3>Remove a profile</h3>
+        <p class="faint" style="font-size:12px;margin:4px 0 10px">Only the other profiles on this device can be removed. Their data is deleted permanently.</p>
+        <div class="picker-list">
+          @for (a of otherAccounts(); track a.id) {
+            <button type="button" class="roster-row" (click)="confirmRemoveAccount(a)">
+              <span class="roster-name">{{ a.name }}</span>
+              <span class="roster-cls">Remove</span>
+            </button>
+          }
+        </div>
+        <div class="org-sheet-actions">
+          <button type="button" class="btn btn-secondary" (click)="removePickerOpen.set(false)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
 </ion-content>

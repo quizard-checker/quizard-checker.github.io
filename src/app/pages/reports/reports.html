@@ -35,16 +35,29 @@
       </div>
       <div class="section-title">Pick a class</div>
       <div class="create-grid">
-        @for (cls of classes(); track cls.id) {
-          <div class="doc-card cq-card" (click)="openClass(cls.id)" data-tooltip="Open class results">
-            <div class="cls-banner cq-banner {{ bannerTheme(cls.id) }}">
-              <div class="cls-title">{{ cls.name }}</div>
-              @if (classSub(cls)) { <div class="cls-sub">{{ classSub(cls) }}</div> }
+        @for (c of classSummaries(); track c.cls.id) {
+          <div class="doc-card cq-card" (click)="openClass(c.cls.id)" data-tooltip="Open class results">
+            <div class="cls-banner cq-banner {{ bannerTheme(c.cls.id) }}">
+              <div class="cls-title">{{ c.cls.name }}</div>
+              @if (classSub(c.cls)) { <div class="cls-sub">{{ classSub(c.cls) }}</div> }
             </div>
-            <div class="cq-body">
-              <span class="key-chip">{{ sheets().filter(s => s.classId === cls.id).length }} checked</span>
-              <span class="key-chip src">avg {{ classAvgOf(cls.id) }}%</span>
-              <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
+            <div class="cq-body cq-results-body">
+              <div class="cq-results-head">
+                <span class="key-chip">{{ c.checked }} checked</span>
+                @if (c.rows.length > 1) {
+                  <span class="learn-chip {{ c.learning.status }}">{{ learningChip(c.learning) }}</span>
+                }
+                <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
+              </div>
+              <div class="cq-quiz-list">
+                @for (q of c.rows; track q.quizId) {
+                  <div class="cq-quiz-row" [attr.title]="q.count + ' paper' + (q.count === 1 ? '' : 's') + ' checked'">
+                    <span class="cq-quiz-name">{{ q.label }}</span>
+                    <span class="cq-quiz-count">{{ q.count }}</span>
+                    <span class="cq-quiz-avg">{{ q.avg }}%</span>
+                  </div>
+                }
+              </div>
             </div>
           </div>
         }
@@ -56,19 +69,35 @@
         <div class="hero-ico" [innerHTML]="'users' | ico"></div>
         <div>
           <h1>{{ selectedClass()?.name }}</h1>
-          <p>{{ activeSheets().length }} checked · average {{ classAvg() }}%{{ quizOptions().length > 1 ? ' · this quiz' : '' }}</p>
+          <p>{{ activeSheets().length }} checked · average {{ classAvg() }}%{{ quizRows().length > 1 ? ' · this quiz' : '' }}</p>
         </div>
       </div>
 
-      @if (quizOptions().length > 1) {
-        <div class="quiz-filter" role="tablist" aria-label="Choose which quiz's results to show">
-          @for (q of quizOptions(); track q.id) {
-            <button type="button" class="qf-pill" [class.on]="pickedQuizId() === q.id" [attr.aria-pressed]="pickedQuizId() === q.id" (click)="setQuizFilter(q.id)">
-              {{ q.label }} <span class="faint">· {{ q.items }}</span>
-            </button>
-          }
+      <div class="section-title">Average by quiz</div>
+      <div class="quiz-avg-list">
+        @for (r of quizRows(); track r.quizId) {
+          <button type="button" class="quiz-avg-row" [class.on]="pickedQuizId() === r.quizId" [attr.aria-pressed]="pickedQuizId() === r.quizId" (click)="setQuizFilter(r.quizId)" [attr.title]="r.count + ' paper' + (r.count === 1 ? '' : 's') + ' checked'">
+            <span class="quiz-avg-name">
+              <span class="quiz-avg-label">{{ r.label }}</span>
+              <span class="quiz-avg-count">· {{ r.count }}</span>
+            </span>
+            <span class="quiz-avg-track"><span class="quiz-avg-fill" [style.width.%]="r.avg"></span></span>
+            <span class="quiz-avg-val">{{ r.avg }}%</span>
+            @if (r.delta !== null) {
+              <span class="quiz-avg-delta" [class.up]="r.delta > 0 && r.deltaComparable" [class.down]="r.delta < 0 && r.deltaComparable">{{ r.delta > 0 ? '+' : '' }}{{ r.delta }}</span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="section-title">Is the class learning?</div>
+      <div class="learning-card {{ learning().status }}">
+        <span class="learning-ico" [innerHTML]="(learning().status === 'improving' ? 'check' : learning().status === 'slipping' ? 'alert' : 'chart') | ico"></span>
+        <div>
+          <div class="learning-title">{{ learningTitle() }}</div>
+          <div class="learning-sub">{{ learningSub() }}</div>
         </div>
-      }
+      </div>
 
       <div class="stats-row">
         <div class="stat"><div class="num">{{ classAvg() }}%</div><div class="lbl">Average</div></div>
@@ -78,19 +107,8 @@
         <div class="stat"><div class="num">{{ hardest()?.percent }}%</div><div class="lbl">Lowest</div></div>
       </div>
 
-      @if (weak().length) {
-        <div class="section-title">Reteach first — most missed</div>
-        @for (r of weak(); track r.n) {
-          <div class="weak-row">
-            <span class="qnum">{{ r.n }}</span>
-            <span class="weak-q">{{ r.question || 'Question ' + r.n }}</span>
-            <span class="weak-rate {{ r.missRate >= 50 ? 'bad' : r.missRate >= 25 ? 'warn' : 'dim' }}">{{ r.missRate }}%</span>
-          </div>
-        }
-      }
-
       @if (sections().length) {
-        <div class="section-title">By section</div>
+        <div class="section-title">By student section</div>
         <div class="sect-rows">
           @for (s of sections(); track s.section) {
             <div class="sect-row">
@@ -116,23 +134,10 @@
         }
       </div>
 
-      @if (analysis().length) {
-        <div class="section-title">Every question — miss rate</div>
-        <div class="q-heat" role="img" [attr.aria-label]="'Miss rate per question: ' + analysis().map(r => 'Q' + r.n + ' ' + r.missRate + '%').join(', ')">
-          @for (r of analysis(); track r.n) {
-            <div class="q-heat-cell {{ r.missRate >= 50 ? 'bad' : r.missRate >= 25 ? 'warn' : 'ok' }}" [title]="(r.question || 'Question ' + r.n) + ' — missed by ' + r.missRate + '% of the class'">
-              <span class="q-heat-n">{{ r.n }}</span>
-              <span class="q-heat-pct">{{ r.missRate }}%</span>
-            </div>
-          }
-        </div>
-        <p class="faint" style="font-size:11.5px;margin:8px 2px 0">Red — missed by half the class or more · amber 25–49%. The full per-question table is in the CSV and Report PDF.</p>
-      }
-
       <div class="export-grid" style="margin-top:18px">
         <button class="btn btn-primary" (click)="exportCsv()"><span [innerHTML]="'download' | ico"></span> CSV</button>
         <button class="btn btn-primary" (click)="exportPdf()"><span [innerHTML]="'fileText' | ico"></span> Report PDF</button>
-        <button class="btn btn-primary" (click)="exportReview()"><span [innerHTML]="'users' | ico"></span> Answer review</button>
+        <button class="btn btn-primary" (click)="exportReview()"><span [innerHTML]="'users' | ico"></span> Review PDF</button>
       </div>
       <p class="faint center" style="font-size:11.5px;padding-bottom:12px">Everything is generated on this device.</p>
     </div>

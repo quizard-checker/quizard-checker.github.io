@@ -32,13 +32,11 @@
         <div class="cr-stat">
           <span class="cr-stat-ico quiz" [innerHTML]="'fileText' | ico"></span>
           <div class="cr-stat-txt"><b>{{ quizCount() }}</b><span>Quiz{{ quizCount() === 1 ? '' : 'zes' }}</span></div>
-          <span class="cr-chev" [innerHTML]="'chevronRight' | ico"></span>
         </div>
         <div class="cr-sep"></div>
         <div class="cr-stat">
           <span class="cr-stat-ico done" [style.background]="'conic-gradient(var(--good) ' + ringPct() + '%, var(--surface-2) 0)'"><span class="cr-stat-ico-in"></span></span>
-          <div class="cr-stat-txt"><b>{{ completedOf() }}/{{ c.students.length }}</b><span>Completed</span></div>
-          <span class="cr-chev" [innerHTML]="'chevronRight' | ico"></span>
+          <div class="cr-stat-txt"><b>{{ completedOf() }}/{{ c.students.length }}</b><span>With scores</span></div>
         </div>
       </div>
 
@@ -103,43 +101,6 @@
               </div>
             </div>
           }
-        </div>
-      }
-
-      @if (answersStudent(); as st) {
-        <div class="org-overlay" (click)="closeAnswers()">
-          <div class="org-sheet answers-sheet" (click)="$event.stopPropagation()">
-            <h3>{{ st.no ? st.no + ' · ' : '' }}{{ st.name }}</h3>
-            <p class="faint" style="font-size:11.5px;margin:0 0 12px">
-              {{ cls()?.name }} · {{ records(st).length }} quiz result{{ records(st).length === 1 ? '' : 's' }}
-            </p>
-            <div class="answers-body">
-              @for (r of records(st); track r.quizId) {
-                <div class="roster-rec">
-                  <div class="roster-rec-head">
-                    <span class="roster-rec-quiz">{{ r.quiz }}</span>
-                    <span class="roster-rec-meta">
-                      <span class="score-pill {{ pill(r.percent) }}">{{ r.correct }}/{{ r.total }} · {{ r.percent }}%</span>
-                      <span class="roster-rec-date">{{ fmtDate(r.date) }}</span>
-                      <button class="icon-btn doc-delete-btn" (click)="removeRecord(st, r)" [attr.aria-label]="'Remove ' + st.name + ' result'" data-tooltip="Remove result" [innerHTML]="'trash' | ico"></button>
-                    </span>
-                  </div>
-                  @if (answersOf(r).length) {
-                    <div class="ans-strip">
-                      @for (a of answersOf(r); track $index) {
-                        <span class="ans-cell" [class.ok]="a.right" [class.bad]="!a.right && !a.blank" [class.blank]="a.blank" [title]="a.right ? 'Correct' : (a.blank ? 'Left blank' : 'Key: ' + a.key)">
-                          <i>{{ a.n }}</i>{{ a.pick || '—' }}@if (a.key) { <em>→ {{ a.key }}</em> }
-                        </span>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-            <div class="org-sheet-actions">
-              <button class="btn btn-secondary" (click)="closeAnswers()">Close</button>
-            </div>
-          </div>
         </div>
       }
 

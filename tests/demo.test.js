@@ -12,6 +12,7 @@ globalThis.localStorage = {
 
 import { DEMO_SNAPSHOT } from '../src/app/core/engine/demo-data.js'
 import { buildDemoWorld, demoSummary, seedDemoData } from '../src/app/core/engine/demo.js'
+import { resolveDemoSheet, DEMO_SHEET } from '../src/app/core/engine/demo-sheet.js'
 import {
   accountHasData, clearAllData, createAccount, deleteAccount, deleteDemoData, listClasses, listKeys,
   listQuizzes, listSheets, saveClass, saveKey, saveQuiz, saveSheet, setActiveAccount
@@ -47,6 +48,13 @@ describe('bundled demo world', () => {
       expect(rec.demo).toBe(true)
       expect(rec.id.startsWith('demo-accounta-')).toBe(true)
     }
+    for (const rec of world.classes) expect(rec.demoKey).toBeTruthy()
+    for (const rec of world.quizzes) expect(rec.demoKey).toBeTruthy()
+    expect(world.classes.find(c => c.name === 'English 8-B')?.demoKey).toBe('demo-cls-eng')
+    expect(world.quizzes.find(q => q.title === 'Verb Tenses')?.demoKey).toBe('demo-quiz-2')
+    const sheetMatch = resolveDemoSheet({ demo: DEMO_SHEET }, world.classes, world.quizzes)
+    expect(sheetMatch?.student.name).toBe('Ivan Ramos')
+    expect(sheetMatch?.quiz.title).toBe('Verb Tenses')
 
     // Seeding must never be able to overwrite a real record on the same phone.
     // (Reusing an old demo id is fine — those rows are demo-tagged too.)

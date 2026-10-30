@@ -180,9 +180,9 @@ export function applyH(H, x, y) {
   return { x: (H[0] * x + H[1] * y + H[2]) / w, y: (H[3] * x + H[4] * y + H[5]) / w }
 }
 
-export function decodeQr(data, width, height) {
+export function decodeQr(data, width, height, options) {
   try {
-    const res = jsQR(data, width, height)
+    const res = options ? jsQR(data, width, height, options) : jsQR(data, width, height)
     return res && res.data ? res.data : null
   } catch { return null }
 }
