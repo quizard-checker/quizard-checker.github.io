@@ -84,6 +84,7 @@
             <span>
               @if (g.unassigned) { Assign a class to organize {{ g.quizzes.length === 1 ? 'this quiz' : 'these quizzes' }} }
               @else if (g.missing) { Class removed — pick a new class }
+              @else if (g.archived) { Archived · {{ g.subject || 'No subject' }} }
               @else { {{ g.subject || 'No subject' }} }
               · {{ g.quizzes.length }} quiz{{ g.quizzes.length === 1 ? '' : 'zes' }}
             </span>
@@ -419,7 +420,7 @@
         <span class="faint">Class:</span>
         <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Class for this quiz'" (change)="setSheetClassId($any($event.target).value)">
           <option value="" [selected]="!sheetClassId()" disabled>— pick a class —</option>
-          @for (c of classList(); track c.id) {
+          @for (c of assignableClasses(); track c.id) {
             <option [value]="c.id" [selected]="sheetClassId() === c.id">{{ c.name }} · {{ c.students.length }} students</option>
           }
         </select>
@@ -536,9 +537,9 @@
       <div class="org-sheet picker-sheet" (click)="$event.stopPropagation()">
         <h3>Which class is this quiz for?</h3>
         <p class="faint" style="font-size:12px;margin:4px 0 10px">A quiz belongs to one class. Its sheets print that class's roster, one page per student.</p>
-        @if (classList().length) {
+        @if (assignableClasses().length) {
           <div class="picker-list">
-            @for (c of classList(); track c.id) {
+            @for (c of assignableClasses(); track c.id) {
               <button type="button" class="roster-row" [class.on]="quizClassId() === c.id" (click)="pickClass(c)">
                 <span class="roster-name">{{ c.name }}</span>
                 <span class="roster-cls">{{ c.subject || 'No subject' }} · {{ c.students.length }} student{{ c.students.length === 1 ? '' : 's' }}</span>

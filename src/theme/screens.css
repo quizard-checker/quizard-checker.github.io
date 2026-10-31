@@ -166,6 +166,12 @@
 .cls-stats { display: flex; align-items: baseline; gap: 6px; }
 .cls-stats b { font-size: 22px; font-weight: 800; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .cls-stats span { font-size: 12px; font-weight: 600; color: var(--text-faint); }
+.cls-stats .key-chip.sy {
+  font-family: inherit; font-size: 11px; font-weight: 800; align-self: center;
+  color: var(--accent-strong); background: var(--accent-soft); border-color: var(--accent-border);
+}
+.cls-card.archived { opacity: .78; }
+.cls-card.archived .cls-banner { filter: grayscale(.35); }
 .cls-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .class-grid .doc-actions { margin-top: 14px; }
 .class-grid .doc-actions .btn-secondary { flex: 1; padding: 12px 14px; }

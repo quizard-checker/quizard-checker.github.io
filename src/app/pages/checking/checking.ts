@@ -41,6 +41,8 @@ export class CheckingPage {
 
   stage = signal<'setup' | 'scan' | 'result'>('setup');
   classes = signal<any[]>([]);
+  // Archived classes keep their history but are not scanning targets.
+  readonly activeClasses = computed(() => this.classes().filter(c => !c.archived));
   quizzes = signal<any[]>([]);
   sheets = signal<any[]>([]);
   classId = signal<string | null>(null);

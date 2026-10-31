@@ -10,6 +10,7 @@ export const DEMO_SNAPSHOT = {
       "grade": "8",
       "section": "Molave",
       "subject": "English",
+      "schoolYear": "2026-2027",
       "students": [
         {
           "name": "Ivan Ramos",
@@ -68,6 +69,7 @@ export const DEMO_SNAPSHOT = {
       "grade": "7",
       "section": "Sampaguita",
       "subject": "Science",
+      "schoolYear": "2026-2027",
       "students": [
         {
           "name": "Ana Reyes",
@@ -110,6 +112,7 @@ export const DEMO_SNAPSHOT = {
       "grade": "9",
       "section": "Narra",
       "subject": "Computer",
+      "schoolYear": "2026-2027",
       "students": [
         {
           "name": "Paolo Cruz",

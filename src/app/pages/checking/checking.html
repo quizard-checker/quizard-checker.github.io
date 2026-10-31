@@ -28,7 +28,7 @@
       @if (classes().length) {
         <div class="section-title">Which class are you checking?</div>
         <div class="scan-grid">
-          @for (cls of classes(); track cls.id) {
+          @for (cls of activeClasses(); track cls.id) {
             <button class="scan-cls {{ bannerTheme(cls) }}" [class.on]="classId() === cls.id" [attr.aria-pressed]="classId() === cls.id" (click)="classId.set(cls.id)">
               <span class="scan-cls-title">{{ cls.name }}</span>
               <span class="scan-cls-sub">{{ cls.subject }}{{ cls.subject && (cls.grade || cls.section) ? ' · ' : '' }}{{ cls.grade }}{{ cls.grade && cls.section ? ' — ' : '' }}{{ cls.section }} · {{ cls.students.length }} student{{ cls.students.length === 1 ? '' : 's' }}</span>

@@ -33,6 +33,7 @@ export class ClassesPage {
   grade = signal('');
   section = signal('');
   subject = signal('');
+  schoolYear = signal('');
   paste = signal('');
 
   readonly previewCount = computed(() => parseRoster(this.paste()).students.length);
@@ -43,7 +44,12 @@ export class ClassesPage {
     return (cls?.students || []).slice().sort((a: any, b: any) => (a.no || 0) - (b.no || 0));
   });
   readonly previewSkipped = computed(() => parseRoster(this.paste()).skipped);
-  readonly totalStudents = computed(() => this.classes().reduce((s, c) => s + (c.students?.length || 0), 0));
+  // The current school year's classes lead; archived ones keep their history
+  // in a separate section instead of cluttering the main grid.
+  readonly activeClasses = computed(() => this.classes().filter(c => !c.archived));
+  readonly archivedClasses = computed(() => this.classes().filter(c => c.archived));
+  readonly totalStudents = computed(() =>
+    this.activeClasses().reduce((s, c) => s + (c.students?.length || 0), 0));
 
   // One clean meta line per tile: "Biology · 7 — A". Built in TS so the
   // template never has to manage separators around missing fields.
@@ -96,6 +102,7 @@ export class ClassesPage {
     this.grade.set(cls?.grade || '');
     this.section.set(cls?.section || '');
     this.subject.set(cls?.subject || '');
+    this.schoolYear.set(cls?.schoolYear || '');
     this.paste.set('');
     this.sheetOpen.set(true);
   }
@@ -120,7 +127,12 @@ export class ClassesPage {
 
   async saveSheet() {
     const name = this.name().trim();
+    const schoolYear = this.schoolYear().trim();
     if (!name) return;
+    if (!schoolYear) {
+      this.toast.toast('School year is required — e.g. 2026-2027', true);
+      return;
+    }
     const prev = this.classes().find(c => c.id === this.editingId());
     // editing an existing class without re-pasting keeps its roster — only a
     // fresh paste replaces the students
@@ -144,6 +156,8 @@ export class ClassesPage {
       grade: this.grade().trim(),
       section: this.section().trim(),
       subject: this.subject().trim(),
+      schoolYear,
+      archived: prev?.archived || false,
       students,
     });
     this.sheetOpen.set(false);
@@ -163,5 +177,25 @@ export class ClassesPage {
         this.toast.toast('Class restored');
       }
     });
+  }
+
+  async archive(cls: any) {
+    if (!await this.confirm.confirm(`Archive “${cls.name}”?`, 'It moves out of the way with all its results. You can restore it any time.', 'Archive')) return;
+    await saveClass({ ...cls, archived: true });
+    await this.load();
+    this.toast.toast(`${cls.name} archived`, false, {
+      text: 'Undo',
+      handler: async () => {
+        await saveClass({ ...cls, archived: false });
+        await this.load();
+        this.toast.toast('Class restored');
+      }
+    });
+  }
+
+  async restore(cls: any) {
+    await saveClass({ ...cls, archived: false });
+    await this.load();
+    this.toast.toast(`${cls.name} restored`);
   }
 }

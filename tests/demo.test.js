@@ -64,6 +64,7 @@ describe('bundled demo world', () => {
     expect(byTitle('Computer Basics')?.classId).toBe(ict.id)
     expect(byTitle('Science — answer key')?.classId).toBe(science.id)
     for (const q of world.quizzes) expect(q.classId).toBeTruthy()
+    for (const c of world.classes) expect(c.schoolYear).toBe('2026-2027')
     const quizById = new Map(world.quizzes.map(q => [q.id, q]))
     for (const sheet of world.sheets) {
       expect(sheet.classId).toBe(quizById.get(sheet.quizId).classId)

@@ -180,6 +180,9 @@ export class CreatePage {
     return resolveQuizClass({ classId: id, className: this.quizClassNameSnap() }, this.classList());
   });
   readonly quizGroups = computed(() => groupQuizzesByClass(this.homeQuizzes(), this.classList()));
+  // New quizzes and printing always target a live (non-archived) class; archived
+  // classes stay visible only where history is shown.
+  readonly assignableClasses = computed(() => this.classList().filter(c => !c.archived));
   readonly quizTitle = quizTitle;
   readonly quizClassLabel = (q: any) => quizClassLabel(q, this.classList());
   readonly quizClassOf = (q: any) => resolveQuizClass(q, this.classList());
@@ -232,7 +235,7 @@ export class CreatePage {
       this.savedKeys.set(await listKeys());
       // One class means there is nothing to choose; preselect it. With several
       // classes the teacher picks one explicitly (it also names the subject).
-      if (!this.quizClassId() && this.classList().length === 1) this.pickClass(this.classList()[0]);
+      if (!this.quizClassId() && this.assignableClasses().length === 1) this.pickClass(this.assignableClasses()[0]);
       // prefill the subject: from the key we arrived with, else from the class
       if (!this.subject().trim()) {
         const fromKey = this.pickedKey()?.subject;

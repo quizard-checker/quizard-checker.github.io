@@ -13,11 +13,11 @@
         <div class="hero-ico" [innerHTML]="'users' | ico"></div>
         <div>
           <h1>Your classes</h1>
-          <p>{{ classes().length }} class{{ classes().length === 1 ? '' : 'es' }} · {{ totalStudents() }} students</p>
+          <p>{{ activeClasses().length }} class{{ activeClasses().length === 1 ? '' : 'es' }} · {{ totalStudents() }} students</p>
         </div>
       </div>
       <div class="doc-list class-grid">
-        @for (cls of classes(); track cls.id) {
+        @for (cls of activeClasses(); track cls.id) {
           <div class="doc-card cls-card" (click)="viewRoster(cls)" data-tooltip="View students">
             <div class="cls-banner {{ themeOf(cls) }}">
               <div class="cls-title">{{ cls.name }}</div>
@@ -28,6 +28,7 @@
             </div>
             <div class="cls-body">
               <div class="cls-stats">
+                @if (cls.schoolYear) { <span class="key-chip sy">{{ cls.schoolYear }}</span> }
                 <b>{{ cls.students.length }}</b>
                 <span>student{{ cls.students.length === 1 ? '' : 's' }}</span>
               </div>
@@ -44,6 +45,7 @@
               <div class="doc-actions">
                 <button class="btn btn-secondary" (click)="viewRoster(cls); $event.stopPropagation()">View students <span [innerHTML]="'chevronRight' | ico"></span></button>
                 <button class="icon-btn" (click)="openSheet(cls); $event.stopPropagation()" [attr.aria-label]="'Edit ' + cls.name" data-tooltip="Edit class" [innerHTML]="'pencil' | ico"></button>
+                <button class="icon-btn" (click)="archive(cls); $event.stopPropagation()" [attr.aria-label]="'Archive ' + cls.name" data-tooltip="Archive — keep results, hide from the list" [innerHTML]="'archive' | ico"></button>
                 <button class="icon-btn doc-delete-btn" (click)="remove(cls); $event.stopPropagation()" [attr.aria-label]="'Delete ' + cls.name" data-tooltip="Delete class" [innerHTML]="'trash' | ico"></button>
               </div>
             </div>
@@ -51,6 +53,30 @@
         }
       </div>
       <button class="btn btn-primary" style="display:flex;max-width:230px;margin:18px auto 0" (click)="openSheet()"><span [innerHTML]="'plus' | ico"></span> Add class</button>
+      @if (archivedClasses().length) {
+        <div class="section-title" style="margin-top:22px">Archived</div>
+        <div class="doc-list class-grid">
+          @for (cls of archivedClasses(); track cls.id) {
+            <div class="doc-card cls-card archived" (click)="viewRoster(cls)" data-tooltip="View students and results">
+              <div class="cls-banner {{ themeOf(cls) }}">
+                <div class="cls-title">{{ cls.name }}</div>
+                @if (cls.schoolYear) { <div class="cls-sub">{{ cls.schoolYear }}</div> }
+                <div class="cls-avatar" aria-hidden="true">{{ avatarOf(cls) }}</div>
+              </div>
+              <div class="cls-body">
+                <div class="cls-stats">
+                  <b>{{ cls.students.length }}</b>
+                  <span>student{{ cls.students.length === 1 ? '' : 's' }}</span>
+                </div>
+                <div class="doc-actions">
+                  <button class="btn btn-secondary" (click)="restore(cls); $event.stopPropagation()"><span [innerHTML]="'folder' | ico"></span> Restore</button>
+                  <button class="icon-btn doc-delete-btn" (click)="remove(cls); $event.stopPropagation()" [attr.aria-label]="'Delete ' + cls.name" data-tooltip="Delete class" [innerHTML]="'trash' | ico"></button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
     } @else {
       <div class="empty-state">
         <div class="empty-ico" [innerHTML]="'users' | ico"></div>
@@ -65,6 +91,7 @@
         <div class="org-sheet" (click)="$event.stopPropagation()">
           <h3>{{ editingId() ? 'Edit class' : 'Add class' }}</h3>
           <input class="text-input" placeholder="Class name (e.g. 8 — Sampaguita)" [attr.aria-label]="'Class name'" maxlength="60" autocomplete="off" [value]="name()" (input)="name.set($any($event.target).value)" />
+          <input class="text-input" placeholder="School year (required — e.g. 2026-2027)" [attr.aria-label]="'School year'" maxlength="20" autocomplete="off" [value]="schoolYear()" (input)="schoolYear.set($any($event.target).value)" />
           <div class="form-row">
             <input class="text-input" placeholder="Grade (optional)" [attr.aria-label]="'Grade'" maxlength="20" [value]="grade()" (input)="grade.set($any($event.target).value)" />
             <input class="text-input" placeholder="Section (optional)" [attr.aria-label]="'Section'" maxlength="30" [value]="section()" (input)="section.set($any($event.target).value)" />
@@ -90,7 +117,7 @@
           }
           <div class="org-sheet-actions">
             <button class="btn btn-secondary" (click)="closeSheet()">Cancel</button>
-            <button class="btn btn-primary" [disabled]="!name().trim() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
+            <button class="btn btn-primary" [disabled]="!name().trim() || !schoolYear().trim() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
           </div>
         </div>
       </div>

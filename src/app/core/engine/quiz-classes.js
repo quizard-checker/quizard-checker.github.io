@@ -31,7 +31,7 @@ export function quizClassLabel(quiz, classes = []) {
  * Group quizzes under their class, keeping the caller's class order, then a
  * synthetic group for deleted classes and finally unassigned quizzes.
  * @returns {Array<{ id: string, name: string, subject: string,
- *   quizzes: any[], missing: boolean, unassigned: boolean }>}
+ *   quizzes: any[], missing: boolean, unassigned: boolean, archived: boolean }>}
  */
 export function groupQuizzesByClass(quizzes = [], classes = []) {
   const groups = []
@@ -44,6 +44,7 @@ export function groupQuizzesByClass(quizzes = [], classes = []) {
       quizzes: [],
       missing: false,
       unassigned: false,
+      archived: !!c.archived,
     }
     groups.push(group)
     byId.set(c.id, group)
@@ -56,6 +57,7 @@ export function groupQuizzesByClass(quizzes = [], classes = []) {
     quizzes: [],
     missing: false,
     unassigned: true,
+    archived: false,
   }
   const missing = new Map()
 
@@ -75,6 +77,7 @@ export function groupQuizzesByClass(quizzes = [], classes = []) {
           quizzes: [],
           missing: true,
           unassigned: false,
+          archived: false,
         }
         missing.set(q.classId, group)
         groups.push(group)

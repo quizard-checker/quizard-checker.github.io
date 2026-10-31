@@ -353,7 +353,8 @@ export async function listDocs() {
  */
 /**
  * @typedef {{ id: string, accountId: string, name: string, grade: string,
- *   section: string, subject?: string, students: RosterStudent[],
+ *   section: string, subject?: string, schoolYear?: string, archived?: boolean,
+ *   students: RosterStudent[],
  *   createdAt: number }} TeacherClass
  */
 /**
