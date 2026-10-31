@@ -208,9 +208,11 @@ html[data-theme="dark"] .btn-primary:hover { color: #062124; }
 .float-qr { bottom: 82px; right: -12px; animation: floatFade .6s .85s both, floatY 5s 2.5s ease-in-out infinite; }
 .qr-mini {
   width: 30px; height: 30px; border-radius: 7px;
+  /* QR modules stay ink-dark in every theme — var(--text) went white in dark
+     mode and erased the pattern against the white base. */
   background:
-    linear-gradient(90deg, var(--text) 25%, transparent 25% 50%, var(--text) 50% 75%, transparent 75%),
-    linear-gradient(var(--text) 25%, transparent 25% 50%, var(--text) 50% 75%, transparent 75%),
+    linear-gradient(90deg, #0b0820 25%, transparent 25% 50%, #0b0820 50% 75%, transparent 75%),
+    linear-gradient(#0b0820 25%, transparent 25% 50%, #0b0820 50% 75%, transparent 75%),
     #fff;
   background-size: 8px 8px; border: 1px solid var(--border);
 }
