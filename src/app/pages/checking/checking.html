@@ -148,7 +148,7 @@
           <div class="org-sheet score-pop" (click)="$event.stopPropagation()">
             <p class="score-pop-name">{{ pop.name }}@if (pop.section) {<span class="faint"> · {{ pop.section }}</span>}</p>
             <h1 class="score-pop-pct">{{ pop.percent }}%</h1>
-            <p class="score-pop-sub">{{ pop.correct }} of {{ pop.total }} correct — recorded ✓</p>
+            <p class="score-pop-sub">{{ pop.quiz }} · {{ pop.correct }} of {{ pop.total }} correct — recorded ✓</p>
             <div class="score-pop-actions">
               <button class="btn btn-primary" (click)="scorePop.set(null)">Next sheet</button>
               <button class="btn btn-secondary" (click)="fixScore()">Fix score</button>

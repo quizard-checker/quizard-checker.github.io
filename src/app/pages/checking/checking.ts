@@ -5,6 +5,7 @@ import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz }
 import { readSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { resolveDemoSheet } from '../../core/engine/demo-sheet.js';
+import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { liveScanStep, LIVE_SCAN } from '../../core/engine/live-scan.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
@@ -75,7 +76,7 @@ export class CheckingPage {
   // The score that pops up over the scanner the moment a sheet is read and
   // recorded, so the teacher sees the result without tapping through a screen.
   // Shaped by recordResult(); null means no popup.
-  scorePop = signal<{ id: string; name: string; section: string; percent: number; correct: number; total: number } | null>(null);
+  scorePop = signal<{ id: string; name: string; section: string; quiz: string; percent: number; correct: number; total: number } | null>(null);
 
   cameraActive = signal(false);
   // The live viewfinder scans by itself: it waits for a sheet QR to sit still
@@ -600,7 +601,9 @@ export class CheckingPage {
       photo: this.photo() || undefined,
     });
     await this.refreshSession();
-    return { id: saved.id, name, section: saved.section || '', percent: s.percent, correct: s.correct, total: s.total };
+    // The popup names the quiz: with several quizzes per class, "recorded ✓"
+    // alone never says where the scan just landed.
+    return { id: saved.id, name, section: saved.section || '', quiz: quizTitle(quiz), percent: s.percent, correct: s.correct, total: s.total };
   }
 
   async saveResult() {
