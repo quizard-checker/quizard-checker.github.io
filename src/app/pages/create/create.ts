@@ -11,13 +11,13 @@ import { parseKeyText } from '../../core/engine/answerkey.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
 import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz } from '../../core/engine/storage.js';
 import { fmtDate, bannerTheme } from '../../shared/helpers.js';
-import { DOCS_URL } from '../../shared/docs-url';
 import { buildBubbleSheetsPdf } from '../../core/engine/export.js';
 import { quizTitle, quizClassLabel, groupQuizzesByClass, resolveQuizClass } from '../../core/engine/quiz-classes.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ByokService } from '../../core/services/byok.service';
+import { GuideService } from '../../core/services/guide.service';
 
 const MODES = [
   { id: 'key', label: 'Anchor to my key', hint: 'You have the answers — the quiz follows your key exactly', io: 'answer key → quiz' },
@@ -36,6 +36,7 @@ export class CreatePage {
   ui = inject(UiStateService);
   readonly byok = inject(ByokService);
   private toast = inject(ToastService);
+  readonly guide = inject(GuideService);
 
   // Android WebView has no download manager for blob URLs, so the native build
   // hands the PDF to the system share sheet instead of a browser download.
@@ -48,7 +49,6 @@ export class CreatePage {
   // subject-colored tile reads consistently across the app.
   readonly bannerTheme = bannerTheme;
   readonly letters = ['A', 'B', 'C', 'D'];
-  readonly docsUrl = DOCS_URL;
 
   stage = signal<'home' | 'setup' | 'review' | 'export'>('home');
 

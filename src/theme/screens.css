@@ -1852,11 +1852,24 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
 .hero-help {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
   padding: 7px 12px; border-radius: 999px;
-  font-size: 12px; font-weight: 800; text-decoration: none;
+  font: inherit; font-size: 12px; font-weight: 800; text-decoration: none; cursor: pointer;
   color: var(--accent-strong); background: var(--accent-soft);
   border: 1px solid var(--accent-border);
 }
 .hero-help:hover { border-color: var(--accent); color: var(--accent-strong); }
+
+/* In-app "How to use Quizard" preview — replaces the external docs jump. */
+.guide-sheet { width: min(100%, 520px); }
+.guide-sub { margin: 2px 0 14px; font-size: 12.5px; color: var(--text-dim); }
+.guide-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.guide-step { display: flex; align-items: flex-start; gap: 12px; }
+.guide-step-ico {
+  width: 38px; height: 38px; border-radius: 12px; flex: none;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-strong);
+}
+.guide-step-ico svg { width: 18px; height: 18px; }
+.guide-step div > b { display: block; font-size: 13.5px; font-weight: 800; color: var(--text); }
+.guide-step div > span { display: block; margin-top: 1px; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
 /* Labeled shortcuts on the Quizzes home — Answer keys and Results used to be
    icon-only header actions, which teachers could not discover on a phone. */
 .home-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; margin: 14px 0 0; }

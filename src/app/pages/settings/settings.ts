@@ -16,7 +16,7 @@ import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { ByokService } from '../../core/services/byok.service';
-import { DOCS_URL } from '../../shared/docs-url';
+import { GuideService } from '../../core/services/guide.service';
 import { encryptBackup, decryptBackup } from '../../core/engine/crypto-backup.js';
 import { generateSyncCode, getSyncInfo, turnOffSync, activateSync, pushSync, pullSync, changeSyncPassword } from '../../core/engine/sync.js';
 import { normalizeSyncCode } from '../../core/engine/sync.js';
@@ -44,9 +44,9 @@ export class SettingsPage implements OnInit {
   ui = inject(UiStateService);
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
+  readonly guide = inject(GuideService);
   private location = inject(Location);
   readonly byok = inject(ByokService);
-  readonly docsUrl = DOCS_URL;
   readonly demoSheets = [
     { file: 'demo/answered-sheet.png', label: 'Perfect — Ivan (100%)', url: assetUrl('demo/answered-sheet.png') },
     { file: 'demo/answered-sheet-joy.png', label: 'Missed two — Joy (75%)', url: assetUrl('demo/answered-sheet-joy.png') },
@@ -73,7 +73,7 @@ export class SettingsPage implements OnInit {
   testing = false;
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.0.13'; }
+  get version() { return '2.0.14'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──

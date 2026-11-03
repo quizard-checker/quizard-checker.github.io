@@ -10,6 +10,7 @@ import { ConfirmService } from './core/services/confirm.service';
 import { UiStateService } from './core/services/ui-state.service';
 import { maybeAutoPush } from './core/engine/sync.js';
 import { IcoPipe } from './shared/ico.pipe';
+import { GuideSheet } from './shared/guide-sheet';
 import { afterNextRender, effect } from '@angular/core';
 
 // Eager shell: under zoneless CD (Angular 22 makes OnPush the default) an
@@ -18,7 +19,7 @@ import { afterNextRender, effect } from '@angular/core';
 // the outlet (see Ionic zoneless guide).
 @Component({
   selector: 'app-root',
-  imports: [IonApp, IonRouterOutlet, IcoPipe],
+  imports: [IonApp, IonRouterOutlet, IcoPipe, GuideSheet],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './app.html',
 })

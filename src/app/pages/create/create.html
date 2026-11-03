@@ -51,7 +51,7 @@
         <div>
           <h1>Quizzes</h1>
           <p>Every quiz is saved on this device — print its papers or scan answers any time.</p>
-          <a class="hero-help" [href]="docsUrl" target="_blank" rel="noopener">How to use Quizard <span aria-hidden="true">→</span></a>
+          <button type="button" class="hero-help" (click)="guide.show()">How to use Quizard</button>
         </div>
       </div>
 

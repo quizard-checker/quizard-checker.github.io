@@ -78,9 +78,9 @@
       <div class="row" style="border-top:none;border-bottom:none">
         <div>
           <div class="label">How to use Quizard</div>
-          <div class="sub">Screenshots, printing, scanning, and install guides</div>
+          <div class="sub">A quick in-app preview of the basics</div>
         </div>
-        <a class="btn btn-secondary" [href]="docsUrl" target="_blank" rel="noopener">Open guide</a>
+        <button class="btn btn-secondary" (click)="guide.show()">Preview guide</button>
       </div>
     </div>
 
