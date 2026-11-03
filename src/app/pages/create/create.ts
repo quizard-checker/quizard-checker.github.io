@@ -12,7 +12,7 @@ import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.j
 import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz } from '../../core/engine/storage.js';
 import { fmtDate, bannerTheme } from '../../shared/helpers.js';
 import { buildBubbleSheetsPdf } from '../../core/engine/export.js';
-import { quizTitle, quizClassLabel, groupQuizzesByClass, resolveQuizClass } from '../../core/engine/quiz-classes.js';
+import { quizTitle, quizClassLabel, resolveQuizClass } from '../../core/engine/quiz-classes.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -50,7 +50,7 @@ export class CreatePage {
   readonly bannerTheme = bannerTheme;
   readonly letters = ['A', 'B', 'C', 'D'];
 
-  stage = signal<'home' | 'setup' | 'review' | 'export'>('home');
+  stage = signal<'setup' | 'review' | 'export'>('setup');
 
   // ── guided wizard rail (Setup → Review → Save) ───────────────────────────
   // Export doubles as "saved quiz detail" when opened from the home list, so
@@ -67,7 +67,6 @@ export class CreatePage {
     }
     else this.stage.set('review');
   }
-  homeQuizzes = signal<any[]>([]);
   // Scanned-paper rows, so a quiz card can show how many papers were graded
   // against it — the "is this quiz live yet" indicator on the home board.
   sheets = signal<any[]>([]);
@@ -179,7 +178,6 @@ export class CreatePage {
     if (!id) return null;
     return resolveQuizClass({ classId: id, className: this.quizClassNameSnap() }, this.classList());
   });
-  readonly quizGroups = computed(() => groupQuizzesByClass(this.homeQuizzes(), this.classList()));
   // New quizzes and printing always target a live (non-archived) class; archived
   // classes stay visible only where history is shown.
   readonly assignableClasses = computed(() => this.classList().filter(c => !c.archived));
@@ -216,34 +214,41 @@ export class CreatePage {
   async ionViewWillEnter() {
     this.classList.set(await listClasses());
     this.applyKeyParam();
-    if (this.stage() === 'home') {
-      const [quizzes, sheets] = await Promise.all([listQuizzes(), listSheets()]);
-      this.homeQuizzes.set(quizzes);
-      this.sheets.set(sheets);
-    }
     // Coming back from Scan papers should refresh the progress card (and the
     // quiz itself, in case its class was changed elsewhere).
-    if (this.stage() === 'export') {
+    if (this.stage() === 'export' && !this.route.snapshot.queryParamMap.get('quiz')) {
       this.sheets.set(await listSheets());
       const id = this.selectedQuiz()?.id || this.quizId();
       if (id) {
         const fresh = await getQuiz(id);
         if (fresh) this.selectedQuiz.set(fresh);
       }
+      return;
     }
-    if (this.stage() === 'setup') {
-      this.savedKeys.set(await listKeys());
-      // One class means there is nothing to choose; preselect it. With several
-      // classes the teacher picks one explicitly (it also names the subject).
-      if (!this.quizClassId() && this.assignableClasses().length === 1) this.pickClass(this.assignableClasses()[0]);
-      // prefill the subject: from the key we arrived with, else from the class
-      if (!this.subject().trim()) {
-        const fromKey = this.pickedKey()?.subject;
-        const fromClass = this.quizClass()?.subject;
-        const subj = fromKey || fromClass;
-        if (subj) this.subject.set(subj);
-      }
+    // Query entry points from Home: ?quiz=<id> opens a quiz; ?new=1&class=<id>
+    // starts the wizard pre-assigned to that class.
+    const qp = this.route.snapshot.queryParamMap;
+    const quizId = qp.get('quiz');
+    const classParam = qp.get('class');
+    if (quizId) {
+      await this.openSaved(quizId);
+      return;
     }
+    // Fresh wizard; stepping back from Review keeps the class and subject.
+    this.stage.set('setup');
+    if (!this.keyPickOpen()) {
+      this.items.set([]);
+    }
+    this.editingSource = null;
+    this.savedKeys.set(await listKeys());
+    if (classParam) {
+      const preset = this.classList().find(c => c.id === classParam);
+      if (preset) this.pickClass(preset);
+      if (this.assignableClasses().length === 1) this.pickClass(this.assignableClasses()[0]);
+    } else if (!this.quizClassId() && this.assignableClasses().length === 1) {
+      this.pickClass(this.assignableClasses()[0]);
+    }
+    if (!this.subject().trim() && this.quizClass()?.subject) this.subject.set(this.quizClass()?.subject || '');
   }
 
   // Arriving from the Keys tab's "Build a quiz" button: open the setup form in
@@ -453,33 +458,9 @@ export class CreatePage {
   backHome() {
     this.keyPickOpen.set(false);
     this.classPickOpen.set(false);
-    this.stage.set('home');
-    this.selectedQuiz.set(null);
-    this.quizId.set(null);
-    this.quizClassId.set(null);
-    this.quizClassNameSnap.set('');
-    this.sheetClassId.set(null);
-    void this.ionViewWillEnter();
+    this.router.navigateByUrl('/tabs/home');
   }
 
-  startNewQuiz() {
-    this.keyPickOpen.set(false);
-    this.classPickOpen.set(false);
-    this.stage.set('setup');
-    this.items.set([]);
-    this.quizId.set(null);
-    this.selectedQuiz.set(null);
-    this.editingSource = null;
-    this.quizClassId.set(null);
-    this.quizClassNameSnap.set('');
-    this.sheetClassId.set(null);
-    this.mode.set('key');
-    this.subject.set(''); this.title.set(''); this.fileText.set(''); this.fileName.set('');
-    this.lessonPaste.set(''); this.keyPaste.set(''); this.pickedKeyId.set(null);
-    this.error.set('');
-    this.savedKeys.set([]);
-    void this.ionViewWillEnter();
-  }
 
   async printSheets() {
     let quiz = this.selectedQuiz();

@@ -4,11 +4,11 @@
       @if (stage() === 'review') {
         <button class="icon-btn" (click)="backFromReview()" aria-label="Back" [innerHTML]="'chevronLeft' | ico"></button>
       } @else if (stage() === 'export') {
-        <button class="icon-btn" (click)="backHome()" aria-label="Back to quizzes" [innerHTML]="'chevronLeft' | ico"></button>
+        <button class="icon-btn" (click)="backHome()" aria-label="Back to Home" [innerHTML]="'chevronLeft' | ico"></button>
       } @else if (stage() === 'setup') {
-        <button class="icon-btn" (click)="backHome()" aria-label="Back to quizzes" [innerHTML]="'chevronLeft' | ico"></button>
+        <button class="icon-btn" (click)="backHome()" aria-label="Back to Home" [innerHTML]="'chevronLeft' | ico"></button>
       }
-      <span class="mark" [innerHTML]="'logo' | ico"></span>{{ stage() === 'home' ? 'Quizzes' : 'Create' }}
+      <span class="mark" [innerHTML]="'logo' | ico"></span>Create
     </div>
     <div style="display:flex;gap:2px;align-items:center">
       <button class="icon-btn" [class.ai-down]="byok.aiDown()" aria-label="AI key" (click)="byok.open()" [attr.data-tooltip]="byok.aiDown() ? 'AI is out of requests — tap to add a free key' : 'AI key — keep AI working when the relay is busy'" [innerHTML]="'sparkles' | ico"></button>
@@ -44,63 +44,6 @@
     </nav>
   }
 
-  @if (stage() === 'home') {
-    <div class="screen lib-screen" [class.screen-center]="!homeQuizzes().length">
-      <div class="hero lib-hero">
-        <div class="hero-ico" [innerHTML]="'sparkles' | ico"></div>
-        <div>
-          <h1>Quizzes</h1>
-          <p>Every quiz is saved on this device — print its papers or scan answers any time.</p>
-          <button type="button" class="hero-help" (click)="guide.show()">How to use Quizard</button>
-        </div>
-      </div>
-
-
-      <div class="section-title">{{ homeQuizzes().length ? 'Saved quizzes by class' : 'Start here' }}</div>
-      <div class="create-grid">
-        <button class="cq-new" (click)="startNewQuiz()">
-          <span class="cq-new-ico" [innerHTML]="'plus' | ico"></span>
-          <span class="cq-new-title">New quiz</span>
-          <span class="cq-new-sub">Full AI · From my key · Match my format</span>
-        </button>
-      </div>
-      @for (g of quizGroups(); track g.id) {
-        <div class="quiz-class-head">
-          <span class="quiz-class-dot" [class.missing]="g.missing" [class.unassigned]="g.unassigned" aria-hidden="true"></span>
-          <div class="quiz-class-txt">
-            <b>{{ g.name }}</b>
-            <span>
-              @if (g.unassigned) { Assign a class to organize {{ g.quizzes.length === 1 ? 'this quiz' : 'these quizzes' }} }
-              @else if (g.missing) { Class removed — pick a new class }
-              @else if (g.archived) { Archived · {{ g.subject || 'No subject' }} }
-              @else { {{ g.subject || 'No subject' }} }
-              · {{ g.quizzes.length }} quiz{{ g.quizzes.length === 1 ? '' : 'zes' }}
-            </span>
-          </div>
-        </div>
-        <div class="create-grid">
-          @for (q of g.quizzes; track q.id) {
-            <div class="doc-card cq-card" (click)="openSaved(q.id)" data-tooltip="Export this quiz">
-              <div class="cls-banner cq-banner {{ bannerTheme(q.id) }}">
-                <div class="cls-title">{{ quizTitle(q) }}</div>
-                @if (q.subject) { <div class="cls-sub">{{ q.subject }}</div> }
-              </div>
-              <div class="cq-body">
-                <span class="key-chip cls" [class.none]="!quizClassOf(q)" [class.missing]="quizClassOf(q)?.missing" [title]="quizClassLabel(q)">{{ quizClassLabel(q) }}</span>
-                <span class="key-chip">{{ q.items.length }} item{{ q.items.length === 1 ? '' : 's' }}</span>
-                <span class="key-chip src">{{ sourceLabel(q) }}</span>
-                @if (gradedOf(q)) {
-                  <span class="key-chip graded" data-tooltip="Papers scanned against this quiz">{{ gradedOf(q) }} graded</span>
-                }
-                <span class="cq-date">{{ dateOf(q.createdAt) }}</span>
-                <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  }
 
   @if (stage() === 'setup') {
     <div class="screen lib-screen">
@@ -394,7 +337,7 @@
   }
   @if (stage() === 'export') {
     <div class="screen lib-screen">
-      <button class="qf-back" (click)="backHome()" data-tooltip="Back to all quizzes"><span [innerHTML]="'chevronLeft' | ico"></span> All quizzes</button>
+      <button class="qf-back" (click)="backHome()" data-tooltip="Back to Home"><span [innerHTML]="'chevronLeft' | ico"></span> All classes</button>
       <div class="hero lib-hero">
         <div class="hero-ico" [innerHTML]="'fileText' | ico"></div>
         <div>

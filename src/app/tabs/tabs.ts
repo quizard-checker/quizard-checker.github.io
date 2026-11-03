@@ -2,8 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
-  peopleOutline, people, documentTextOutline, documentText,
-  scanOutline, scan, settingsOutline, settings
+  scanOutline, scan, settingsOutline, settings, homeOutline, home
 } from 'ionicons/icons';
 
 // Eager shell: under zoneless CD (Angular 22 makes OnPush the default) an
@@ -19,7 +18,6 @@ import {
 export class TabsPage {
   constructor() {
     addIcons({
-      peopleOutline, people, documentTextOutline, documentText,
       scanOutline, scan, settingsOutline, settings
     });
   }

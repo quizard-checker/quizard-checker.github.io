@@ -1,6 +1,6 @@
 <ion-content [fullscreen]="true">
   <header class="back-header">
-    <button class="icon-btn" aria-label="Back to classes" (click)="router.navigateByUrl('/tabs/classes')" [innerHTML]="'chevronLeft' | ico"></button>
+    <button class="icon-btn" aria-label="Back to Home" (click)="router.navigateByUrl('/tabs/home')" [innerHTML]="'chevronLeft' | ico"></button>
     <h2>Class Roster</h2>
     <div class="spacer"></div>
   </header>
@@ -39,6 +39,33 @@
           <div class="cr-stat-txt"><b>{{ completedOf() }}/{{ c.students.length }}</b><span>With scores</span></div>
         </div>
       </div>
+
+      <div class="section-title" style="margin-top:16px">Classwork</div>
+      @if (classwork().length) {
+        <div class="doc-list class-grid">
+          @for (cw of classwork(); track cw.q.id) {
+            <div class="doc-card cq-card" (click)="openQuiz(cw.q.id)" data-tooltip="Open quiz">
+              <div class="cls-banner cq-banner {{ bannerTheme(cw.q.id) }}">
+                <div class="cls-title">{{ cw.title }}</div>
+                @if (cw.subject) { <div class="cls-sub">{{ cw.subject }}</div> }
+              </div>
+              <div class="cq-body">
+                <span class="key-chip">{{ cw.items }} item{{ cw.items === 1 ? '' : 's' }}</span>
+                @if (cw.graded) { <span class="key-chip graded">{{ cw.graded }} graded</span> }
+                <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
+              </div>
+            </div>
+          }
+        </div>
+        <button class="btn btn-secondary" style="display:flex;max-width:230px;margin:12px auto 0" (click)="newQuiz()"><span [innerHTML]="'plus' | ico"></span> New quiz for this class</button>
+      } @else {
+        <div class="empty-state">
+          <div class="empty-ico" [innerHTML]="'fileText' | ico"></div>
+          <h3>No quizzes yet</h3>
+          <p>Create a quiz for {{ cls()?.name || 'this class' }} and print a bubble sheet per student.</p>
+          <button class="btn btn-primary" style="max-width:230px;margin:0 auto" (click)="newQuiz()"><span [innerHTML]="'plus' | ico"></span> New quiz</button>
+        </div>
+      }
 
       @if (book().columns.length) {
         <div class="cr-table-wrap">

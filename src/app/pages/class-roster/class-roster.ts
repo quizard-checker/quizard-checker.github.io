@@ -5,6 +5,7 @@ import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
 import { diffRoster, parseRoster } from '../../core/engine/roster.js';
 import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
+import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { ToastService } from '../../core/services/toast.service';
 import { IcoPipe } from '../../shared/ico.pipe';
 
@@ -78,7 +79,40 @@ export class ClassRosterPage {
     quizzes: this.quizzes(),
   }));
 
-  readonly quizCount = computed(() => this.book().columns.length);
+  // Classwork: quizzes assigned to this class, plus any with scanned papers
+  // here — card-ready for the top of the page.
+  readonly classwork = computed(() => {
+    const c = this.cls();
+    if (!c) return [];
+    const ids = new Set<string>();
+    const out: any[] = [];
+    for (const q of this.quizzes()) {
+      if (q.classId !== c.id || ids.has(q.id)) continue
+      ids.add(q.id); out.push(q)
+    }
+    for (const col of this.book().columns) {
+      if (ids.has(col.quizId)) continue
+      const q = this.quizzes().find((x: any) => x.id === col.quizId)
+      if (q) { ids.add(q.id); out.push(q) }
+    }
+    return out.map((q: any) => ({
+      q,
+      title: quizTitle(q),
+      subject: q.subject || '',
+      items: q.items?.length || 0,
+      graded: this.sheets().filter((s: any) => s.quizId === q.id).length,
+    }));
+  });
+
+  newQuiz() {
+    this.router.navigateByUrl('/quiz?new=1&class=' + (this.cls()?.id || ''));
+  }
+
+  openQuiz(id: string) {
+    this.router.navigateByUrl('/quiz?quiz=' + id);
+  }
+
+  readonly quizCount = computed(() => this.classwork().length);
   // A student counts as completed once any quiz cell carries a score.
   readonly completedOf = computed(() =>
     this.book().rows.filter(r => r.cells.some((c: any) => c.scored)).length);

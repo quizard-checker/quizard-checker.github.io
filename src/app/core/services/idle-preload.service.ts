@@ -13,9 +13,9 @@ export class IdlePreloadService {
     if (this.started || typeof window === 'undefined') return;
     this.started = true;
     const warm = () => {
-      // teacher tabs first (Classes is the landing tab), then the rest
+      // teacher pages first (Home is the landing tab), then the rest
       const targets = [
-        () => import('../../pages/classes/classes'),
+        () => import('../../pages/home/home'),
         () => import('../engine/storage.js'),
         () => import('../../pages/keys/keys'),
         () => import('../../pages/create/create'),
