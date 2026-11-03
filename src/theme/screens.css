@@ -1870,29 +1870,6 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
 .guide-step-ico svg { width: 18px; height: 18px; }
 .guide-step div > b { display: block; font-size: 13.5px; font-weight: 800; color: var(--text); }
 .guide-step div > span { display: block; margin-top: 1px; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
-/* Labeled shortcuts on the Quizzes home — Answer keys and Results used to be
-   icon-only header actions, which teachers could not discover on a phone. */
-.home-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; margin: 14px 0 0; }
-.home-link {
-  display: flex; align-items: center; gap: 10px; min-width: 0;
-  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-.home-link:hover, .home-link:focus-visible { border-color: var(--accent-border); background: var(--surface-2); }
-.home-link-ico {
-  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none;
-  background: var(--accent-soft); color: var(--accent-strong);
-}
-.home-link-ico svg { width: 17px; height: 17px; }
-.home-link-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.home-link-txt b { font-size: 13px; font-weight: 800; }
-.home-link-txt small { font-size: 11px; line-height: 1.35; color: var(--text-dim); }
-.home-link-chev { color: var(--text-faint); display: inline-flex; flex: none; }
-.home-link-chev svg { width: 16px; height: 16px; }
-@media (max-width: 520px) {
-  .home-links { grid-template-columns: 1fr; }
-}
 .lib-wiz { width: 84px; height: 84px; object-fit: contain; flex: none; }
 
 /* ── Teacher app (Classes / Keys): roster + key sheets ── */

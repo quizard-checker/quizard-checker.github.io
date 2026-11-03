@@ -55,18 +55,6 @@
         </div>
       </div>
 
-      <div class="home-links">
-        <button type="button" class="home-link" (click)="router.navigateByUrl('/tabs/keys')">
-          <span class="home-link-ico" [innerHTML]="'listChecks' | ico"></span>
-          <span class="home-link-txt"><b>Answer keys</b><small>Saved keys, answer formats, and fixes</small></span>
-          <span class="home-link-chev" [innerHTML]="'chevronRight' | ico"></span>
-        </button>
-        <button type="button" class="home-link" (click)="router.navigateByUrl('/tabs/reports')">
-          <span class="home-link-ico" [innerHTML]="'chart' | ico"></span>
-          <span class="home-link-txt"><b>Results</b><small>Class averages, trends, and exports</small></span>
-          <span class="home-link-chev" [innerHTML]="'chevronRight' | ico"></span>
-        </button>
-      </div>
 
       <div class="section-title">{{ homeQuizzes().length ? 'Saved quizzes by class' : 'Start here' }}</div>
       <div class="create-grid">
