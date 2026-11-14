@@ -91,11 +91,12 @@ export function findMarkerQuads(binary, width, height, expectedCenters) {
   const all = blobs(binary, width, height)
   const passes = (b, fillMin) => {
     const side = (b.bw + b.bh) / 2
-    // 0.5% floor: a half-sheet's 7pt markers are 1.14% of the sheet width, so
-    // a sheet framed at ~45% of the frame lands right at 0.5% — the old 0.8%
+    // 0.4% floor: a half-sheet's 7pt markers are 1.14% of the sheet width, so
+    // a sheet framed at ~35% of the frame lands right at 0.4% — the old 0.8%
     // floor rejected far-framed PIN sheets before the quad matcher could even
-    // look (the ratio + fill + expected-geometry checks do the real filtering).
-    return side >= maxSide * 0.005 && side <= maxSide * 0.08
+    // look (the ratio + fill + expected-geometry checks do the real filtering;
+    // text blobs die on fill ratio long before this floor matters).
+    return side >= maxSide * 0.004 && side <= maxSide * 0.08
       && b.bw / b.bh > 0.45 && b.bw / b.bh < 2.2 && b.fill >= fillMin
   }
   let cand = all.filter(b => passes(b, 0.85))

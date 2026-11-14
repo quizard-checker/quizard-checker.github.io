@@ -331,10 +331,12 @@ export class CheckingPage {
       // A small QR (the PIN half-sheet's code is ~10% of the sheet width)
       // drops under jsQR's ~2px-per-module floor once a far-framed sheet is
       // squeezed into the cheap 900px preview decode. When nothing has been
-      // seen for a moment, step up to a full-resolution search decode so
-      // distance can't hide a sheet — the extra cost only lands while the
-      // camera is pointed at nothing.
-      const search = this.liveAbsent >= LIVE_SCAN.searchAfterTicks;
+      // seen for a moment — or while a candidate is mid-confirmation — step
+      // up to a full-resolution search decode. The candidate case matters:
+      // one search hit resets `absent`, so falling straight back to the 900px
+      // preview would miss the next ticks and the confirmation counter could
+      // never reach 2 — the width must not oscillate under a confirming sheet.
+      const search = this.liveAbsent >= LIVE_SCAN.searchAfterTicks || this.liveHits > 0;
       let text: string | null = null;
       if (this.detector) {
         text = await this.detectWithDetector(video);

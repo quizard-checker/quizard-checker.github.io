@@ -204,9 +204,9 @@ describe('readPinSheet on synthetic photos', () => {
       frame[di] = small[si]; frame[di + 1] = small[si + 1]; frame[di + 2] = small[si + 2]
     }
     // the marker floor is the gate being tested: sheet ~48% -> marker ~7px,
-    // under the old 10.2px floor, over the new 6.4px one
+    // under the old 10.2px (0.8%) floor, over the current 0.4% one
     expect(PIN_SHEET.marker).toBeLessThan(VW * 0.008)
-    expect(PIN_SHEET.marker).toBeGreaterThanOrEqual(VW * 0.005)
+    expect(PIN_SHEET.marker).toBeGreaterThanOrEqual(VW * 0.004)
     const res = readPinSheet({ data: frame, width: VW, height: VH })
     expect(res.ok).toBe(true)
     expect(res.qr).toBe('QZ3:quiz-x')
