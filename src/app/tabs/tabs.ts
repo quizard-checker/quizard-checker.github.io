@@ -18,7 +18,7 @@ import {
 export class TabsPage {
   constructor() {
     addIcons({
-      scanOutline, scan, settingsOutline, settings
+      scanOutline, scan, settingsOutline, settings, homeOutline, home
     });
   }
 }

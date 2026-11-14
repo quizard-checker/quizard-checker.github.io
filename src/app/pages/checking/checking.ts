@@ -2,7 +2,8 @@ import { Component, computed, inject, signal, NgZone, HostListener } from '@angu
 import { Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz } from '../../core/engine/storage.js';
-import { readSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
+import { readSheet, readPinSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
+import { resolveStudentByPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { resolveDemoSheet } from '../../core/engine/demo-sheet.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
@@ -10,7 +11,6 @@ import { liveScanStep, LIVE_SCAN } from '../../core/engine/live-scan.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ByokService } from '../../core/services/byok.service';
 import { bannerTheme } from '../../shared/helpers.js';
 
 /**
@@ -36,7 +36,6 @@ interface MatchedStudent {
 export class CheckingPage {
   router = inject(Router);
   ui = inject(UiStateService);
-  readonly byok = inject(ByokService);
   private toast = inject(ToastService);
   private zone = inject(NgZone);
 
@@ -500,7 +499,17 @@ export class CheckingPage {
       return;
     }
 
-    const result = readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length);
+    // PIN half-sheets (QZ3) use the fixed 50-item geometry; roster sheets use
+    // the per-quiz geometry. With a manual quiz override and no readable QR,
+    // try the PIN geometry as a fallback — the override flow is how PIN sheets
+    // get scanned when the code won't decode.
+    const pinSheet = parsed?.pinSheet === true;
+    let result: any = pinSheet
+      ? readPinSheet({ data: data.data, width: data.width, height: data.height })
+      : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length);
+    if (!result.ok && !pinSheet && this.quizOverrideId()) {
+      result = readPinSheet({ data: data.data, width: data.width, height: data.height });
+    }
     if (!result.ok) {
       this.processing.set(false);
       this.scanError.set('Could not align the sheet — fit all four corner squares and the black frame inside the frame. It will retry automatically.');
@@ -523,12 +532,28 @@ export class CheckingPage {
       const qrStudent = demoMatch
         ? this.rosterEntry(demoMatch.cls, demoMatch.student)
         : this.matchRosterStudent(parsed);
-      if (qrStudent) {
+      // Generic PIN sheets name nobody in the QR: the shaded 5-digit PIN is
+      // the student's identity, matched inside the quiz's own class.
+      let pinStudent: any = null;
+      let pinHint = '';
+      if (!qrStudent && result.pin !== undefined) {
+        if (result.pin) {
+          pinStudent = this.matchPinStudent(quiz, result.pin);
+          if (!pinStudent) {
+            pinHint = `The shaded PIN ${result.pin.split('').join(' ')} didn't match one student in ${quiz.className || 'this class'} — pick whose paper this is below.`;
+          }
+        } else {
+          pinHint = `The PIN wasn't readable (${result.pinDigits.map((d: number) => (d >= 0 ? String(d) : '·')).join(' ')}) — pick whose paper this is below.`;
+        }
+      }
+      const student = qrStudent || pinStudent;
+      if (student) {
         // Remember the paper that was just read so the live loop moves on to
         // the next sheet instead of firing on this one again.
         if (fromLive) this.scannedQr = qrText;
         this.qrUnknownName.set(null);
-        this.attachStudent(qrStudent, 'qr');
+        this.scanError.set('');
+        this.attachStudent(student, 'qr');
         // Nothing left to confirm, so record it now and pop the score up over
         // the scanner — the teacher never taps through a result screen.
         this.stage.set('scan');
@@ -543,13 +568,23 @@ export class CheckingPage {
       } else {
         this.attachStudent(null, null);
         this.qrUnknownName.set(parsed?.studentName || null);
-        // Nobody in the QR: the result screen's picker decides whose paper it
-        // is. That screen has no viewfinder, so release the camera.
+        this.scanError.set(pinHint);
+        // Nobody in the QR or PIN: the result screen's picker decides whose
+        // paper it is. That screen has no viewfinder, so release the camera.
         this.closeCamera();
         this.stage.set('result');
       }
       this.processing.set(false);
     });
+  }
+
+  // PIN half-sheets: match the shaded 5-digit PIN against the quiz's own
+  // roster. Duplicates and unknowns return null — the teacher attaches
+  // manually rather than score the wrong student's paper.
+  private matchPinStudent(quiz: any, pin: string | null) {
+    if (!pin) return null;
+    const cls = this.classes().find(c => c.id === quiz.classId) || this.pickedClass();
+    return resolveStudentByPin(cls?.students || [], pin);
   }
 
   // ── result editor ──

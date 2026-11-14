@@ -9,7 +9,11 @@
 // → answer per row with ambiguity flags (blank / multi / faint).
 
 import jsQR from 'jsqr'
-import { SHEET, frameRect, markerCenters, bubbleCenter } from './sheet-spec.js'
+import {
+  SHEET, PIN_SHEET, PIN_ITEMS,
+  frameRect, markerCenters, bubbleCenter,
+  pinFrameRect, pinMarkerCenters, pinItemCenter, pinDigitCenter,
+} from './sheet-spec.js'
 
 export function toGray(data, width, height) {
   const gray = new Float32Array(width * height)
@@ -82,7 +86,7 @@ function blobs(binary, width, height) {
 // square blobs, then find the best quadruple fitting the expected rectangle
 // — anywhere in the image, any rotation. (A fixed per-corner-quadrant search
 // fails on short sheets, which live entirely in the page's top half.)
-export function findMarkerQuads(binary, width, height, itemCount) {
+export function findMarkerQuads(binary, width, height, expectedCenters) {
   const maxSide = Math.max(width, height)
   const all = blobs(binary, width, height)
   const passes = (b, fillMin) => {
@@ -95,7 +99,7 @@ export function findMarkerQuads(binary, width, height, itemCount) {
   if (cand.length > 60) cand = [...cand].sort((a, b) => b.fill - a.fill).slice(0, 60)
   if (cand.length < 4) return null
 
-  const m = markerCenters(itemCount)
+  const m = expectedCenters
   const wSpan = Math.hypot(m[1].x - m[0].x, m[1].y - m[0].y)
   const hSpan = Math.hypot(m[3].x - m[0].x, m[3].y - m[0].y)
 
@@ -225,7 +229,7 @@ export function readSheet(image, itemCount) {
   const qr = decodeQr(data, width, height)
   const gray = toGray(data, width, height)
   const binary = threshold(gray, width, height)
-  const quad = findMarkerQuads(binary, width, height, itemCount)
+  const quad = findMarkerQuads(binary, width, height, markerCenters(itemCount))
   if (!quad) return { ok: false, reason: 'markers', qr }
 
   const pdfMarkers = markerCenters(itemCount)
@@ -234,7 +238,7 @@ export function readSheet(image, itemCount) {
 
   // the printed frame must land on ink — rejects rectangles fitted to
   // bubble rings or other non-frame structures
-  if (!frameInk(binary, width, height, H, itemCount)) return { ok: false, reason: 'frame', qr }
+  if (!frameInk(binary, width, height, H, frameRect())) return { ok: false, reason: 'frame', qr }
 
   // pixels-per-point from the marker spread
   const pdfSpan = Math.hypot(pdfMarkers[1].x - pdfMarkers[0].x, pdfMarkers[1].y - pdfMarkers[0].y)
@@ -263,8 +267,8 @@ export function readSheet(image, itemCount) {
 }
 
 // Ink fraction along the printed frame's four edges (sampled via H).
-function frameInk(binary, width, height, H, itemCount) {
-  const f = frameRect()
+function frameInk(binary, width, height, H, frame, window = 2) {
+  const f = frame
   const pts = []
   const N = 24
   for (let i = 0; i <= N; i++) {
@@ -275,8 +279,8 @@ function frameInk(binary, width, height, H, itemCount) {
   for (const [x, y] of pts) {
     const p = applyH(H, x, y)
     let hit = false
-    for (let dy = -2; dy <= 2 && !hit; dy++) {
-      for (let dx = -2; dx <= 2 && !hit; dx++) {
+    for (let dy = -window; dy <= window && !hit; dy++) {
+      for (let dx = -window; dx <= window && !hit; dx++) {
         const px = Math.round(p.x + dx), py = Math.round(p.y + dy)
         if (px < 0 || py < 0 || px >= width || py >= height) continue
         if (binary[py * width + px]) hit = true
@@ -296,4 +300,80 @@ export function scoreSheet(answers, items) {
     if (answers[i] === items[i].answerIndex) correct++
   }
   return { correct, attempted, total: items.length, percent: items.length ? Math.round((correct / items.length) * 100) : 0 }
+}
+
+/**
+ * Read a generic PIN half-sheet (QZ3): the same OMR pipeline as readSheet but
+ * against the fixed 50-item PIN geometry, plus the 5-digit PIN read from the
+ * shaded 0–9 digit strips. Both printed halves are identical, so the top-half
+ * geometry describes either half — the marker homography maps a bottom-half
+ * photo onto the same local coordinates.
+ *
+ * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
+ * @returns {{ ok: true, answers: number[], flags: string[], fills: number[][],
+ *   pin: string | null, pinDigits: number[], pinFlags: string[],
+ *   qr: string | null, markers: { x: number, y: number }[], scale: number }
+ *   | { ok: false, reason: 'markers'|'frame', qr: string | null }}
+ */
+export function readPinSheet(image) {
+  const { data, width, height } = image
+  const qr = decodeQr(data, width, height)
+  const gray = toGray(data, width, height)
+  const binary = threshold(gray, width, height)
+  const expected = pinMarkerCenters(0)
+  const quad = findMarkerQuads(binary, width, height, expected)
+  if (!quad) return { ok: false, reason: 'markers', qr }
+
+  const H = homography(expected, quad)
+  if (!H) return { ok: false, reason: 'markers', qr }
+  // the printed half-sheet frame is thinner than the Letter one, so its
+  // verification window is a pixel wider
+  if (!frameInk(binary, width, height, H, pinFrameRect(0), 3)) return { ok: false, reason: 'frame', qr }
+
+  const pdfSpan = Math.hypot(expected[1].x - expected[0].x, expected[1].y - expected[0].y)
+  const pxSpan = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y)
+  const scale = pxSpan / pdfSpan
+  const rPx = Math.max(2, Math.round(PIN_SHEET.circleR * PIN_SHEET.scanRadiusFrac * scale))
+  const dPx = Math.max(2, Math.round(PIN_SHEET.pinR * PIN_SHEET.scanRadiusFrac * scale))
+
+  const answers = []
+  const flags = []
+  const fills = []
+  for (let i = 0; i < PIN_ITEMS; i++) {
+    const row = []
+    for (let b = 0; b < 4; b++) {
+      const c = pinItemCenter(i, b)
+      row.push(inkFraction(binary, width, height, H, c.x, c.y, rPx))
+    }
+    fills.push(row)
+    const order = [0, 1, 2, 3].sort((a, b) => row[b] - row[a])
+    const top = row[order[0]], second = row[order[1]]
+    if (top < 0.30) { answers.push(-1); flags.push(FLAG.BLANK); continue }
+    if (top - second < 0.12) { answers.push(-1); flags.push(FLAG.MULTI); continue }
+    if (top < 0.55) { answers.push(order[0]); flags.push(FLAG.FAINT); continue }
+    answers.push(order[0]); flags.push(FLAG.OK)
+  }
+
+  // the 5-digit PIN: darkest of the 0–9 strip per digit
+  const pinDigits = []
+  const pinFlags = []
+  for (let d = 0; d < PIN_SHEET.pinDigits; d++) {
+    const col = []
+    for (let v = 0; v < PIN_SHEET.pinRows; v++) {
+      const c = pinDigitCenter(d, v)
+      col.push(inkFraction(binary, width, height, H, c.x, c.y, dPx))
+    }
+    const order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].sort((a, b) => col[b] - col[a])
+    const top = col[order[0]], second = col[order[1]]
+    if (top < 0.30) { pinDigits.push(-1); pinFlags.push(FLAG.BLANK); continue }
+    if (top - second < 0.10) { pinDigits.push(-1); pinFlags.push(FLAG.MULTI); continue }
+    if (top < 0.50) { pinDigits.push(order[0]); pinFlags.push(FLAG.FAINT); continue }
+    pinDigits.push(order[0]); pinFlags.push(FLAG.OK)
+  }
+  const complete = pinDigits.every(v => v >= 0)
+  return {
+    ok: true, answers, flags, fills, qr, markers: quad, scale,
+    pin: complete ? pinDigits.join('') : null,
+    pinDigits, pinFlags,
+  }
 }

@@ -11,7 +11,6 @@
       <span class="mark" [innerHTML]="'logo' | ico"></span>Create
     </div>
     <div style="display:flex;gap:2px;align-items:center">
-      <button class="icon-btn" [class.ai-down]="byok.aiDown()" aria-label="AI key" (click)="byok.open()" [attr.data-tooltip]="byok.aiDown() ? 'AI is out of requests — tap to add a free key' : 'AI key — keep AI working when the relay is busy'" [innerHTML]="'sparkles' | ico"></button>
       <button class="icon-btn" aria-label="Settings" (click)="router.navigateByUrl('/tabs/settings')" data-tooltip="Settings & backup" [innerHTML]="'gear' | ico"></button>
       <button class="icon-btn" aria-label="Toggle theme" (click)="ui.toggleTheme()" [innerHTML]="(ui.theme() === 'dark' ? 'sun' : 'moon') | ico"></button>
     </div>
@@ -48,44 +47,17 @@
   @if (stage() === 'setup') {
     <div class="screen lib-screen">
       <div class="hero lib-hero">
-        <div class="hero-ico" [innerHTML]="'sparkles' | ico"></div>
+        <div class="hero-ico" [innerHTML]="'fileText' | ico"></div>
         <div>
           <h1>Create a quiz</h1>
-          <p>AI writes it, you review it, then print with bubble sheets.</p>
+          <p>Anchor it to your answer key, review it, then print with bubble sheets.</p>
         </div>
       </div>
 
-      <div class="section-title">1 · How should the AI write it?</div>
-      <div class="mode-list">
-        @for (m of modes; track m.id) {
-          <button class="mode-card" [class.on]="mode() === m.id" [attr.aria-pressed]="mode() === m.id" (click)="setMode(m.id)">
-            <span class="mode-title">{{ m.label }}</span>
-            <span class="mode-io">{{ m.io }}</span>
-            <span class="mode-hint">{{ m.hint }}</span>
-          </button>
-        }
-      </div>
 
-      <!-- The lesson block is the same upload/paste control in every mode; its
-           position and number change, its markup doesn't. -->
-      <ng-template #materialBlock>
-        <label class="btn btn-secondary file-btn" [class.busy]="extracting()">
-          <span [innerHTML]="'upload' | ico"></span> {{ extracting() ? 'Extracting…' : (fileName() || 'Upload lesson file (PDF, PPT, Word, txt)') }}
-          <input type="file" accept=".pdf,.docx,.pptx,.txt,.md" (change)="onFile($event)" hidden />
-        </label>
-        @if (fileName()) {
-          <button class="file-clear" (click)="clearFile()">remove file</button>
-        }
-        <textarea class="text-input roster-paste" rows="4" placeholder="…or paste lesson text here" [attr.aria-label]="'Lesson text'" [value]="lessonPaste()" (input)="lessonPaste.set($any($event.target).value)"></textarea>
-      </ng-template>
 
-      @if (mode() === 'ai') {
-        <div class="section-title">{{ stepMaterial() }} · Your material</div>
-        <ng-container [ngTemplateOutlet]="materialBlock" />
-      } @else {
-        @if (mode() === 'key') {
-          <div class="section-title">2 · Your answer key</div>
-          <p class="faint" style="font-size:12.5px;margin:-4px 0 6px">Paste the correct answers — the AI writes questions each one correctly answers.</p>
+          <div class="section-title">1 · Your answer key</div>
+          <p class="faint" style="font-size:12.5px;margin:-4px 0 6px">Paste the correct answers — the quiz mirrors your key exactly.</p>
           @if (savedKeys().length) {
             <button type="button" class="text-input picker-btn key-select" aria-haspopup="dialog" aria-label="Choose a saved answer key" (click)="keyPickOpen.set(true)">
               @if (pickedKey(); as k) {
@@ -121,41 +93,27 @@
           }
           @if (!pickedKeyId()) {
             <textarea class="text-input roster-paste" rows="7" placeholder="Paste your answer key. All of these work:&#10;&#10;1. Photosynthesis&#10;2. What do plants use for food? → Photosynthesis&#10;B, C, A, D, …" [attr.aria-label]="'Answer key'" [value]="keyPaste()" (input)="keyPaste.set($any($event.target).value)"></textarea>
+            <label class="btn btn-secondary file-btn" data-tooltip="Excel columns: question, choice A, choice B, choice C, choice D, answer">
+              <span [innerHTML]="'upload' | ico"></span> Import Excel / CSV
+              <input type="file" accept=".xlsx,.csv,.txt" (change)="onKeyFile($event)" hidden />
+            </label>
+            <p class="faint import-hint">Each row: question, A, B, C, D, then the answer</p>
             @if (keyStats(); as ks) {
               <p class="parse-note">
                 {{ ks.count }} answer{{ ks.count === 1 ? '' : 's' }} detected
                 @if (ks.format === 'qa') { · with questions }
+                @if (ks.format === 'mcq') { · with choices }
                 @if (ks.notes) { · {{ ks.notes }} skipped }
               </p>
             }
           } @else if (pickedKey()) {
             <p class="parse-note">Using saved key “{{ pickedKey().subject }}” — {{ pickedKey().items.length }} items</p>
             @if (keyHasMissingAnswers()) {
-              <div class="gen-error" style="margin-top:8px"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> <span>This saved key has no correct answers — open it in Keys, paste the key again and save to fix it.</span></div>
+              <div class="gen-error" style="margin-top:8px"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> <span>This saved key has no correct answers yet — you can add options and pick the correct letter in the review step.</span></div>
             }
           }
-        } @else {
-          <div class="section-title">2 · Your example questions</div>
-          <p class="faint" style="font-size:12.5px;margin:-4px 0 6px">Paste a few of your own multiple-choice questions (mark the correct option with *) — the AI writes NEW ones that read like them.</p>
-          <textarea class="text-input roster-paste" rows="7" placeholder="1. What is X?&#10;A. …&#10;*B. …&#10;C. …&#10;D. …&#10;&#10;2. …" [attr.aria-label]="'Example questions'" [value]="keyPaste()" (input)="keyPaste.set($any($event.target).value)"></textarea>
-          @if (keyStats(); as ks) {
-            <p class="parse-note">
-              {{ ks.count }} example{{ ks.count === 1 ? '' : 's' }} detected
-              @if (ks.format === 'mcq') { · {{ ks.complete }} complete }
-              @else { · needs options with a * on the correct one }
-              @if (ks.notes) { · {{ ks.notes }} skipped }
-            </p>
-          }
-        }
 
-        @if (mode() !== 'key') {
-          <div class="section-title">{{ stepMaterial() }} · Lesson context</div>
-          <p class="faint" style="font-size:12.5px;margin:-4px 0 6px">A lesson grounds the new questions in your material.</p>
-          <ng-container [ngTemplateOutlet]="materialBlock" />
-        }
-      }
-
-      <div class="section-title title-center">{{ stepDetails() }} · Questions & details</div>
+      <div class="section-title title-center">2 · Questions &amp; details</div>
 
       <div class="section-title" style="margin-top:2px">Class</div>
       <button type="button" class="text-input picker-btn" (click)="classPickOpen.set(true)" [disabled]="!classList().length">
@@ -168,31 +126,6 @@
       @if (!classList().length) {
         <p class="faint" style="font-size:11.5px;margin:6px 2px 0">No classes yet. A quiz belongs to one class, so add a class first.</p>
         <button class="btn btn-secondary" style="margin-top:8px" (click)="router.navigateByUrl('/tabs/classes')"><span [innerHTML]="'plus' | ico"></span> Add a class</button>
-      }
-
-      @if (mode() === 'key') {
-        <p class="parse-note" style="margin:2px 0 12px">
-          <b>{{ keySource()?.items?.length || 0 }} question{{ (keySource()?.items?.length || 0) === 1 ? '' : 's' }}</b> — fixed by your answer key.
-          @if ((keySource()?.items?.length || 0) > maxItems) {
-            Sheets hold up to {{ maxItems }}, so the last {{ (keySource()?.items?.length || 0) - maxItems }} are left off.
-          } @else {
-            The quiz matches the key exactly: no more, no fewer.
-          }
-        </p>
-      } @else {
-        <div class="count-row count-row-center">
-          <div class="count-stepper">
-            <button class="count-step" type="button" (click)="nudgeCount(-5)" [attr.aria-label]="'5 fewer questions'">−</button>
-            <input class="text-input count-input" type="number" inputmode="numeric" min="1" [max]="maxItems" [value]="count()" (input)="setCount($any($event.target).value)" (blur)="setCount(count())" [attr.aria-label]="'Number of questions — any value from 1 to 50'" />
-            <button class="count-step" type="button" (click)="nudgeCount(5)" [attr.aria-label]="'5 more questions'">+</button>
-          </div>
-          <span class="count-hint">any number 1–{{ maxItems }}</span>
-          <span class="count-presets">
-            @for (c of [10, 20, 30, 40, 50]; track c) {
-              <button class="count-chip" [class.on]="count() === c" [attr.aria-pressed]="count() === c" (click)="setCount(c)" [attr.aria-label]="'Preset: ' + c + ' questions'">{{ c }}</button>
-            }
-          </span>
-        </div>
       }
 
       @if (knownSubjects().length) {
@@ -216,9 +149,8 @@
       }
 
       <button class="btn btn-primary gen-btn" [disabled]="!canGenerate()" (click)="generate()">
-        <span [innerHTML]="'sparkles' | ico"></span> {{ generating() ? 'Generating… this can take a minute' : 'Generate quiz' }}
+        <span [innerHTML]="'sparkles' | ico"></span> {{ generating() ? 'Building the quiz…' : 'Build quiz' }}
       </button>
-      <p class="faint center" style="font-size:11.5px;padding-bottom:12px">Generation is the only step that uses the internet.</p>
     </div>
   } @else if (stage() === 'review') {
     <div class="screen lib-screen">
@@ -226,7 +158,7 @@
         <div class="hero-ico" [innerHTML]="'edit' | ico"></div>
         <div>
           <h1>Review & edit</h1>
-          <p>{{ mode() === 'key' ? 'Tap the circle beside the correct answer to change it.' : 'Tap the circle beside the correct option. Fix anything the AI got wrong.' }}</p>
+          <p>Tap the circle beside the correct answer to change it.</p>
         </div>
       </div>
 
@@ -303,7 +235,7 @@
           <p class="parse-note">Building the preview…</p>
         } @else {
           <p class="preview-count">
-            {{ previewPages() }} sheet{{ previewPages() === 1 ? '' : 's' }} in this PDF · one per student
+            {{ previewPages() }} page{{ previewPages() === 1 ? '' : 's' }} in this PDF{{ printMode() === 'pin' ? ' · 2 sheets per page' : ' · one per student' }}
           </p>
           <div class="preview-canvas-wrap">
             <canvas class="preview-canvas"></canvas>
@@ -347,6 +279,13 @@
       </div>
 
       <div class="section-title">Print sheets</div>
+      <div class="seg" style="margin-top:6px" role="group" aria-label="Sheet type">
+        <button type="button" [class.on]="printMode() === 'qr'" (click)="setPrintMode('qr')">Per student (QR)</button>
+        <button type="button" [class.on]="printMode() === 'pin'" (click)="setPrintMode('pin')">Generic PIN (2-up)</button>
+      </div>
+      @if (printMode() === 'pin') {
+        <p class="faint" style="font-size:11.5px;margin:6px 2px 0">Two identical sheets per Long page — cut in half, reusable. Students write + shade their 5-digit PIN; the scanner matches it to the roster.</p>
+      }
       <div class="copies-row" style="margin-top:6px">
         <span class="faint">Class:</span>
         <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Class for this quiz'" (change)="setSheetClassId($any($event.target).value)">
@@ -355,6 +294,15 @@
             <option [value]="c.id" [selected]="sheetClassId() === c.id">{{ c.name }} · {{ c.students.length }} students</option>
           }
         </select>
+        @if (printMode() === 'qr') {
+          <span class="faint" style="display:inline-flex;gap:6px;align-items:center">Paper:
+            <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Paper size'" (change)="setPaper($any($event.target).value)">
+              <option value="letter" [selected]="paper() === 'letter'">Short (Letter)</option>
+              <option value="a4" [selected]="paper() === 'a4'">A4</option>
+              <option value="long" [selected]="paper() === 'long'">Long (8.5×13)</option>
+            </select>
+          </span>
+        }
       </div>
       @if (quizClass(); as qc) {
         <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">Assigned to <b>{{ qc.name }}</b>. Picking another class moves this quiz; past results stay under their original class.</p>
@@ -362,28 +310,35 @@
         <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">No class yet — pick one here and it will be saved with the quiz.</p>
       }
       <div class="export-grid" style="margin-top:0">
-        <button class="btn btn-primary" [disabled]="!sheetClassId()" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> Bubble sheets</button>
+        <button class="btn btn-primary" [disabled]="!sheetClassId()" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> {{ printMode() === 'pin' ? 'PIN sheets (2-up)' : 'Bubble sheets' }}</button>
       </div>
       <div class="copies-row">
-        @if (sheetClass(); as c) {
-          <span class="faint">{{ c.students.length }} sheets · one per student, no extras</span>
+        @if (printMode() === 'pin') {
+          @if (sheetClass(); as c) {
+            <span class="faint">{{ c.students.length }} sheets · {{ pinPagesOf(c) }} Long pages · cut in half</span>
+          } @else {
+            <span class="faint">Pick a class — one half-sheet per student, two per page</span>
+          }
         } @else {
-          <span class="faint">Pick a class — prints only its students</span>
+          @if (sheetClass(); as c) {
+            <span class="faint">{{ c.students.length }} sheets · one per student, no extras</span>
+          } @else {
+            <span class="faint">Pick a class — prints only its students</span>
+          }
         }
-        <span class="faint" style="display:inline-flex;gap:6px;align-items:center">Paper:
-          <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Paper size'" (change)="setPaper($any($event.target).value)">
-            <option value="letter" [selected]="paper() === 'letter'">Short (Letter)</option>
-            <option value="a4" [selected]="paper() === 'a4'">A4</option>
-            <option value="long" [selected]="paper() === 'long'">Long (8.5×13)</option>
-          </select>
-        </span>
       </div>
-      @if (sheetClass()) {
-        <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Exactly {{ sheetClass()!.students.length }} sheet{{ sheetClass()!.students.length === 1 ? '' : 's' }} — one per student in {{ sheetClass()!.name }}, each QR carrying that student's name so scanning attaches them automatically.</p>
-      } @else if (classList().length) {
-        <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Pick a class to print its roster. Sheets are never printed blank — every sheet belongs to a student.</p>
+      @if (printMode() === 'pin') {
+        @if (sheetClass()) {
+          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Two generic sheets per Long (8.5×13) page — cut along the dashed line. Students write + shade their 5-digit PIN; scanning matches it to the roster automatically.</p>
+        }
       } @else {
-        <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Add a class on the Classes tab first — sheets print exactly that class's students.</p>
+        @if (sheetClass()) {
+          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Exactly {{ sheetClass()!.students.length }} sheet{{ sheetClass()!.students.length === 1 ? '' : 's' }} — one per student in {{ sheetClass()!.name }}, each QR carrying that student's name so scanning attaches them automatically.</p>
+        } @else if (classList().length) {
+          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Pick a class to print its roster. Sheets are never printed blank — every sheet belongs to a student.</p>
+        } @else {
+          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Add a class on the Classes tab first — sheets print exactly that class's students.</p>
+        }
       }
 
       <div class="section-title">Class &amp; progress</div>
@@ -424,6 +379,20 @@
           </div>
         </div>
       }
+
+      <div class="section-title">Use in another section</div>
+      <div class="export-grid" style="margin-top:0">
+        <button class="btn btn-secondary" (click)="openCopy()" [disabled]="!copyTargets().length || copyBusy()">
+          <span [innerHTML]="'copy' | ico"></span> {{ copyBusy() ? 'Copying…' : 'Copy to another section' }}
+        </button>
+      </div>
+      <p class="faint center" style="font-size:11.5px;margin:8px 0 0">
+        @if (copyTargets().length) {
+          Same questions and answer key; the copy starts with no scans, and its sheets print that section's roster.
+        } @else {
+          Add another section first — the copy needs somewhere to go.
+        }
+      </p>
 
       <details class="akey-collapse">
         <summary>
@@ -482,6 +451,25 @@
         }
         <div class="org-sheet-actions">
           <button type="button" class="btn btn-secondary" (click)="classPickOpen.set(false)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (copyPickOpen()) {
+    <div class="org-overlay" (click)="copyPickOpen.set(false)">
+      <div class="org-sheet picker-sheet" (click)="$event.stopPropagation()">
+        <h3>Copy to which section?</h3>
+        <p class="faint" style="font-size:12px;margin:4px 0 10px">Same questions and answer key; the copy starts with no scans. This quiz stays in {{ quizClassLabel(selectedQuiz()) }}.</p>
+        <div class="picker-list">
+          @for (c of copyTargets(); track c.id) {
+            <button type="button" class="roster-row" (click)="copyTo(c)" [disabled]="copyBusy()">
+              <span class="roster-name">{{ c.name }}</span>
+              <span class="roster-cls">{{ c.students.length }} student{{ c.students.length === 1 ? '' : 's' }}</span>
+            </button>
+          }
+        </div>
+        <div class="org-sheet-actions">
+          <button type="button" class="btn btn-secondary" (click)="copyPickOpen.set(false)">Cancel</button>
         </div>
       </div>
     </div>

@@ -3,8 +3,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
-import { diffRoster, parseRoster } from '../../core/engine/roster.js';
-import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
+import { diffRoster, parseRoster, generatePins, isValidPin } from '../../core/engine/roster.js';
+import { exportPinListPdf } from '../../core/engine/export.js';
+import { bannerTheme, bannerAvatar, fmtDateLong } from '../../shared/helpers.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { ToastService } from '../../core/services/toast.service';
 import { IcoPipe } from '../../shared/ico.pipe';
@@ -21,12 +22,11 @@ interface StudentRecord {
   answers?: number[];
 }
 
-// Class roster page: back header, a themed banner card (same gradient the
-// class wears on the Classes page) with the gradebook underneath — students
-// down, quizzes across, the latest score in each cell. Tapping a student
-// expands the latest attempt per quiz with its date, where a result can also
-// be removed. Edit roster opens an inline sheet right here — no hand-off to
-// the Classes tab.
+// Class page: a themed banner (same gradient the class wears on the Classes
+// page) over three tabs — Classwork quizzes, the student roster, and the
+// gradebook (students down, quizzes across, latest score per cell). Tapping a
+// student opens their full answer review; Edit roster opens an inline sheet
+// right here — no hand-off to another tab.
 @Component({
   selector: 'app-class-roster',
   imports: [IonContent, IcoPipe],
@@ -40,8 +40,20 @@ export class ClassRosterPage {
   cls = signal<any>(null);
   bannerTheme = bannerTheme;
   bannerAvatar = bannerAvatar;
+  // Creation date on the Classwork/Scores cards — not the scan date, so a
+  // quiz made in September still reads September even if papers come later.
+  readonly dateOf = fmtDateLong;
   missing = signal(false);
   rosterOpen = signal(false);
+  // Classroom-style tabs inside the class: Classwork, the roster, the
+  // gradebook. `?tab=` (e.g. from the Home card chips) can open one directly.
+  tab = signal<'quiz' | 'students' | 'scores'>('quiz');
+  setTab(t: 'quiz' | 'students' | 'scores') {
+    // Leaving Scores drops the drill-down so the tab always reopens on the
+    // quiz list, matching the Quiz tab's rhythm.
+    if (t !== 'scores') this.scoreQuizId.set(null);
+    this.tab.set(t);
+  }
   // Replace rewrites the whole list (box prefilled); Add appends just the new
   // names a teacher pastes or uploads — real classes arrive in batches.
   rosterMode = signal<'replace' | 'add'>('replace');
@@ -101,6 +113,8 @@ export class ClassRosterPage {
       subject: q.subject || '',
       items: q.items?.length || 0,
       graded: this.sheets().filter((s: any) => s.quizId === q.id).length,
+      // Per-quiz average: every scanned paper for this quiz in this class.
+      avg: this.avgOfQuiz(q.id),
     }));
   });
 
@@ -108,18 +122,140 @@ export class ClassRosterPage {
     this.router.navigateByUrl('/quiz?new=1&class=' + (this.cls()?.id || ''));
   }
 
+  scanPapers() {
+    this.router.navigateByUrl('/tabs/checking');
+  }
+
+  // ── Scores tab: quiz first, then that quiz's full student list ───────────
+  // Same rhythm as Classwork: a card per quiz, tap one to see every student's
+  // score for it. A quiz deleted after its papers were checked keeps a card
+  // (its gradebook column still exists), so scanned results never vanish.
+  scoreQuizId = signal<string | null>(null);
+
+  readonly scoreCards = computed(() => {
+    const seen = new Set<string>();
+    const cards: any[] = [];
+    for (const cw of this.classwork()) {
+      seen.add(cw.q.id);
+      cards.push({
+        id: cw.q.id, title: cw.title, subject: cw.subject,
+        scanned: this.scannedOfQuiz(cw.q.id), avg: cw.avg,
+        points: this.avgPointsOfQuiz(cw.q.id),
+        date: cw.q.createdAt,
+      });
+    }
+    for (const col of this.book().columns) {
+      if (seen.has(col.quizId)) continue;
+      cards.push({
+        id: col.quizId, title: col.full || col.label, subject: '',
+        scanned: this.scannedOfQuiz(col.quizId), avg: this.avgOfQuiz(col.quizId),
+        points: this.avgPointsOfQuiz(col.quizId),
+        // the quiz record is gone; its first scan is the closest date evidence
+        date: this.firstScanOf(col.quizId),
+      });
+    }
+    return cards;
+  });
+
+  readonly scoreCard = computed(() => {
+    const id = this.scoreQuizId();
+    return id ? this.scoreCards().find(c => c.id === id) || null : null;
+  });
+
+  readonly scoreRows = computed(() =>
+    this.book().rows.map((row: any) => ({
+      ...row,
+      cell: row.cells.find((c: any) => c.quizId === this.scoreQuizId()) || null,
+    })));
+
+  // Unique roster students with a scanned paper for this quiz (sheets are
+  // already scoped to this class by ionViewWillEnter).
+  scannedOfQuiz(id: string): number {
+    const seen = new Set<string>();
+    for (const s of this.sheets()) {
+      if (s.quizId !== id) continue;
+      seen.add(s.studentNo != null ? 'n' + s.studentNo : 'name:' + s.studentName);
+    }
+    return seen.size;
+  }
+
+  avgOfQuiz(id: string): number | null {
+    const rows = this.sheets().filter((s: any) => s.quizId === id);
+    if (!rows.length) return null;
+    return Math.round(rows.reduce((a: number, s: any) => a + (Number(s.percent) || 0), 0) / rows.length);
+  }
+
+  // The class's actual score on the quiz: mean correct out of the item total,
+  // shown next to the percent on the quiz's scores screen.
+  avgPointsOfQuiz(id: string): { correct: number, total: number } | null {
+    const rows = this.sheets().filter((s: any) => s.quizId === id);
+    if (!rows.length) return null;
+    const total = rows.reduce((a: number, s: any) => a + (Number(s.total) || 0), 0) / rows.length;
+    const correct = rows.reduce((a: number, s: any) => a + (Number(s.correct) || 0), 0) / rows.length;
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+    return { correct: round1(correct), total: round1(total) };
+  }
+
+  firstScanOf(id: string): number {
+    const rows = this.sheets().filter((s: any) => s.quizId === id);
+    return rows.length ? Math.min(...rows.map((s: any) => Number(s.createdAt) || 0)) : 0;
+  }
+
+  openScores(id: string) { this.scoreQuizId.set(id); }
+  closeScores() { this.scoreQuizId.set(null); }
+
+  // ── Student PINs (for the generic PIN answer sheets) ──────────────────────
+  // Every student gets a 5-digit PIN; they write + shade it on their half
+  // sheet and the scanner routes the paper back to them.
+  pinEditOpen = signal(false);
+  pinEditStudent = signal<any>(null);
+  pinDraft = signal('');
+  pinError = signal('');
+  readonly isValidPin = isValidPin;
+
+  openPinEdit(st: any) {
+    this.pinEditStudent.set(st);
+    this.pinDraft.set(st?.pin || '');
+    this.pinError.set('');
+    this.pinEditOpen.set(true);
+  }
+  closePinEdit() { this.pinEditOpen.set(false); }
+
+  async savePin() {
+    const cls = this.cls();
+    const st = this.pinEditStudent();
+    const pin = this.pinDraft().trim();
+    if (!cls || !st) return;
+    if (!isValidPin(pin)) { this.pinError.set('The PIN must be exactly 5 digits.'); return; }
+    const clash = (cls.students || []).find((s: any) => s.id !== st.id && s.pin === pin);
+    if (clash) { this.pinError.set(`That PIN already belongs to ${clash.name}.`); return; }
+    const students = (cls.students || []).map((s: any) => (s.id === st.id ? { ...s, pin } : s));
+    const record = await saveClass({ ...cls, students });
+    this.cls.set(record);
+    this.pinEditOpen.set(false);
+    this.toast.toast(`PIN ${pin} saved for ${st.name}`);
+  }
+
+  async generatePinsNow() {
+    const cls = this.cls();
+    if (!cls) return;
+    const { students, assigned } = generatePins(cls.students || []);
+    if (!assigned) { this.toast.toast('Every student already has a PIN.'); return; }
+    const record = await saveClass({ ...cls, students });
+    this.cls.set(record);
+    this.toast.toast(`${assigned} PIN${assigned === 1 ? '' : 's'} assigned`);
+  }
+
+  async printPinList() {
+    const cls = this.cls();
+    if (!cls) return;
+    await exportPinListPdf(cls);
+    this.toast.toast('PIN list saved — hand each student their PIN');
+  }
+
   openQuiz(id: string) {
     this.router.navigateByUrl('/quiz?quiz=' + id);
   }
-
-  readonly quizCount = computed(() => this.classwork().length);
-  // A student counts as completed once any quiz cell carries a score.
-  readonly completedOf = computed(() =>
-    this.book().rows.filter(r => r.cells.some((c: any) => c.scored)).length);
-  readonly ringPct = computed(() => {
-    const total = this.students().length || 1;
-    return Math.round((this.completedOf() / total) * 100);
-  });
 
   // Row avatars: initials + a stable colour per student, so the roster reads
   // like a people list at a glance (same student always wears the same tint).
@@ -164,6 +300,9 @@ export class ClassRosterPage {
   });
 
   async ionViewWillEnter() {
+    this.scoreQuizId.set(null);
+    const t = this.route.snapshot.queryParamMap.get('tab');
+    if (t === 'students' || t === 'scores') this.tab.set(t);
     const id = this.route.snapshot.paramMap.get('id');
     const cls = id ? await getClass(id) : null;
     this.cls.set(cls);
@@ -187,10 +326,13 @@ export class ClassRosterPage {
 
   // The Answers button opens the student's full review page: per quiz, every
   // question with the student's pick, the keyed answer and the full choices.
-  openAnswers(st: any) {
+  // Passing this quiz's id preselects it there (the page opens on that quiz).
+  openAnswers(st: any, quizId: string | null = null) {
     const cls = this.cls();
     if (!cls) return;
-    this.router.navigate(['/tabs/classes', cls.id, 'students', st.id]);
+    this.router.navigate(['/tabs/classes', cls.id, 'students', st.id], {
+      queryParams: quizId ? { quiz: quizId } : {},
+    });
   }
 
   // Edit roster stays on this page: the sheet just edits the student list —
@@ -245,12 +387,10 @@ export class ClassRosterPage {
         this.toast.toast(parsed.students.length ? 'Everyone listed is already on the roster' : 'Paste or upload at least one student name', true);
         return;
       }
+      // Spread the whole class so school year, archived state and any other
+      // fields survive a roster edit — saveClass replaces the record wholesale.
       const record = await saveClass({
-        id: cls.id,
-        name: cls.name,
-        grade: cls.grade,
-        section: cls.section,
-        subject: cls.subject,
+        ...cls,
         students: [
           ...(cls.students || []),
           ...fresh.map((s: any) => ({
@@ -270,11 +410,7 @@ export class ClassRosterPage {
       return;
     }
     const record = await saveClass({
-      id: cls.id,
-      name: cls.name,
-      grade: cls.grade,
-      section: cls.section,
-      subject: cls.subject,
+      ...cls,
       students: parsed.students.map((s: any) => ({
         name: s.name,
         grade: s.grade || cls.grade || '',

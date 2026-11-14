@@ -8,14 +8,11 @@ import {
   listDocs, listAccounts, getAccount, deleteAccount, setActiveAccount,
   getActiveAccountId, accountHasData
 } from '../../core/engine/storage.js';
-import { testApiKey, getApiKey, setApiKey, hasApiKey, hasRelay } from '../../core/engine/gemini.js';
-import { setAiConfig, activeModel } from '../../core/engine/ai-providers.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { assetUrl } from '../../shared/assets.js';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { ByokService } from '../../core/services/byok.service';
 import { GuideService } from '../../core/services/guide.service';
 import { encryptBackup, decryptBackup } from '../../core/engine/crypto-backup.js';
 import { generateSyncCode, getSyncInfo, turnOffSync, activateSync, pushSync, pullSync, changeSyncPassword } from '../../core/engine/sync.js';
@@ -46,7 +43,6 @@ export class SettingsPage implements OnInit {
   private confirm = inject(ConfirmService);
   readonly guide = inject(GuideService);
   private location = inject(Location);
-  readonly byok = inject(ByokService);
   readonly demoSheets = [
     { file: 'demo/answered-sheet.png', label: 'Perfect — Ivan (100%)', url: assetUrl('demo/answered-sheet.png') },
     { file: 'demo/answered-sheet-joy.png', label: 'Missed two — Joy (75%)', url: assetUrl('demo/answered-sheet-joy.png') },
@@ -68,12 +64,9 @@ export class SettingsPage implements OnInit {
   accounts: any[] = [];
   account: any = null;
   usageLine = signal('');
-  keyStatus = signal('');
-  keyInput = '';
-  testing = false;
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.1.0'; }
+  get version() { return '2.4.0'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──
@@ -256,7 +249,6 @@ export class SettingsPage implements OnInit {
   async ngOnInit() {
     this.docCount = (await listDocs()).length;
     await this.renderAccountSection();
-    this.renderKeyStatus();
     this.refreshSyncInfo();
     this.ngOnInitSyncRestore();
     try {
@@ -270,14 +262,6 @@ export class SettingsPage implements OnInit {
     } catch { /* usage optional */ }
   }
 
-  private renderKeyStatus(msg?: string) {
-    this.keyStatus.set(msg || (hasRelay()
-      ? `Built-in relay ready${getApiKey() ? ' · personal backup key saved' : ''}.`
-      : getApiKey()
-        ? 'No relay configured — using your personal key.'
-        : 'No relay and no key — quizzes still work with built-in rules.'));
-  }
-
   private async renderAccountSection() {
     // Fresh devices auto-create a default account without ever writing the
     // localStorage id, so fall back to the first existing account.
@@ -289,45 +273,12 @@ export class SettingsPage implements OnInit {
     this.account = acc || null;
   }
 
-  saveKey() {
-    const val = this.keyInput.trim();
-    if (!val) { this.renderKeyStatus('Paste a key first — tap a provider link above to get one free.'); return; }
-    setApiKey(val);
-    this.keyInput = '';
-    this.byok.notifyAiOk();
-    this.renderKeyStatus('Key saved ✓ — AI now uses your key first');
-    this.toast.toast('Personal backup key saved ✓');
-  }
-  removeKey() {
-    setApiKey('');
-    this.renderKeyStatus('Personal key removed — the built-in relay handles AI.');
-    this.toast.toast('Personal key removed');
-  }
-  async testKey() {
-    this.testing = true;
-    this.renderKeyStatus('Testing…');
-    const res = await testApiKey();
-    this.testing = false;
-    this.renderKeyStatus(res.ok
-      ? `✓ ${res.provider || 'AI'} reachable — model ${res.model}`
-      : res.message === 'no_key' || res.message === 'No key'
-        ? 'Save your key first — pick a provider above and paste its key'
-        : `✗ ${res.message}`);
-    if (res.ok) { this.byok.notifyAiOk(); this.toast.toast(`${res.provider || 'AI'} OK ✓`); }
-  }
-  // the select shares state with the BYOK modal (byok.provider); switching
-  // drops any model/base-URL override so the new provider's default applies
-  setProvider(id: string) {
-    if (id === this.byok.provider()) return;
-    this.byok.chooseProvider(id);
-    setAiConfig({ provider: id, model: '', baseUrl: '' });
-    this.toast.toast(`Key provider: ${this.byok.providerConfig.label}`);
-  }
-  keyPlaceholder() { return `Paste your ${this.byok.providerConfig.label} API key`; }
-  modelLabel() { return activeModel() || 'provider default'; }
-
   setSkipIntro(on: boolean) { saveSettings({ skipIntro: on }); this.refreshSettings(); this.toast.toast(on ? 'Intro will be skipped' : 'Intro plays on launch'); }
 
+
+  // Library entries — reached from Settings now that Home keeps only classes.
+  openKeys() { this.router.navigateByUrl('/tabs/keys'); }
+  openReports() { this.router.navigateByUrl('/tabs/reports'); }
 
   goBack() {
     // Settings can be opened from any screen's header, so return to where the

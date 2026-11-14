@@ -508,6 +508,29 @@ export async function saveQuiz(data) {
   return record
 }
 
+/**
+ * Copy a quiz into another class/section. Builds a brand-new record on
+ * purpose — spreading the source would reuse its id (saveQuiz upserts, so the
+ * original would be overwritten) and carry demo flags. Scans are not copied:
+ * sheet rows stay keyed to the original quiz id, and new sheets print the
+ * copy's own QR.
+ * @param {TeacherQuiz} quiz @param {{ id: string, name?: string }} cls
+ * @returns {Promise<TeacherQuiz | null>}
+ */
+export async function duplicateQuiz(quiz, cls) {
+  if (!quiz?.id || !cls?.id) return null
+  return saveQuiz({
+    subject: quiz.subject || '',
+    title: quiz.title || '',
+    source: quiz.source || 'ai',
+    keyOnly: !!quiz.keyOnly,
+    classId: cls.id,
+    className: cls.name || '',
+    items: (quiz.items || []).map(it => ({ ...it, options: [...(it.options || [])] })),
+    createdAt: Date.now(),
+  })
+}
+
 /** @param {string} id @returns {Promise<TeacherQuiz | null>} */
 export async function getQuiz(id) {
   if (!id) return null

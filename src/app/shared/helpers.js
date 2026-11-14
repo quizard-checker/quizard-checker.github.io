@@ -19,6 +19,13 @@ export function fmtDate(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+// "September 12, 2026" — month spelled out, for quiz creation dates on the
+// Classwork and Scores cards so the teacher can tell when a quiz was made.
+export function fmtDateLong(ts) {
+  if (!ts) return ''
+  return new Date(ts).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 // Classroom-style banner identity, shared by the Classes cards and the roster
 // banner so a class wears the same gradient everywhere it appears. The theme
 // is hashed from the id — deterministic, never changes. The avatar shows the

@@ -84,42 +84,16 @@
       </div>
     </div>
 
-    <div class="section-title"><span class="set-sec-ico" [innerHTML]="'sparkles' | ico"></span>AI question writing</div>
-    <div class="card" style="padding:16px" [class.ai-down-card]="byok.aiDown()">
-      @if (byok.aiDown()) {
-        <div class="ai-down-banner">
-          <span [innerHTML]="'alert' | ico"></span>
-          <span>AI is out of requests — add a free personal key below to keep AI features running.</span>
-        </div>
-      }
-      <p class="muted" style="font-size:13px;line-height:1.55;margin-bottom:14px">
-        Quizard writes AI questions through its <b>built-in relay</b> — the app rotates several
-        Gemini keys automatically, so quizzes keep generating even when one key hits its limit.
-        Nothing to configure. Optionally, paste your own key — free for
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Gemini</a>,
-        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">OpenRouter</a> and
-        <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Groq</a>:
-        it is stored only on this device and used before the shared relay.
-      </p>
-      <div class="byok-providers" role="group" aria-label="Key provider">
-        @for (p of byok.providerList; track p.id) {
-          <button type="button" class="pchip" [class.on]="byok.provider() === p.id" [attr.aria-pressed]="byok.provider() === p.id" (click)="setProvider(p.id)">{{ p.label }}</button>
-        }
+    <div class="section-title"><span class="set-sec-ico" [innerHTML]="'listChecks' | ico"></span>Library</div>
+    <div class="settings-group">
+      <div class="row" style="border-top:none">
+        <div><div class="label">Saved answer keys</div><div class="sub">Reuse prompt-format keys or start a quiz from one</div></div>
+        <button class="btn btn-secondary" (click)="openKeys()">Open</button>
       </div>
-      <input type="password" id="gemini-key-input" [placeholder]="keyPlaceholder()" autocomplete="off" spellcheck="false" aria-label="Personal AI API key"
-        style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text);font-size:13px" [(ngModel)]="keyInput" />
-      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn btn-primary" style="flex:1;min-width:110px" (click)="saveKey()"><span [innerHTML]="'check' | ico"></span> Save key</button>
-        <button class="btn btn-secondary" style="flex:1;min-width:110px" (click)="removeKey()"><span [innerHTML]="'trash' | ico"></span> Remove</button>
-        <button class="btn btn-secondary" (click)="byok.open('Add a free AI key — used first, with the shared relay as backup.')" data-tooltip="Open the quick AI-key dialog"><span [innerHTML]="'sparkles' | ico"></span> Quick add key</button>
+      <div class="row" style="border-bottom:none">
+        <div><div class="label">Quiz reports</div><div class="sub">Per-quiz scores, averages and answer review</div></div>
+        <button class="btn btn-secondary" (click)="openReports()">Open</button>
       </div>
-      <p class="muted" style="font-size:12.5px;line-height:1.5;margin:0 0 12px">
-        Model: <b>{{ modelLabel() }}</b> · your key never leaves this device (it goes only to the provider you chose).
-      </p>
-      <div style="display:flex;gap:10px;margin-top:4px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-secondary" [disabled]="testing" (click)="testKey()"><span [innerHTML]="'zap' | ico"></span> Test connection</button>
-      </div>
-      <p class="faint" style="font-size:12px;margin-top:10px">{{ keyStatus() }}</p>
     </div>
 
     <div class="section-title"><span class="set-sec-ico" [innerHTML]="'refresh' | ico"></span>Cloud sync — your library on every device</div>
@@ -247,7 +221,7 @@
         <span class="mark" style="width:38px;height:38px;border-radius:11px;background:var(--text);display:grid;place-items:center;color:var(--bg)" [innerHTML]="'logo' | ico"></span>
         <div>
           <div class="label">Quizard v{{ version }} · Ionic + Angular</div>
-          <div class="sub">Your documents never leave this device · AI polish via Google Gemini (optional)</div>
+          <div class="sub">Your documents never leave this device</div>
         </div>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">

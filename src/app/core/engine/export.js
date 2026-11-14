@@ -1,5 +1,10 @@
 import qrModule from 'qrcode-generator'
-import { SHEET, bubbleSheetLayout, frameRect, markerRects, columnX, rowLabelRight, bubbleCenter, qrRect, rowPitch, sheetQrPayload, qrCaption } from './sheet-spec.js'
+import {
+  SHEET, PIN_SHEET, PIN_ITEMS, bubbleSheetLayout, frameRect, markerRects, columnX, rowLabelRight,
+  bubbleCenter, qrRect, rowPitch, sheetQrPayload, qrCaption,
+  pinFrameRect, pinMarkerRects, pinItemCenter, pinRowLabelRight, pinItemColX, pinItemRowY, pinWriteBox, pinDigitCenter,
+  pinQrRect, pinSheetQrPayload, pinCutLineY,
+} from './sheet-spec.js'
 import { sectionBreakdown } from './reports.js'
 
 export { bubbleSheetLayout } from './sheet-spec.js'
@@ -336,4 +341,171 @@ export async function buildBubbleSheetsPdf(quiz, students, size = 'letter') {
 export async function exportBubbleSheets(quiz, students, size = 'letter') {
   const pdf = await buildBubbleSheetsPdf(quiz, students, size)
   pdf.save(`quizard-bubble-sheets-${slug(quiz.subject || quiz.title)}.pdf`)
+}
+
+// ── Generic PIN half-sheets (ZipGrade-style) ────────────────────────────────
+// Two identical generic sheets per Long page, cut in half. The QR carries only
+// the quiz id; each student is identified by the 5-digit PIN they write and
+// shade on their half. Fixed 50-item grid — one printed form serves any quiz.
+
+function drawPinHalf(pdf, quiz, half, className) {
+  const f = pinFrameRect(half)
+  const P = PIN_SHEET
+
+  // frame + corner alignment squares — the scanner's homography is built from these
+  pdf.setDrawColor('#0b0820'); pdf.setLineWidth(1.4)
+  pdf.rect(f.x, f.y, f.w, f.h, 'S')
+  pdf.setFillColor('#0b0820')
+  for (const m of pinMarkerRects(half)) pdf.rect(m.x, m.y, m.w, m.h, 'F')
+
+  // boxed header table (ZipGrade-style): gray label cells, printed Class/Quiz
+  const hx = f.x + 8, hy = f.y + 8, rowH = P.headerRowH, lw = P.labelW, hw = f.w - 16
+  const labelCell = (x, y, text) => {
+    pdf.setFillColor('#d1d5db'); pdf.rect(x, y, lw, rowH, 'FD')
+    pdf.setDrawColor('#374151'); pdf.setLineWidth(0.7); pdf.rect(x, y, lw, rowH, 'S')
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+    pdf.text(text, x + 4, y + rowH / 2 + 2.3)
+  }
+  const blankCell = (x, y, w, printed) => {
+    pdf.setDrawColor('#374151'); pdf.setLineWidth(0.7); pdf.rect(x, y, w, rowH, 'S')
+    if (printed) {
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor('#1c2438')
+      let t = pdfSafe(printed)
+      const cap = w - 8
+      while (pdf.getTextWidth(t) > cap && t.length > 4) t = t.slice(0, -1)
+      pdf.text(t, x + 4, y + rowH / 2 + 2.6)
+    }
+  }
+  const r1 = hy, r2 = hy + rowH
+  labelCell(hx, r1, 'Name'); blankCell(hx + lw, r1, 300); labelCell(hx + lw + 300, r1, 'Date'); blankCell(hx + lw + 300 + lw, r1, hw - lw * 3 - 300 - 6)
+  labelCell(hx, r2, 'Class'); blankCell(hx + lw, r2, 300, className); labelCell(hx + lw + 300, r2, 'Quiz'); blankCell(hx + lw + 300 + lw, r2, hw - lw * 3 - 300 - 6, quiz.subject + (quiz.title ? ' — ' + quiz.title : ''))
+
+  // form label + the pin instruction
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+  pdf.text('Form 50-P', hx, r2 + rowH + 10)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#6b7280')
+  pdf.text('Write each PIN digit in its box, then shade the same number below it.', hx + 40, r2 + rowH + 10)
+
+  // column headers: PIN write boxes above the digit strips, black square +
+  // A B C D letters above every item sub-column (ZipGrade look)
+  for (let d = 0; d < P.pinDigits; d++) {
+    const box = pinWriteBox(half, d)
+    pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.9)
+    pdf.rect(box.x, box.y, box.w, box.h, 'S')
+  }
+  for (let c = 0; c < 5; c++) {
+    const sq = 5
+    pdf.setFillColor('#0b0820')
+    pdf.rect(pinItemColX(half, c) - 1, f.y + P.rowY0 - 20, sq, sq, 'F')
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+    for (let b = 0; b < P.letters.length; b++) {
+      const bc = pinItemCenter(c * 10, b, half)
+      pdf.text(P.letters[b], bc.x, f.y + P.rowY0 - 12 + P.letterCap / 2, { align: 'center' })
+    }
+  }
+
+  // 10 rows: PIN digit bubbles (9 at the top, 0 at the bottom) + item bubbles
+  pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.9)
+  for (let r = 0; r < P.rows; r++) {
+    const value = 9 - r
+    for (let d = 0; d < P.pinDigits; d++) {
+      const c = pinDigitCenter(d, value, half)
+      pdf.circle(c.x, c.y, P.pinR, 'S')
+      if (d === 0) {
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(4.8); pdf.setTextColor('#6b7280')
+        pdf.text(String(value), c.x - P.pinR - 3, c.y + 1.6, { align: 'right' })
+      }
+    }
+    for (let c = 0; c < 5; c++) {
+      const item = c * 10 + r
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#6b7280')
+      pdf.text(String(item + 1), pinRowLabelRight(half, c), pinItemRowY(half, r) + 2, { align: 'right' })
+      for (let b = 0; b < P.letters.length; b++) {
+        const bc = pinItemCenter(item, b, half)
+        pdf.circle(bc.x, bc.y, P.circleR, 'S')
+        pdf.text(P.letters[b], bc.x, bc.y + P.letterCap / 2, { align: 'center' })
+      }
+    }
+  }
+
+  // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
+  const qr = pinQrRect(half)
+  bubbleQr(pdf, pinSheetQrPayload(quiz.id), qr.x, qr.y, qr.size, 'M')
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#374151')
+  pdf.text('Quizard PIN sheet', f.x + 6, f.y + f.h - 8)
+}
+
+export async function buildPinSheetsPdf(quiz, students, size = 'long', className = '') {
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ unit: 'pt', format: PAPER[size] || PAPER.long })
+  const roster = Array.isArray(students) ? students : []
+  const pages = Math.max(1, Math.ceil(roster.length / 2))
+
+  for (let copy = 0; copy < pages; copy++) {
+    if (copy > 0) pdf.addPage()
+
+    // dashed cut line between the two halves
+    pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.8)
+    pdf.setLineDashPattern([6, 5], 0)
+    pdf.line(10, pinCutLineY(), PIN_SHEET.W - 10, pinCutLineY())
+    pdf.setLineDashPattern([], 0)
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor('#9ca3af')
+    pdf.text('cut here', PIN_SHEET.W - 12, pinCutLineY() - 4, { align: 'right' })
+
+    drawPinHalf(pdf, quiz, 0)
+    drawPinHalf(pdf, quiz, 1)
+  }
+
+  return pdf
+}
+
+export async function exportPinSheets(quiz, students, size = 'long') {
+  const pdf = await buildPinSheetsPdf(quiz, students, size)
+  pdf.save(`quizard-pin-sheets-${slug(quiz.subject || quiz.title)}.pdf`)
+}
+
+// One-page roster handout: who has which PIN, so the teacher can hand the
+// codes out (or post them) before the first PIN-sheet quiz.
+export async function buildPinListPdf(cls) {
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ unit: 'pt', format: PAPER.letter })
+  const students = [...(cls?.students || [])].sort((a, b) => (a.no || 0) - (b.no || 0))
+
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.setTextColor('#1c2438')
+  pdf.text('Student PIN list', 48, 56)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor('#6b7280')
+  const meta = [cls?.name, cls?.schoolYear].filter(Boolean).join(' · ')
+  pdf.text(pdfSafe(meta), 48, 74)
+  pdf.setFontSize(8); pdf.setTextColor('#9ca3af')
+  pdf.text('Students write this PIN (and shade its digits) on every PIN answer sheet.', 48, 90)
+
+  const y0 = 116
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor('#1c2438')
+  pdf.text('No', 48, y0); pdf.text('Student name', 88, y0); pdf.text('PIN', 420, y0)
+  pdf.setDrawColor('#d1d5db'); pdf.setLineWidth(0.7)
+  pdf.line(48, y0 + 5, 480, y0 + 5)
+
+  let y = y0 + 20
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10)
+  for (const st of students) {
+    pdf.setTextColor('#1c2438')
+    pdf.text(String(st.no ?? ''), 48, y)
+    const name = pdfSafe(st.name)
+    pdf.text(name, 88, y)
+    pdf.setFont('courier', 'bold')
+    pdf.text(st.pin || '—', 420, y)
+    pdf.setFont('helvetica', 'normal')
+    y += 22
+    if (y > 760) { pdf.addPage(); y = 60 }
+  }
+  if (!students.length) {
+    pdf.setFontSize(10); pdf.setTextColor('#6b7280')
+    pdf.text('No students on this roster yet.', 48, y)
+  }
+  return pdf
+}
+
+export async function exportPinListPdf(cls) {
+  const pdf = await buildPinListPdf(cls)
+  pdf.save(`quizard-pin-list-${slug(cls?.name || '')}.pdf`)
 }

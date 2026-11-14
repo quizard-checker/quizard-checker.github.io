@@ -55,3 +55,66 @@ function normalizeGrade(s) {
   const m = /(\d{1,2})/.exec(s)
   return m ? `Grade ${m[1]}` : s
 }
+
+// ── 5-digit student PINs (for the generic PIN answer sheets) ────────────────
+// The teacher hands each student a PIN; the student writes + shades it on
+// their sheet and the scanner routes the paper back to them.
+
+const PIN_RE = /^\d{5}$/
+const PIN_SOURCE = '0123456789'
+
+export function isValidPin(value) {
+  return PIN_RE.test(String(value || '').trim())
+}
+
+function randomPin(exclude) {
+  for (let tries = 0; tries < 10000; tries++) {
+    let pin = ''
+    for (let d = 0; d < 5; d++) pin += PIN_SOURCE[Math.floor(Math.random() * 10)]
+    if (!exclude.has(pin)) { exclude.add(pin); return pin }
+  }
+  // 100k pool vs a class roster — practically unreachable; fall back to a
+  // sequential pin outside the excluded set
+  for (let n = 0; n <= 99999; n += 7) {
+    const pin = String(n).padStart(5, '0')
+    if (!exclude.has(pin)) { exclude.add(pin); return pin }
+  }
+  return '00000'
+}
+
+/**
+ * Fill in a unique 5-digit PIN for every student that doesn't have one.
+ * Existing PINs (valid or not) are never touched; new ones are unique across
+ * the class and don't collide with any already-assigned pin.
+ * @param {Array<{ pin?: string }>} students
+ * @returns {{ students: any[], assigned: number }}
+ */
+export function generatePins(students = []) {
+  const taken = new Set()
+  for (const s of students || []) {
+    const pin = String(s?.pin || '').trim()
+    if (PIN_RE.test(pin)) taken.add(pin)
+  }
+  let assigned = 0
+  const out = (students || []).map(s => {
+    const pin = String(s?.pin || '').trim()
+    if (PIN_RE.test(pin)) return { ...s, pin }
+    assigned++
+    return { ...s, pin: randomPin(taken) }
+  })
+  return { students: out, assigned }
+}
+
+/**
+ * Match a shaded/written 5-digit PIN to a roster student. Duplicate pins in
+ * one class can't be resolved (the scan can't tell them apart) — returns null
+ * so the teacher attaches the student manually.
+ * @param {Array<{ pin?: string }>} students
+ * @param {string} pin
+ */
+export function resolveStudentByPin(students = [], pin) {
+  const want = String(pin || '').replace(/\D/g, '')
+  if (!PIN_RE.test(want)) return null
+  const matches = (students || []).filter(s => String(s?.pin || '') === want)
+  return matches.length === 1 ? matches[0] : null
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import qrModule from 'qrcode-generator'
-import { sheetQrPayload, demoSheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
+import { sheetQrPayload, demoSheetQrPayload, pinSheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
 
 const moduleCount = (payload, level) => {
   const qr = (qrModule.default || qrModule)(0, level)
@@ -28,6 +28,13 @@ describe('sheetQrPayload / parseSheetQr', () => {
     const parsed = parseSheetQr(p)
     expect(parsed.studentId).toBe('s')
     expect(parsed.studentName).toBe('Ana/Marie')
+  })
+
+  it('encodes a generic PIN sheet as a quiz-only QZ3 code', () => {
+    const p = pinSheetQrPayload('quiz-1')
+    expect(p).toBe('QZ3:quiz-1')
+    expect(parseSheetQr(p)).toEqual({ quizId: 'quiz-1', studentId: null, studentName: null, pinSheet: true })
+    expect(parseSheetQr('QZ3:')).toBeNull()
   })
 
   it('ignores QR codes that are not Quizard sheet codes', () => {

@@ -1847,6 +1847,16 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
 .q-wiz { width: 60px; height: 60px; object-fit: contain; margin: 0 auto 6px; display: block; }
 .q-wiz-fb { width: 84px; height: 84px; object-fit: contain; margin: 0 auto 10px; display: block; }
 .lib-hero { display: flex; align-items: center; gap: 16px; }
+/* Home's primary action: full-width and tall so "Add class" is unmissable. */
+.home-actions { display: flex; margin: 2px 0 18px; max-width: 440px; }
+.home-actions .btn {
+  width: 100%; min-height: 54px; font-size: 15.5px; font-weight: 800;
+  justify-content: center; border-radius: var(--radius-md);
+}
+@media (min-width: 900px) { .home-actions { margin-bottom: 22px; } }
+/* Class search/sort/filter toolbar — reuses the legacy library patterns. */
+.home-tools { margin-bottom: 12px; }
+.home-filters { margin-top: 0; margin-bottom: 18px; }
 /* Small docs link under the Quizzes home hero — the guide lives on the
    separate site at /site/, not inside the app. */
 .hero-help {
@@ -1895,6 +1905,7 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
 .sheet-label .faint { text-transform: none; letter-spacing: 0; font-weight: 600; }
 textarea.roster-paste { height: auto; min-height: 150px; resize: vertical; line-height: 1.5; font-size: 13px; }
 .file-btn { position: relative; overflow: hidden; justify-content: center; margin-top: 10px; margin-bottom: 10px; }
+.import-hint { font-size: 11.5px; margin: -4px 0 10px; text-align: center; }
 /* The saved-key picker sits directly above the paste box in key mode; without
    this the select and textarea touch. */
 .key-select { margin-bottom: 10px; }
@@ -1969,6 +1980,15 @@ textarea.roster-paste { height: auto; min-height: 150px; resize: vertical; line-
 .cq-body .key-chip.src { color: var(--text-dim); }
 /* "N graded" — papers scanned against this quiz: green when it's live */
 .cq-body .key-chip.graded { color: #166534; background: rgba(22, 101, 52, .08); border-color: rgba(22, 101, 52, .25); }
+/* Dark mode: the light-mode green turns nearly invisible on dark cards —
+   swap to the dark theme's bright green with a matching tint. */
+html[data-theme='dark'] .cq-body .key-chip.graded {
+  color: #7EE2A8;
+  background: rgba(61, 201, 138, 0.14);
+  border-color: rgba(61, 201, 138, 0.35);
+}
+/* Quiz creation date — secondary information, so it stays quiet. */
+.cq-body .key-chip.date { color: var(--text-dim); }
 /* Quizzes are grouped by class; the class chip is the primary "which class?" cue. */
 .quiz-class-head { display: flex; align-items: center; gap: 10px; margin: 18px 0 8px; }
 .quiz-class-dot {
@@ -2992,7 +3012,8 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 .sr-sum.good .sr-sum-ico { background: rgba(34,197,94,.25); color: #86efac; }
 .sr-sum.bad .sr-sum-ico { background: rgba(239,68,68,.25); color: #fca5a5; }
 .sr-sum b { display: block; font-size: 16px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.sr-sum div span { display: block; font-size: 10.5px; opacity: .85; font-weight: 600; white-space: nowrap; }
+.sr-sum div { min-width: 0; }
+.sr-sum div span { display: block; font-size: 10.5px; opacity: .85; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
 .sr-sep { width: 1px; align-self: stretch; background: rgba(255,255,255,.22); }
 
 .sr-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 12px; max-width: 560px; }
@@ -3071,7 +3092,7 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 .sr-question { margin: 0 0 10px; font-size: 13px; font-weight: 700; line-height: 1.45; color: var(--text); }
 .sr-choices { display: flex; flex-direction: column; gap: 6px; }
 .sr-choice {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 10px;
   border-radius: 9px; border: 1px solid var(--border); background: var(--surface);
   font-size: 12px;
 }
@@ -3086,6 +3107,9 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 .sr-choice.wrong { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.08); }
 .sr-choice.wrong .sr-choice-l { background: rgba(239,68,68,.18); color: var(--bad, #b91c1c); }
 .sr-choice-tag { flex: none; padding: 3px 6px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+/* "Correct answer" / "Student's answer" tags sit on their own line under the
+   option text — in one row they squeeze the text to a letter per column. */
+.sr-choice-tags { flex: 1 1 100%; display: flex; gap: 6px; padding-left: 30px; }
 .sr-choice-tag.key { color: var(--good, #15803d); background: rgba(34,197,94,.15); }
 .sr-choice-tag.picked { color: var(--good, #15803d); background: rgba(34,197,94,.15); }
 .sr-choice-tag.picked.wrong { color: var(--bad, #b91c1c); background: rgba(239,68,68,.15); }
@@ -3254,23 +3278,70 @@ button.roster-row.on { background: var(--accent-soft); }
 .cr-edit:hover { background: rgba(255, 255, 255, 0.24); }
 .cr-edit svg { width: 14px; height: 14px; }
 
-.cr-stats {
-  display: flex; align-items: center;
-  border: 1px solid var(--border); border-radius: 14px;
-  background: var(--surface); padding: 12px 4px; margin-bottom: 14px;
+/* Quiz / Students / Scores segmented tabs inside a class. Same pill shape the
+   edit-roster sheet uses, reading as the page's section switcher. Bigger touch
+   targets now that the stats strip above them is gone. */
+.cr-tabs {
+  display: flex; gap: 5px; padding: 5px; margin-bottom: 6px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
-.cr-stat { flex: 1; display: flex; align-items: center; gap: 10px; padding: 2px 10px; min-width: 0; }
-.cr-sep { width: 1px; align-self: stretch; background: var(--border); }
-.cr-stat-ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; }
-.cr-stat-ico svg { width: 17px; height: 17px; }
-.cr-stat-ico.people { background: rgba(34, 197, 94, 0.16); color: var(--good); }
-.cr-stat-ico.quiz { background: var(--accent-soft); color: var(--accent-strong); }
-.cr-stat-ico.done { padding: 0; }
-.cr-stat-ico-in { width: 27px; height: 27px; border-radius: 50%; background: var(--surface); display: block; }
-.cr-stat-txt { display: flex; flex-direction: column; min-width: 0; }
-.cr-stat-txt b { font-size: 17px; font-weight: 800; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cr-stat-txt span { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+.cr-tabs button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 12px 12px; border: 0; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--text-faint);
+  font: inherit; font-size: 15px; font-weight: 700;
+}
+.cr-tabs button.on {
+  background: var(--accent, #6c5ce7); color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.cr-tab-ico { display: inline-flex; }
+.cr-tab-ico svg { width: 17px; height: 17px; }
+
+/* Scores drill-down header: quiz name + scanned/average summary. */
+.sc-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.sc-head-ico {
+  width: 44px; height: 44px; border-radius: 14px; flex: none;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-strong);
+}
+.sc-head-ico svg { width: 20px; height: 20px; }
+.sc-head-txt { min-width: 0; }
+.sc-head-txt h3 { margin: 0; font-size: 17px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-head-txt p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); font-weight: 600; }
+
+/* Readability pass for the class page: everything here is read at arm's
+   length on a phone — bigger chips, stronger labels, larger roster/table type. */
+.cr-screen .section-title { font-size: 12.5px; color: var(--text-dim); }
+.cr-screen .cq-banner .cls-title { font-size: 17.5px; }
+.cr-screen .cq-banner .cls-sub { font-size: 12.5px; }
+.cr-screen .cq-body .key-chip { font-size: 12.5px; padding: 6px 10px; }
+.cr-screen .cq-body .key-chip.date { color: var(--text-dim); }
+.cr-screen .roster-row { padding: 13px 14px; }
+.cr-screen .roster-name { font-size: 15px; }
+.cr-screen .roster-norec { font-size: 12.5px; color: var(--text-dim); }
+/* Student PIN chip + the Generate / Print list actions under the roster */
+.pin-chip { font-family: var(--font-mono); }
+.pin-chip.unset { color: var(--text-faint); border-style: dashed; }
+.cr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 0 auto 12px; max-width: 560px; }
+.cr-actions .btn { min-height: 44px; flex: 1 1 auto; }
+.cr-screen .cr-table thead th { font-size: 11.5px; color: var(--text-dim); }
+.cr-screen .cr-stud-name { font-size: 14px; }
+.cr-screen .cr-pill { font-size: 13px; padding: 5px 11px; }
+.cr-screen .cr-answers { font-size: 11.5px; }
+.cr-screen .cr-no { font-size: 12px; }
+.cr-screen .cr-ava { width: 36px; height: 36px; font-size: 12px; }
+.cr-screen .cr-more-btn svg { width: 16px; height: 16px; }
+.cr-screen .sc-head-txt h3 { font-size: 18px; }
+.cr-screen .sc-head-txt p { font-size: 13px; }
+@media (max-width: 560px) {
+  .cr-screen .cq-body .key-chip { font-size: 12px; }
+  .cr-screen .cr-stud-name { font-size: 13.5px; }
+  .cr-screen .cr-pill { font-size: 12px; padding: 4px 9px; }
+  .cr-screen .cr-ava { width: 30px; height: 30px; font-size: 11px; }
+  .cr-screen .roster-name { font-size: 14.5px; }
+}
+
 .cr-chev { margin-left: auto; color: var(--text-faint); display: flex; }
 .cr-chev svg { width: 15px; height: 15px; }
 
@@ -3328,12 +3399,6 @@ button.roster-row.on { background: var(--accent-soft); }
   .cr-name { font-size: 19px; }
   .cr-banner-main { padding-right: 58px; }
   .cr-avatar { width: 50px; height: 50px; font-size: 21px; top: 14px; right: 14px; }
-  .cr-stat { gap: 8px; padding: 2px 6px; }
-  .cr-stat-ico { width: 30px; height: 30px; }
-  .cr-stat-ico svg { width: 15px; height: 15px; }
-  .cr-stat-ico-in { width: 22px; height: 22px; }
-  .cr-stat-txt b { font-size: 15px; }
-  .cr-stat-txt span { font-size: 9.5px; }
   .cr-chev { display: none; }
   .cr-table th, .cr-table td { padding: 9px 6px; }
   .cr-stud-main { max-width: 88px; }
@@ -3344,4 +3409,6 @@ button.roster-row.on { background: var(--accent-soft); }
   .cr-ava { width: 28px; height: 28px; font-size: 10px; margin-right: 6px; }
   .cr-no { width: 14px; margin-right: 5px; }
   .cr-more { width: 22px; }
+  .cr-tabs button { min-height: 46px; padding: 12px 4px; font-size: 14px; gap: 6px; }
+  .cr-tab-ico svg { width: 16px; height: 16px; }
 }

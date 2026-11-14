@@ -5,7 +5,6 @@ import { filter } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { IdlePreloadService } from './core/services/idle-preload.service';
-import { ByokService } from './core/services/byok.service';
 import { ConfirmService } from './core/services/confirm.service';
 import { UiStateService } from './core/services/ui-state.service';
 import { maybeAutoPush } from './core/engine/sync.js';
@@ -28,18 +27,11 @@ export class App {
   // inside the afterNextRender callback instead throws NG0203.
   private preload = inject(IdlePreloadService);
   private swUpdate = inject(SwUpdate, { optional: true });
-  readonly byok = inject(ByokService);
   readonly confirm = inject(ConfirmService);
   private ui = inject(UiStateService);
   private tooltipRaf = 0;
   private confirmWasOpen = false;
-  private byokWasOpen = false;
   private returnFocus: HTMLElement | null = null;
-
-  openKeyPage() {
-    const url = this.byok.providerConfig?.keyUrl;
-    if (url) window.open(url, '_blank', 'noopener');
-  }
 
   // The templates have always carried `data-tooltip`, but nothing rendered it.
   // Mirror it to the native title attribute so icon-only controls at least get
@@ -112,13 +104,6 @@ export class App {
       if (open === this.confirmWasOpen) return;
       this.confirmWasOpen = open;
       if (open) this.focusDialog('confirm-dialog');
-      else this.restoreDialogFocus();
-    });
-    effect(() => {
-      const open = this.byok.visible();
-      if (open === this.byokWasOpen) return;
-      this.byokWasOpen = open;
-      if (open) this.focusDialog('byok-dialog');
       else this.restoreDialogFocus();
     });
     if (Capacitor.isNativePlatform()) {

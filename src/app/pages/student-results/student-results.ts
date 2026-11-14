@@ -46,6 +46,9 @@ export class StudentResultsPage {
     const rows = this.records();
     return rows.find(r => r.quizId === this.selectedQuizId()) || rows[0] || null;
   });
+  // The header strip is the student's whole picture — every reviewed quiz —
+  // while the filter chips below stay scoped to the selected quiz.
+  readonly overallSummary = computed(() => reviewSummary(this.records()));
   readonly quizSummary = computed(() => {
     const rec = this.selectedRecord();
     return reviewSummary(rec ? [rec] : []);
@@ -76,7 +79,12 @@ export class StudentResultsPage {
     this.sheets.set(sheets);
     this.quizzes.set(quizzes);
     this.filter.set('all');
-    this.selectedQuizId.set(this.records()[0]?.quizId || null);
+    // ?quiz= (from a quiz's score table) opens that quiz's review directly;
+    // otherwise the newest reviewed quiz leads.
+    const want = this.route.snapshot.queryParamMap.get('quiz');
+    const recs = this.records();
+    this.selectedQuizId.set(
+      (want && recs.some(r => r.quizId === want)) ? want : (recs[0]?.quizId || null));
     this.openQuestion.set(null);
     this.loaded.set(true);
   }

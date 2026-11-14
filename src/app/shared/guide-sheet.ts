@@ -23,7 +23,7 @@ import { IcoPipe } from './ico.pipe';
             </li>
             <li class="guide-step">
               <span class="guide-step-ico" [innerHTML]="'sparkles' | ico"></span>
-              <div><b>Create a quiz</b><span>Anchor it to your answer key, let AI write from a lesson, or match your own format.</span></div>
+              <div><b>Create a quiz</b><span>Anchor it to your answer key — paste it, import it from Excel, or build from a saved key.</span></div>
             </li>
             <li class="guide-step">
               <span class="guide-step-ico" [innerHTML]="'scan' | ico"></span>

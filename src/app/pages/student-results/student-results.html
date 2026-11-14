@@ -19,17 +19,17 @@
           <div class="sr-summary">
             <div class="sr-sum">
               <span class="sr-sum-ico quiz" [innerHTML]="'fileText' | ico"></span>
-              <div><b>{{ records().length }}</b><span>quiz{{ records().length === 1 ? '' : 'zes' }} reviewed</span></div>
+              <div><b>{{ records().length }}</b><span>quiz{{ records().length === 1 ? '' : 'zes' }}</span></div>
             </div>
             <div class="sr-sep"></div>
             <div class="sr-sum good">
               <span class="sr-sum-ico" [innerHTML]="'check' | ico"></span>
-              <div><b>{{ quizSummary().correct }}/{{ quizSummary().total }}</b><span>Correct</span></div>
+              <div><b>{{ overallSummary().correct }}/{{ overallSummary().total }}</b><span>Correct</span></div>
             </div>
             <div class="sr-sep"></div>
             <div class="sr-sum bad">
               <span class="sr-sum-ico" [innerHTML]="'x' | ico"></span>
-              <div><b>{{ quizSummary().incorrect }}</b><span>Incorrect</span></div>
+              <div><b>{{ overallSummary().incorrect }}</b><span>Incorrect</span></div>
             </div>
           </div>
         </div>
@@ -97,8 +97,10 @@
                               <div class="sr-choice" [class.key]="$index === a.keyIndex" [class.picked]="$index === a.pickIndex" [class.wrong]="$index === a.pickIndex && !a.right">
                                 <span class="sr-choice-l">{{ letter($index) }}</span>
                                 <span class="sr-choice-t">{{ opt || '—' }}</span>
-                                @if ($index === a.keyIndex) { <span class="sr-choice-tag key">Correct answer</span> }
-                                @if ($index === a.pickIndex) { <span class="sr-choice-tag picked" [class.wrong]="!a.right">Student’s answer</span> }
+                                <span class="sr-choice-tags">
+                                  @if ($index === a.keyIndex) { <span class="sr-choice-tag key">Correct answer</span> }
+                                  @if ($index === a.pickIndex) { <span class="sr-choice-tag picked" [class.wrong]="!a.right">Student’s answer</span> }
+                                </span>
                               </div>
                             }
                           </div>

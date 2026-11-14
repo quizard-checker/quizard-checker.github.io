@@ -2,7 +2,6 @@
   <header class="app-header">
     <div class="brand"><span class="mark" [innerHTML]="'logo' | ico"></span>Classes</div>
     <div style="display:flex;gap:2px;align-items:center">
-      <button class="icon-btn" [class.ai-down]="byok.aiDown()" aria-label="AI key" (click)="byok.open()" [attr.data-tooltip]="byok.aiDown() ? 'AI is out of requests — tap to add a free key' : 'AI key — keep AI working when the relay is busy'" [innerHTML]="'sparkles' | ico"></button>
       <button class="icon-btn" aria-label="Settings" (click)="router.navigateByUrl('/tabs/settings')" data-tooltip="Settings & backup" [innerHTML]="'gear' | ico"></button>
       <button class="icon-btn" aria-label="Toggle theme" (click)="ui.toggleTheme()" [attr.data-tooltip]="ui.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" [innerHTML]="(ui.theme() === 'dark' ? 'sun' : 'moon') | ico"></button>
     </div>

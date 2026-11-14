@@ -168,8 +168,9 @@ export function demoSheetQrPayload(classKey, quizKey, studentNo) {
  * @param {string | null} text raw QR contents
  * @returns {{ quizId: string | null, studentId: string | null,
  *   studentName: string | null, demo?: { classKey: string, quizKey: string,
- *   studentNo: number } } | null}
- *   null for anything that isn't a Quizard sheet code
+ *   studentNo: number }, pinSheet?: boolean } | null}
+ *   null for anything that isn't a Quizard sheet code. `pinSheet` marks a
+ *   generic QZ3 half-sheet whose student comes from the shaded 5-digit PIN.
  */
 export function parseSheetQr(text) {
   if (typeof text !== 'string' || !text) return null
@@ -196,6 +197,13 @@ export function parseSheetQr(text) {
     return { quizId, studentId, studentName: text.slice(second + 1) || null }
   }
   if (text.startsWith('QZ1:')) return { quizId: text.slice(4), studentId: null, studentName: null }
+  if (text.startsWith('QZ3:')) {
+    const quizId = text.slice(4)
+    if (!quizId) return null
+    // generic PIN half-sheet: the student is identified by the shaded 5-digit
+    // PIN, not by anything in the QR
+    return { quizId, studentId: null, studentName: null, pinSheet: true }
+  }
   return null
 }
 
@@ -223,4 +231,125 @@ export function resolveSheetStudent(roster, claim, sessionClassId = null) {
   if (!same.length) return null
   if (same.length === 1) return same[0]
   return same.find(r => r.classId === sessionClassId) || null
+}
+
+// ── Generic PIN half-sheets (ZipGrade-style) ────────────────────────────────
+// Two identical generic sheets on one Long (8.5×13) page, cut in half. The QR
+// carries only the quiz id (QZ3) — the student identifies themselves by
+// writing + shading their 5-digit PIN, which the scanner reads and matches to
+// the roster. Fixed 50-item grid (2 columns × 25 rows, A–D): one printed form
+// serves every quiz up to the engine's 50-item cap; unused rows just stay
+// blank and scoring reads the first N answers.
+
+export const PIN_ITEMS = 50
+
+export const PIN_SHEET = {
+  W: 612, H: 936,          // long bond paper, two 468pt halves
+  marginX: 20,
+  frameW: 572, frameH: 452,
+  frameTop: [8, 476],      // top half y, bottom half y (cut line at 468)
+  // boxed header table, ZipGrade-style: gray label cells + write-in blanks
+  headerY: 14, headerRowH: 20, labelW: 42,
+  // 10 rows shared by the PIN grid and the item sub-columns
+  rowY0: 96, pitch: 24, rows: 10,
+  // the 5-digit PIN: 5 write boxes above 5 vertical 0-9 digit strips
+  // (row 0 is 9, the highest value — ZipGrade reads 9 down to 0)
+  pinX0: 34, pinDx: 21, pinR: 4.6,
+  pinDigits: 5, pinRows: 10,
+  pinBoxY: 66, pinBoxW: 17, pinBoxH: 12,
+  pinLabelY: 58,
+  // 5 item sub-columns of 10 (items 1-10, 11-20, ... 41-50)
+  itemX0: 150, itemDx: 88, labelPad: 14, labelGap: 5, letterGap: 12.8, circleR: 4.6,
+  letters: ['A', 'B', 'C', 'D'],
+  letterR: 1.2, letterCap: 4.0,
+  scanRadiusFrac: 0.85,
+  marker: 7, markerGap: 6,
+  qrSize: 46, qrPadX: 12, qrPadY: 6,
+  cutY: 468,
+}
+
+export function pinFrameRect(half = 0) {
+  return { x: PIN_SHEET.marginX, y: PIN_SHEET.frameTop[half ? 1 : 0], w: PIN_SHEET.frameW, h: PIN_SHEET.frameH }
+}
+
+// Markers sit beside the frame's corners, in the page margins (reading order
+// TL, TR, BR, BL). Both halves print identical content, so the scanner can
+// always use the top-half geometry — a bottom-half photo maps to the same
+// local coordinates through the marker homography.
+export function pinMarkerRects(half = 0) {
+  const f = pinFrameRect(half)
+  const m = PIN_SHEET.marker, g = PIN_SHEET.markerGap
+  return [
+    { x: f.x - g - m, y: f.y, w: m, h: m },
+    { x: f.x + f.w + g, y: f.y, w: m, h: m },
+    { x: f.x + f.w + g, y: f.y + f.h - m, w: m, h: m },
+    { x: f.x - g - m, y: f.y + f.h - m, w: m, h: m },
+  ]
+}
+
+export function pinMarkerCenters(half = 0) {
+  const c = PIN_SHEET.marker / 2
+  return pinMarkerRects(half).map(r => ({ x: r.x + c, y: r.y + c }))
+}
+
+// Center of one answer bubble. item is 0-based (0..49): sub-column floor(item
+// / 10), row item % 10 — ZipGrade numbering 1-10, 11-20, ... 41-50.
+export function pinItemCenter(item, letter, half = 0) {
+  const col = Math.floor(item / 10)
+  const row = item % 10
+  const x = pinItemColX(half, col) + PIN_SHEET.labelPad + letter * PIN_SHEET.letterGap + PIN_SHEET.circleR
+  const y = pinItemRowY(half, row)
+  return { x, y }
+}
+
+export function pinItemColX(half = 0, col = 0) {
+  const f = pinFrameRect(half)
+  return f.x + PIN_SHEET.itemX0 + col * PIN_SHEET.itemDx
+}
+
+export function pinItemRowY(half = 0, row = 0) {
+  const f = pinFrameRect(half)
+  return f.y + PIN_SHEET.rowY0 + row * PIN_SHEET.pitch
+}
+
+export function pinRowLabelRight(half = 0, col = 0) {
+  return pinItemColX(half, col) + PIN_SHEET.labelPad - PIN_SHEET.labelGap
+}
+
+// Write-in box for PIN digit  (0..4) and the bubble for digit value
+//  (0..9) — value 9 is the TOP row, 0 the bottom (ZipGrade order).
+export function pinWriteBox(half = 0, digit = 0) {
+  const f = pinFrameRect(half)
+  return {
+    x: f.x + PIN_SHEET.pinX0 + digit * PIN_SHEET.pinDx,
+    y: f.y + PIN_SHEET.pinBoxY,
+    w: PIN_SHEET.pinBoxW,
+    h: PIN_SHEET.pinBoxH,
+  }
+}
+
+export function pinDigitCenter(digit, value, half = 0) {
+  const x = pinWriteBox(half, digit).x + PIN_SHEET.pinBoxW / 2
+  const y = pinItemRowY(half, 9 - value)
+  return { x, y }
+}
+
+export function pinQrRect(half = 0) {
+  const f = pinFrameRect(half)
+  return {
+    x: f.x + f.w - PIN_SHEET.qrPadX - PIN_SHEET.qrSize,
+    y: f.y + f.h - PIN_SHEET.qrPadY - PIN_SHEET.qrSize,
+    size: PIN_SHEET.qrSize,
+  }
+}
+
+export function pinCutLineY() {
+  return PIN_SHEET.cutY
+}
+
+/** Generic PIN sheet QR: quiz identity only — the student comes from the PIN. */
+
+/** Generic PIN sheet QR: quiz identity only — the student comes from the PIN. */
+export function pinSheetQrPayload(quizId) {
+  return `QZ3:${quizId}`
 }

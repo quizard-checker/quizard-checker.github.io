@@ -4,13 +4,13 @@ import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, listSheets, saveClass, deleteClass, getActiveAccountId, getAccount, getQuiz } from '../../core/engine/storage.js';
 import { parseRoster } from '../../core/engine/roster.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
+import { filterClasses, sortClasses, classFilterOptions } from '../../core/engine/class-filters.js';
 import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
 import { icon } from '../../shared/icons.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { ByokService } from '../../core/services/byok.service';
 import { GuideService } from '../../core/services/guide.service';
 
 @Component({
@@ -22,7 +22,6 @@ export class HomePage {
   router = inject(Router);
   private route = inject(ActivatedRoute);
   ui = inject(UiStateService);
-  readonly byok = inject(ByokService);
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
   readonly guide = inject(GuideService);
@@ -55,6 +54,38 @@ export class HomePage {
   readonly archivedClasses = computed(() => this.classes().filter(c => c.archived));
   readonly totalStudents = computed(() =>
     this.activeClasses().reduce((s, c) => s + (c.students?.length || 0), 0));
+
+  // ── list tools: search, sort, school-year/grade chips ────────────────────
+  // Session-only (no stored prefs): arriving at Home always shows everything.
+  query = signal('');
+  sortBy = signal<'recent' | 'name' | 'year' | 'grade'>('recent');
+  yearPick = signal('');
+  gradePick = signal('');
+  readonly sortOptions = [
+    { id: 'recent', label: 'Recent' },
+    { id: 'name', label: 'Name' },
+    { id: 'year', label: 'Year' },
+    { id: 'grade', label: 'Grade' },
+  ] as const;
+
+  readonly filterOptions = computed(() => classFilterOptions(this.activeClasses()));
+  readonly yearOptions = computed(() => this.filterOptions().years);
+  readonly gradeOptions = computed(() => this.filterOptions().grades);
+  readonly hasFilter = computed(() =>
+    !!(this.query().trim() || this.yearPick() || this.gradePick()));
+
+  // The grid and the archived strip both follow the same search/filter/sort,
+  // so a year filter never leaves a mismatched archived card behind.
+  private readonly filterArgs = computed(() => ({
+    query: this.query(), year: this.yearPick(), grade: this.gradePick(),
+  }));
+  readonly visibleClasses = computed(() =>
+    sortClasses(filterClasses(this.activeClasses(), this.filterArgs()), this.sortBy()));
+  readonly visibleArchived = computed(() =>
+    sortClasses(filterClasses(this.archivedClasses(), this.filterArgs()), this.sortBy()));
+
+  setSort(id: string) { this.sortBy.set(id as any); }
+  clearFilters() { this.query.set(''); this.yearPick.set(''); this.gradePick.set(''); }
 
   // One clean meta line per tile: "Biology · 7 — A". Built in TS so the
   // template never has to manage separators around missing fields.
@@ -89,14 +120,7 @@ export class HomePage {
   };
   readonly quizTitle = quizTitle;
 
-  // New quiz opens the creation flow; it can arrive pre-assigned to a class.
-  newQuiz(cls: any = null) {
-    const target = cls ? `/quiz?new=1&class=${cls.id}` : '/quiz';
-    this.router.navigateByUrl(target);
-  }
-  openQuiz(id: string) {
-    this.router.navigateByUrl(`/quiz?quiz=${id}`);
-  }
+  // Quiz creation lives inside each class (roster page → Classwork).
 
   // One shared implementation (helpers.js) so a class wears the same gradient
   // on the Classes cards and the roster banner.

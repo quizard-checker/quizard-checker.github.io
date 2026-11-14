@@ -6,35 +6,28 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { StatusBar, Style } from '@capacitor/status-bar';
-import { extractText } from '../../core/engine/extract/index.js';
 import { parseKeyText } from '../../core/engine/answerkey.js';
+import { xlsxToRows, parseCsv, rowsToKeyText } from '../../core/engine/keysheet.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
-import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz } from '../../core/engine/storage.js';
+import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz, duplicateQuiz, saveClass } from '../../core/engine/storage.js';
 import { fmtDate, bannerTheme } from '../../shared/helpers.js';
-import { buildBubbleSheetsPdf } from '../../core/engine/export.js';
+import { buildBubbleSheetsPdf, buildPinSheetsPdf } from '../../core/engine/export.js';
 import { quizTitle, quizClassLabel, resolveQuizClass } from '../../core/engine/quiz-classes.js';
+import { generatePins } from '../../core/engine/roster.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ByokService } from '../../core/services/byok.service';
 import { GuideService } from '../../core/services/guide.service';
-
-const MODES = [
-  { id: 'key', label: 'Anchor to my key', hint: 'You have the answers — the quiz follows your key exactly', io: 'answer key → quiz' },
-  { id: 'ai', label: 'Full AI', hint: 'You have just a lesson — AI writes everything', io: 'lesson → full quiz' },
-  { id: 'format', label: 'Match my format', hint: 'You have sample questions — AI writes new ones in the same style', io: 'examples → new questions' },
-];
 
 @Component({
   selector: 'app-create',
-  imports: [IonContent, IcoPipe, NgTemplateOutlet],
+  imports: [IonContent, IcoPipe],
   templateUrl: './create.html',
 })
 export class CreatePage {
   router = inject(Router);
   private route = inject(ActivatedRoute);
   ui = inject(UiStateService);
-  readonly byok = inject(ByokService);
   private toast = inject(ToastService);
   readonly guide = inject(GuideService);
 
@@ -42,7 +35,6 @@ export class CreatePage {
   // hands the PDF to the system share sheet instead of a browser download.
   readonly native = Capacitor.isNativePlatform();
 
-  readonly modes = MODES;
   readonly maxItems = MAX_ITEMS;
   readonly dateOf = fmtDate;
   // Library cards wear the same hashed gradients as classes/keys, so a
@@ -72,13 +64,8 @@ export class CreatePage {
   sheets = signal<any[]>([]);
   gradedOf = (q: any): number => this.sheets().filter(s => s.quizId === q.id).length;
   selectedQuiz = signal<any>(null);
-  mode = signal<'ai' | 'key' | 'format'>('key');
   subject = signal('');
   title = signal('');
-  count = signal(20);
-  fileText = signal('');
-  fileName = signal('');
-  lessonPaste = signal('');
   keyPaste = signal('');
   pickedKeyId = signal<string | null>(null);
   keyPickOpen = signal(false);
@@ -100,28 +87,20 @@ export class CreatePage {
       complete: p.items.filter((i: any) => i.answerIndex >= 0).length,
     };
   });
-  readonly lessonText = computed(() => this.fileText() || this.lessonPaste().trim());
   readonly pickedKey = computed(() => this.savedKeys().find(k => k.id === this.pickedKeyId()) || null);
   readonly keySource = computed(() => this.pickedKey() ?? (this.keyPaste().trim() ? this.keyPreview() : null));
   // A key saved before the "Answer: A. <text>" parser fix carries questions
   // and options but no correct letters — building from it would be wrong.
   readonly keyHasMissingAnswers = computed(() => {
     const src: any = this.keySource();
-    return this.mode() === 'key' && !!src?.items?.length &&
+    return !!src?.items?.length &&
       src.items.some((it: any) => (it.options?.length >= 2) && !(it.answerIndex >= 0));
-  });
-  readonly mcqExamples = computed(() => {
-    const src: any = this.keySource();
-    return src?.format === 'mcq' ? src.items : [];
   });
   readonly canGenerate = computed(() => {
     if (this.generating()) return false;
     if (!this.quizClassId()) return false;
     if (!this.subject().trim()) return false;
-    if (this.mode() !== 'key' && !this.lessonText()) return false;
-    if (this.mode() === 'key') return !!this.keySource() && !!this.keySource().items.length;
-    if (this.mode() === 'format') return this.mcqExamples().length > 0;
-    return true;
+    return !!this.keySource() && !!this.keySource().items.length;
   });
   // The disabled Generate button used to be a dead end. Spell out what is
   // still missing so the teacher knows exactly which field to fill.
@@ -129,14 +108,7 @@ export class CreatePage {
     const needs: string[] = [];
     if (!this.quizClassId()) needs.push('a class');
     if (!this.subject().trim()) needs.push('a subject');
-    if (this.mode() === 'key') {
-      if (!this.keySource()?.items?.length) needs.push('an answer key or a saved key');
-    } else {
-      if (!this.lessonText()) needs.push('lesson text or an uploaded file');
-      if (this.mode() === 'format' && !this.mcqExamples().length) {
-        needs.push('example questions with a * on the correct option');
-      }
-    }
+    if (!this.keySource()?.items?.length) needs.push('an answer key or a saved key');
     return needs;
   });
   readonly generateNeedText = computed(() => {
@@ -164,7 +136,7 @@ export class CreatePage {
   // key mode saves with letters alone (question fields are optional), every
   // other mode needs the full question written
   readonly itemsValid = computed(() => this.items().length && this.items().every(it =>
-    it.answerIndex >= 0 && (this.mode() === 'key' || (it.question.trim() && it.options.every((o: string) => o.trim())))));
+    it.answerIndex >= 0));
 
   classList = signal<any[]>([]);
 
@@ -203,15 +175,25 @@ export class CreatePage {
   readonly knownSubjects = computed(() =>
     [...new Set(this.classList().map(c => c.subject).filter(Boolean))]);
 
-  // Setup sections renumber by mode: Full AI has no key step at all, so static
+  // Setup section numbering is static now: the key step is 1, details 2.
   // 1..5 numbers kept dead steps between live ones — the main reason the form
   // read as a confusing wall. Key/example is always section 2 (rendered only in
   // key/format modes); material and details shift around it.
-  readonly stepMaterial = computed(() => this.mode() === 'ai' ? 2 : 3);
-  // key mode has no lesson step: 1 mode, 2 key, 3 details
-  readonly stepDetails = computed(() => this.mode() === 'format' ? 4 : 3);
+
+  // Same-route query changes (/quiz?quiz=A → /quiz?quiz=B, e.g. the copy
+  // toast's Open action) reuse this component, so ionViewWillEnter never runs
+  // and the page would keep showing the first quiz. Follow ?quiz= here.
+  private pageEntered = false;
+  ngOnInit() {
+    this.route.queryParamMap.subscribe(qp => {
+      if (!this.pageEntered) return; // first arrival is handled on enter
+      const id = qp.get('quiz');
+      if (id && id !== this.selectedQuiz()?.id) void this.openSaved(id);
+    });
+  }
 
   async ionViewWillEnter() {
+    this.pageEntered = true;
     this.classList.set(await listClasses());
     this.applyKeyParam();
     // Coming back from Scan papers should refresh the progress card (and the
@@ -260,16 +242,8 @@ export class CreatePage {
     if (!id) return;
     this.stage.set('setup');
     this.pickedKeyId.set(id);
-    this.mode.set('key');
     this.keyPaste.set('');
     void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
-  }
-
-  setMode(id: any) {
-    // Switching modes switches the paste box's meaning — a picked saved key is
-    // an *anchor*, meaningless once you leave key mode.
-    if (id !== 'key') this.pickedKeyId.set(null);
-    this.mode.set(id);
   }
 
   pickKey(id: string | null) {
@@ -277,64 +251,53 @@ export class CreatePage {
     this.keyPaste.set('');
     this.keyPickOpen.set(false);
   }
-  // Buttons step by 5 and typing accepts anything 1–50; junk (empty, 0,
-  // negative) simply keeps the current count instead of snapping to a default.
-  setCount(v: any) {
-    const n = Math.round(Number(v));
-    if (Number.isFinite(n) && n > 0) this.count.set(Math.min(MAX_ITEMS, n));
-  }
-
-  // −/+ stepper: floors at 1 so the button can step down to single digits.
-  nudgeCount(d: number) { this.setCount(Math.max(1, this.count() + d)); }
-
-  async onFile(ev: Event) {
+  // Excel/CSV answer-key import. The sheet layout teachers hand over is one
+  // question per row across 6 columns: question, choices A–D, then the answer.
+  // The rows are laid out as key text the normal parser understands, so every
+  // downstream step (anchor or match-my-format) works unchanged.
+  async onKeyFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    this.extracting.set(true);
-    try {
-      const { text } = await extractText(file);
-      this.fileText.set(text);
-      this.fileName.set(file.name);
-      this.toast.toast(`${file.name} ready — ${Math.round(text.length / 100) / 10}k characters extracted`);
-    } catch (e: any) {
-      this.toast.toast(e?.message || 'Could not read that file', true);
+    if (!/\.(xlsx|csv|txt)$/i.test(file.name)) {
+      this.toast.toast('Use an .xlsx file or a CSV — .xls needs a re-save as .xlsx in Excel', true);
+    } else {
+      try {
+        const rows = /\.xlsx$/i.test(file.name)
+          ? await xlsxToRows(await file.arrayBuffer())
+          : parseCsv(await file.text());
+        const out = rowsToKeyText(rows);
+        if (!out.count) {
+          this.toast.toast('No question rows found — each row needs: question, choices A–D, answer', true);
+        } else {
+          this.keyPaste.set(this.keyPaste().trim() ? this.keyPaste().trimEnd() + '\n\n' + out.text : out.text);
+          this.toast.toast(`${out.count} question${out.count === 1 ? '' : 's'} imported from ${file.name}${out.skipped ? ` · ${out.skipped} skipped` : ''}`);
+        }
+      } catch (e: any) {
+        this.toast.toast(e?.message || 'Could not read that file', true);
+      }
     }
-    this.extracting.set(false);
     input.value = '';
   }
-  extracting = signal(false);
-
-  clearFile() { this.fileText.set(''); this.fileName.set(''); }
 
   async generate() {
     if (!this.canGenerate()) return;
-    if (this.mode() === 'key' && this.keyHasMissingAnswers()) {
-      this.error.set('This saved key has no correct answers (it was saved before the answer lines were understood) — open it in Keys, paste the key again and save, then build the quiz.');
-      return;
-    }
     this.generating.set(true);
     this.error.set('');
     try {
-      const mode = this.mode();
-      let keyItems: any[] = [];
-      let examples: any[] = [];
-      if (mode === 'key') keyItems = this.keySource()?.items || [];
-      if (mode === 'format') {
-        examples = this.mcqExamples();
-        keyItems = examples; // entries with options are used verbatim too
-      }
+      // Fully offline: the quiz mirrors the key entry-for-entry. Entries that
+      // need question text or options land as placeholders the teacher
+      // completes by hand in the review editor.
+      const keyItems = this.keySource()?.items || [];
       const items = await generateTeacherQuiz({
-        mode, text: this.lessonText(), keyItems, examples,
-        // key mode is locked to the key: one question per entry, exactly —
-        // the teacher cannot request more or fewer than they uploaded
-        count: mode === 'key' ? (keyItems.length || this.count()) : this.count(),
+        mode: 'key', keyItems,
+        count: keyItems.length || MAX_ITEMS,
         subject: this.subject().trim(),
       });
       this.items.set(items.map((it: any, i: number) => ({ ...it, n: i + 1 })));
       this.stage.set('review');
     } catch (e: any) {
-      this.error.set(e?.message || 'Generation failed. Check your connection or AI key and try again.');
+      this.error.set(e?.message || 'Could not build the quiz from that key.');
     }
     this.generating.set(false);
   }
@@ -380,7 +343,7 @@ export class CreatePage {
       title: this.title().trim(),
       classId: qc.id,
       className: qc.name,
-      source: this.editingSource || this.mode(),
+      source: this.editingSource || 'key',
       keyOnly: this.keyOnly(),
       items: this.items(),
     });
@@ -455,9 +418,46 @@ export class CreatePage {
     if (q) this.router.navigateByUrl(`/tabs/reports?quiz=${q.id}`);
   }
 
+  // ── copy to another section ──────────────────────────────────────────────
+  // The same quiz is often taught to several sections. A copy gets a fresh
+  // record (new id) in the target class, so its scans and sheets never mix
+  // with the original's — see duplicateQuiz() in storage.js.
+  copyPickOpen = signal(false);
+  copyBusy = signal(false);
+  readonly copyTargets = computed(() =>
+    this.assignableClasses().filter(c => c.id !== this.selectedQuiz()?.classId));
+
+  openCopy() {
+    if (!this.copyTargets().length) {
+      this.toast.toast('Add another section first — a copy needs somewhere to go.', true);
+      return;
+    }
+    this.copyPickOpen.set(true);
+  }
+
+  async copyTo(cls: any) {
+    const quiz = this.selectedQuiz();
+    if (!quiz || !cls || this.copyBusy()) return;
+    this.copyBusy.set(true);
+    try {
+      const copy = await duplicateQuiz(quiz, cls);
+      if (!copy) { this.toast.toast('Could not copy this quiz', true); return; }
+      this.copyPickOpen.set(false);
+      // Stay on the original so several copies can be made back-to-back; the
+      // toast carries an Open shortcut to the new section's copy.
+      this.toast.toast(`Copied to “${cls.name}” ✓`, false, {
+        text: 'Open',
+        handler: () => { this.router.navigateByUrl(`/quiz?quiz=${copy.id}`); },
+      });
+    } finally {
+      this.copyBusy.set(false);
+    }
+  }
+
   backHome() {
     this.keyPickOpen.set(false);
     this.classPickOpen.set(false);
+    this.copyPickOpen.set(false);
     this.router.navigateByUrl('/tabs/home');
   }
 
@@ -480,9 +480,24 @@ export class CreatePage {
         this.previewBusy.set(false);
         return;
       }
-      this.previewDoc = await buildBubbleSheetsPdf(quiz, cls.students, this.paper());
-      this.previewFilename = `quizard-bubble-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
-      this.previewLabel.set(`Bubble answer sheets — ${cls.name}`);
+      if (this.printMode() === 'pin') {
+        // Generic PIN sheets: 2-up on Long paper, cut in half. The QR carries
+        // only the quiz — each student is matched by the 5-digit PIN they
+        // shade, so every roster student needs one before printing.
+        const { students, assigned } = generatePins(cls.students || []);
+        if (assigned) {
+          await saveClass({ ...cls, students });
+          this.classList.set(await listClasses());
+          this.toast.toast(`${assigned} PIN${assigned === 1 ? '' : 's'} assigned automatically — print the PIN list from the class page.`);
+        }
+        this.previewDoc = await buildPinSheetsPdf(quiz, students, 'long', cls.name);
+        this.previewFilename = `quizard-pin-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
+        this.previewLabel.set(`PIN answer sheets (2-up, cut in half) — ${cls.name}`);
+      } else {
+        this.previewDoc = await buildBubbleSheetsPdf(quiz, cls.students, this.paper());
+        this.previewFilename = `quizard-bubble-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
+        this.previewLabel.set(`Bubble answer sheets — ${cls.name}`);
+      }
       // a new document always starts at sheet 1, and the cached pdfjs doc
       // belongs to the old one
       this.previewPdfDoc = null;
@@ -579,8 +594,8 @@ export class CreatePage {
         recursive: true,
       });
       await Share.share({
-        title: 'Bubble answer sheets',
-        text: n > 1 ? `${n} sheets — one per student` : filename,
+        title: 'Answer sheets',
+        text: n > 1 ? `${n} pages — ${this.printMode() === 'pin' ? '2 sheets per page' : 'one per student'}` : filename,
         files: [file.uri],
         dialogTitle: 'Save or print the PDF',
       });
@@ -604,8 +619,13 @@ export class CreatePage {
     if (this.previewOpen()) this.closePreview();
   }
 
+  pinPagesOf(c: any): number { return Math.max(1, Math.ceil((c?.students?.length || 0) / 2)); }
   paper = signal<'letter' | 'a4' | 'long'>('letter');
   setPaper(p: any) { this.paper.set(p); }
+  // Sheet type: personalized QR sheets (one per student) or generic PIN
+  // half-sheets (2-up on Long paper, cut in half, matched by shaded PIN).
+  printMode = signal<'qr' | 'pin'>('qr');
+  setPrintMode(m: any) { this.printMode.set(m === 'pin' ? 'pin' : 'qr'); }
 
   // Sheets print for exactly one class: one page per student on its roster,
   // each with that student's name in the QR and on the header.
