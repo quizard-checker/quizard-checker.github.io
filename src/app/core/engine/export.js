@@ -348,7 +348,7 @@ export async function exportBubbleSheets(quiz, students, size = 'letter') {
 // the quiz id; each student is identified by the 5-digit PIN they write and
 // shade on their half. Fixed 50-item grid — one printed form serves any quiz.
 
-function drawPinHalf(pdf, quiz, half, className) {
+function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   const f = pinFrameRect(half)
   const P = PIN_SHEET
 
@@ -430,12 +430,12 @@ function drawPinHalf(pdf, quiz, half, className) {
 
   // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
   const qr = pinQrRect(half)
-  bubbleQr(pdf, pinSheetQrPayload(quiz.id), qr.x, qr.y, qr.size, 'M')
+  bubbleQr(pdf, qrPayload || pinSheetQrPayload(quiz.id), qr.x, qr.y, qr.size, 'M')
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#374151')
   pdf.text('Quizard PIN sheet', f.x + 6, f.y + f.h - 8)
 }
 
-export async function buildPinSheetsPdf(quiz, students, size = 'long', className = '') {
+export async function buildPinSheetsPdf(quiz, students, size = 'long', className = '', qrPayload = '') {
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({ unit: 'pt', format: PAPER[size] || PAPER.long })
   const roster = Array.isArray(students) ? students : []
@@ -452,8 +452,8 @@ export async function buildPinSheetsPdf(quiz, students, size = 'long', className
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor('#9ca3af')
     pdf.text('cut here', PIN_SHEET.W - 12, pinCutLineY() - 4, { align: 'right' })
 
-    drawPinHalf(pdf, quiz, 0)
-    drawPinHalf(pdf, quiz, 1)
+    drawPinHalf(pdf, quiz, 0, className, qrPayload)
+    drawPinHalf(pdf, quiz, 1, className, qrPayload)
   }
 
   return pdf

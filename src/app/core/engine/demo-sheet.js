@@ -24,7 +24,7 @@ export const DEMO_SHEET = {
 }
 
 /**
- * @param {{ demo?: { classKey: string, quizKey: string, studentNo: number } } | null} claim
+ * @param {{ demo?: { classKey: string, quizKey: string, studentNo: number | null } } | null} claim
  * @param {Array} classes
  * @param {Array} quizzes
  * @returns {{ cls: any, quiz: any, student: any } | null}
@@ -43,8 +43,12 @@ export function resolveDemoSheet(claim, classes = [], quizzes = []) {
   ))
   if (!cls || !quiz) return null
 
-  const student = (cls.students || []).find(s => s.no === demo.studentNo)
-  if (!student) return null
+  // QZD2 demo PIN half-sheets carry no roster number: the shaded 5-digit PIN
+  // names the student, and the scanner's PIN match attaches them later.
+  const student = demo.studentNo == null
+    ? null
+    : (cls.students || []).find(s => s.no === demo.studentNo)
+  if (demo.studentNo != null && !student) return null
   return { cls, quiz, student }
 }
 

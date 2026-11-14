@@ -44,10 +44,10 @@ export class SettingsPage implements OnInit {
   readonly guide = inject(GuideService);
   private location = inject(Location);
   readonly demoSheets = [
-    { file: 'demo/answered-sheet.png', label: 'Perfect — Ivan (100%)', url: assetUrl('demo/answered-sheet.png') },
-    { file: 'demo/answered-sheet-joy.png', label: 'Missed two — Joy (75%)', url: assetUrl('demo/answered-sheet-joy.png') },
-    { file: 'demo/answered-sheet-kat.png', label: 'Double-shaded — Kat (88%)', url: assetUrl('demo/answered-sheet-kat.png') },
-    { file: 'demo/answered-sheet-leo.png', label: 'Messy — Leo (63%)', url: assetUrl('demo/answered-sheet-leo.png') },
+    { file: 'demo/pin-sheet-ivan.png', label: 'Perfect — Ivan (50/50)', url: assetUrl('demo/pin-sheet-ivan.png') },
+    { file: 'demo/pin-sheet-joy.png', label: 'Missed two — Joy (48/50)', url: assetUrl('demo/pin-sheet-joy.png') },
+    { file: 'demo/pin-sheet-kat.png', label: 'Double-shaded — Kat (49/50)', url: assetUrl('demo/pin-sheet-kat.png') },
+    { file: 'demo/pin-sheet-leo.png', label: 'Messy — Leo (44/50)', url: assetUrl('demo/pin-sheet-leo.png') },
   ];
   removePickerOpen = signal(false);
 
@@ -66,7 +66,7 @@ export class SettingsPage implements OnInit {
   usageLine = signal('');
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.4.0'; }
+  get version() { return '2.4.1'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──

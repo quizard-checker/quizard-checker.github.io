@@ -55,6 +55,14 @@ describe('resolveDemoSheet', () => {
     expect(resolveDemoSheet({ quizId: 'q', studentId: 's', studentName: 'Ivan Ramos' }, [demoClass], [demoQuiz])).toBeNull()
   })
 
+  it('resolves a demo PIN half-sheet (no roster number) to class + quiz only', () => {
+    const claim = { demo: { classKey: 'demo-cls-eng', quizKey: 'demo-quiz-2', studentNo: null } }
+    const match = resolveDemoSheet(claim, [demoClass], [demoQuiz])
+    expect(match?.cls.name).toBe('English 8-B')
+    expect(match?.quiz.title).toBe('Verb Tenses')
+    expect(match?.student).toBeNull()
+  })
+
   it('ships the expected sheet constants', () => {
     expect(DEMO_SHEET).toEqual({
       classKey: 'demo-cls-eng',

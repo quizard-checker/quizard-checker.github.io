@@ -165,10 +165,19 @@ export function demoSheetQrPayload(classKey, quizKey, studentNo) {
 }
 
 /**
+ * The bundled demo PIN half-sheet: the quiz comes from stable snapshot keys
+ * (like QZD1) but there is no roster number — the student is whoever shaded
+ * the 5-digit PIN, matched inside the demo class.
+ */
+export function demoPinSheetQrPayload(classKey, quizKey) {
+  return `QZD2:${classKey}:${quizKey}`
+}
+
+/**
  * @param {string | null} text raw QR contents
  * @returns {{ quizId: string | null, studentId: string | null,
  *   studentName: string | null, demo?: { classKey: string, quizKey: string,
- *   studentNo: number }, pinSheet?: boolean } | null}
+ *   studentNo: number | null }, pinSheet?: boolean } | null}
  *   null for anything that isn't a Quizard sheet code. `pinSheet` marks a
  *   generic QZ3 half-sheet whose student comes from the shaded 5-digit PIN.
  */
@@ -185,6 +194,20 @@ export function parseSheetQr(text) {
       studentId: null,
       studentName: null,
       demo: { classKey, quizKey, studentNo }
+    }
+  }
+  if (text.startsWith('QZD2:')) {
+    // demo PIN half-sheet: quiz via stable demo keys, student via the shaded PIN
+    const parts = text.slice(5).split(':')
+    if (parts.length !== 2) return null
+    const [classKey, quizKey] = parts
+    if (!classKey || !quizKey) return null
+    return {
+      quizId: null,
+      studentId: null,
+      studentName: null,
+      demo: { classKey, quizKey, studentNo: null },
+      pinSheet: true
     }
   }
   if (text.startsWith('QZ2:')) {

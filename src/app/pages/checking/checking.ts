@@ -482,7 +482,9 @@ export class CheckingPage {
         return;
       }
       quiz = match.quiz;
-      demoMatch = { cls: match.cls, student: match.student };
+      // QZD2 demo PIN sheets resolve to the class + quiz only: the shaded
+      // 5-digit PIN names the student through the normal PIN path below.
+      demoMatch = match.student ? { cls: match.cls, student: match.student } : null;
     } else {
       const quizId = parsed?.quizId || this.quizOverrideId();
       quiz = quizId ? await getQuiz(quizId) : null;

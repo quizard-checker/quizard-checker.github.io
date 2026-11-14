@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import qrModule from 'qrcode-generator'
-import { sheetQrPayload, demoSheetQrPayload, pinSheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
+import { sheetQrPayload, demoSheetQrPayload, demoPinSheetQrPayload, pinSheetQrPayload, parseSheetQr } from '../src/app/core/engine/sheet-spec.js'
 
 const moduleCount = (payload, level) => {
   const qr = (qrModule.default || qrModule)(0, level)
@@ -62,6 +62,24 @@ describe('bundled demo sheet QR', () => {
       'QZD1:', 'QZD1:a', 'QZD1:a:b', 'QZD1:a:b:0', 'QZD1:a:b:1000',
       'QZD1:a:b:x', 'QZD1:a:b:1:2',
     ]) {
+      expect(parseSheetQr(bad)).toBeNull()
+    }
+  })
+
+  it('round-trips the demo PIN half-sheet code (QZD2) with no roster number', () => {
+    const p = demoPinSheetQrPayload('demo-cls-eng', 'demo-quiz-2')
+    expect(p).toBe('QZD2:demo-cls-eng:demo-quiz-2')
+    expect(parseSheetQr(p)).toEqual({
+      quizId: null,
+      studentId: null,
+      studentName: null,
+      demo: { classKey: 'demo-cls-eng', quizKey: 'demo-quiz-2', studentNo: null },
+      pinSheet: true,
+    })
+  })
+
+  it('rejects malformed demo PIN codes', () => {
+    for (const bad of ['QZD2:', 'QZD2:a', 'QZD2:a:b:c']) {
       expect(parseSheetQr(bad)).toBeNull()
     }
   })

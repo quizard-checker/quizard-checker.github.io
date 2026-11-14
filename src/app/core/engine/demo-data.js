@@ -1,6 +1,9 @@
-// Snapshot of the teacher's device data, bundled as the built-in demo world.
-// Generated from the phone on 2026-10-22; edit demo.js, not this file,
-// unless you are refreshing the snapshot itself.
+// The bundled demo world: a realistic week of teacher data built around the
+// scanning flow. English 8-B carries a 50-item Verb Tenses quiz and a pinned
+// roster, so the four demo PIN half-sheets (site + app Settings) scan and
+// route exactly like real paper — see scripts/make-demo-pin-sheets.mjs.
+// Records are tagged demo: true and re-keyed per account by demo.js, which
+// pours this snapshot through the real storage layer idempotently.
 export const DEMO_SNAPSHOT = {
   "capturedAt": "2026-10-22",
   "classes": [
@@ -14,51 +17,63 @@ export const DEMO_SNAPSHOT = {
       "students": [
         {
           "name": "Ivan Ramos",
-          "no": 1
+          "no": 1,
+          "pin": "48213"
         },
         {
           "name": "Joy Aquino",
-          "no": 2
+          "no": 2,
+          "pin": "73590"
         },
         {
           "name": "Kat Bautista",
-          "no": 3
+          "no": 3,
+          "pin": "26481"
         },
         {
           "name": "Leo Mendoza",
-          "no": 4
+          "no": 4,
+          "pin": "91537"
         },
         {
           "name": "Mike Garcia",
-          "no": 5
+          "no": 5,
+          "pin": "50294"
         },
         {
           "name": "Nina Flores",
-          "no": 6
+          "no": 6,
+          "pin": "68127"
         },
         {
           "name": "Omar Reyes",
-          "no": 7
+          "no": 7,
+          "pin": "34905"
         },
         {
           "name": "Pia Navarro",
-          "no": 8
+          "no": 8,
+          "pin": "82640"
         },
         {
           "name": "Ria Santos",
-          "no": 9
+          "no": 9,
+          "pin": "19378"
         },
         {
           "name": "Sam Ocampo",
-          "no": 10
+          "no": 10,
+          "pin": "75461"
         },
         {
           "name": "Tina Delgado",
-          "no": 11
+          "no": 11,
+          "pin": "41086"
         },
         {
           "name": "Vina Castro",
-          "no": 12
+          "no": 12,
+          "pin": "96732"
         }
       ],
       "demo": true
@@ -301,6 +316,174 @@ export const DEMO_SNAPSHOT = {
         {
           "n": 8,
           "answerLetter": "A"
+        },
+        {
+          "n": 9,
+          "answerLetter": "B"
+        },
+        {
+          "n": 10,
+          "answerLetter": "C"
+        },
+        {
+          "n": 11,
+          "answerLetter": "C"
+        },
+        {
+          "n": 12,
+          "answerLetter": "A"
+        },
+        {
+          "n": 13,
+          "answerLetter": "C"
+        },
+        {
+          "n": 14,
+          "answerLetter": "C"
+        },
+        {
+          "n": 15,
+          "answerLetter": "C"
+        },
+        {
+          "n": 16,
+          "answerLetter": "C"
+        },
+        {
+          "n": 17,
+          "answerLetter": "B"
+        },
+        {
+          "n": 18,
+          "answerLetter": "C"
+        },
+        {
+          "n": 19,
+          "answerLetter": "C"
+        },
+        {
+          "n": 20,
+          "answerLetter": "B"
+        },
+        {
+          "n": 21,
+          "answerLetter": "C"
+        },
+        {
+          "n": 22,
+          "answerLetter": "C"
+        },
+        {
+          "n": 23,
+          "answerLetter": "A"
+        },
+        {
+          "n": 24,
+          "answerLetter": "C"
+        },
+        {
+          "n": 25,
+          "answerLetter": "C"
+        },
+        {
+          "n": 26,
+          "answerLetter": "C"
+        },
+        {
+          "n": 27,
+          "answerLetter": "B"
+        },
+        {
+          "n": 28,
+          "answerLetter": "D"
+        },
+        {
+          "n": 29,
+          "answerLetter": "C"
+        },
+        {
+          "n": 30,
+          "answerLetter": "B"
+        },
+        {
+          "n": 31,
+          "answerLetter": "C"
+        },
+        {
+          "n": 32,
+          "answerLetter": "C"
+        },
+        {
+          "n": 33,
+          "answerLetter": "B"
+        },
+        {
+          "n": 34,
+          "answerLetter": "B"
+        },
+        {
+          "n": 35,
+          "answerLetter": "C"
+        },
+        {
+          "n": 36,
+          "answerLetter": "A"
+        },
+        {
+          "n": 37,
+          "answerLetter": "C"
+        },
+        {
+          "n": 38,
+          "answerLetter": "C"
+        },
+        {
+          "n": 39,
+          "answerLetter": "A"
+        },
+        {
+          "n": 40,
+          "answerLetter": "B"
+        },
+        {
+          "n": 41,
+          "answerLetter": "C"
+        },
+        {
+          "n": 42,
+          "answerLetter": "C"
+        },
+        {
+          "n": 43,
+          "answerLetter": "C"
+        },
+        {
+          "n": 44,
+          "answerLetter": "C"
+        },
+        {
+          "n": 45,
+          "answerLetter": "A"
+        },
+        {
+          "n": 46,
+          "answerLetter": "C"
+        },
+        {
+          "n": 47,
+          "answerLetter": "C"
+        },
+        {
+          "n": 48,
+          "answerLetter": "A"
+        },
+        {
+          "n": 49,
+          "answerLetter": "C"
+        },
+        {
+          "n": 50,
+          "answerLetter": "C"
         }
       ],
       "demo": true
@@ -816,6 +999,468 @@ export const DEMO_SNAPSHOT = {
             "finishing"
           ],
           "answerIndex": 0
+        },
+        {
+          "n": 9,
+          "question": "My father ___ coffee every morning.",
+          "options": [
+            "drink",
+            "drinks",
+            "drank",
+            "drinking"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 10,
+          "question": "Last week, we ___ to Baguio.",
+          "options": [
+            "go",
+            "goes",
+            "went",
+            "going"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 11,
+          "question": "Look! The baby ___ right now.",
+          "options": [
+            "cry",
+            "cries",
+            "is crying",
+            "cried"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 12,
+          "question": "I ___ my teeth twice a day.",
+          "options": [
+            "brush",
+            "brushes",
+            "brushed",
+            "brushing"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 13,
+          "question": "She ___ her grandmother last Saturday.",
+          "options": [
+            "visit",
+            "visits",
+            "visited",
+            "visiting"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 14,
+          "question": "While mother ___, the phone rang.",
+          "options": [
+            "cook",
+            "cooks",
+            "was cooking",
+            "cooked"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 15,
+          "question": "They ___ here for ten years.",
+          "options": [
+            "work",
+            "works",
+            "have worked",
+            "working"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 16,
+          "question": "Tomorrow, we ___ our project.",
+          "options": [
+            "submit",
+            "submits",
+            "will submit",
+            "submitted"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 17,
+          "question": "The cat ___ under the table every afternoon.",
+          "options": [
+            "sleep",
+            "sleeps",
+            "slept",
+            "sleeping"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 18,
+          "question": "I ___ him at the mall yesterday.",
+          "options": [
+            "see",
+            "sees",
+            "saw",
+            "seeing"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 19,
+          "question": "Listen! Someone ___ the piano.",
+          "options": [
+            "play",
+            "plays",
+            "is playing",
+            "played"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 20,
+          "question": "Water ___ at 100 degrees Celsius.",
+          "options": [
+            "boil",
+            "boils",
+            "boiled",
+            "boiling"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 21,
+          "question": "We ___ dinner when the lights went out.",
+          "options": [
+            "have",
+            "had",
+            "were having",
+            "has"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 22,
+          "question": "She ___ her bag a moment ago.",
+          "options": [
+            "lose",
+            "loses",
+            "lost",
+            "losing"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 23,
+          "question": "The boys ___ basketball every recess.",
+          "options": [
+            "play",
+            "plays",
+            "played",
+            "playing"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 24,
+          "question": "Right now, Ana ___ her lessons.",
+          "options": [
+            "review",
+            "reviews",
+            "is reviewing",
+            "reviewed"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 25,
+          "question": "I ___ my allowance already.",
+          "options": [
+            "spend",
+            "spends",
+            "have spent",
+            "spending"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 26,
+          "question": "Next month, they ___ a new house.",
+          "options": [
+            "build",
+            "builds",
+            "will build",
+            "built"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 27,
+          "question": "My sister ___ her room every Sunday.",
+          "options": [
+            "clean",
+            "cleans",
+            "cleaned",
+            "cleaning"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 28,
+          "question": "The guests ___ before we finished cooking.",
+          "options": [
+            "arrive",
+            "arrives",
+            "arrived",
+            "had arrived"
+          ],
+          "answerIndex": 3
+        },
+        {
+          "n": 29,
+          "question": "He ___ TV when I called him.",
+          "options": [
+            "watch",
+            "watches",
+            "was watching",
+            "watched"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 30,
+          "question": "The teacher ___ our papers every Friday.",
+          "options": [
+            "check",
+            "checks",
+            "checked",
+            "checking"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 31,
+          "question": "I ___ to the radio right now.",
+          "options": [
+            "listen",
+            "listens",
+            "am listening",
+            "listened"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 32,
+          "question": "She ___ to Bohol two years ago.",
+          "options": [
+            "travel",
+            "travels",
+            "traveled",
+            "traveling"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 33,
+          "question": "Lola ___ the plants every evening.",
+          "options": [
+            "water",
+            "waters",
+            "watered",
+            "watering"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 34,
+          "question": "When I arrived, they ___ already left.",
+          "options": [
+            "have",
+            "had",
+            "has",
+            "will"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 35,
+          "question": "Don't make noise; the baby ___ right now.",
+          "options": [
+            "sleep",
+            "sleeps",
+            "is sleeping",
+            "slept"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 36,
+          "question": "We ___ our uniforms on weekdays.",
+          "options": [
+            "wear",
+            "wears",
+            "wore",
+            "wearing"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 37,
+          "question": "The mailman ___ early this morning.",
+          "options": [
+            "come",
+            "comes",
+            "came",
+            "coming"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 38,
+          "question": "They ___ the bridge when the storm hit.",
+          "options": [
+            "cross",
+            "crosses",
+            "were crossing",
+            "crossed"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 39,
+          "question": "I ___ never seen a typhoon that strong.",
+          "options": [
+            "have",
+            "has",
+            "had",
+            "will"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 40,
+          "question": "The concert ___ at 7 p.m. tonight.",
+          "options": [
+            "start",
+            "starts",
+            "started",
+            "starting"
+          ],
+          "answerIndex": 1
+        },
+        {
+          "n": 41,
+          "question": "My friends ___ me last night.",
+          "options": [
+            "call",
+            "calls",
+            "called",
+            "calling"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 42,
+          "question": "She ___ the dishes while I dried them.",
+          "options": [
+            "wash",
+            "washes",
+            "was washing",
+            "washed"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 43,
+          "question": "We ___ each other since Grade 1.",
+          "options": [
+            "know",
+            "knows",
+            "have known",
+            "knowing"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 44,
+          "question": "The bus ___ five minutes ago.",
+          "options": [
+            "leave",
+            "leaves",
+            "left",
+            "leaving"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 45,
+          "question": "Every summer, we ___ to the beach.",
+          "options": [
+            "go",
+            "goes",
+            "went",
+            "going"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 46,
+          "question": "Look out! The glass ___ from the table.",
+          "options": [
+            "fall",
+            "falls",
+            "is falling",
+            "fell"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 47,
+          "question": "Before the bell rang, we ___ the test.",
+          "options": [
+            "finish",
+            "finishes",
+            "had finished",
+            "finishing"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 48,
+          "question": "The dogs ___ at strangers every night.",
+          "options": [
+            "bark",
+            "barks",
+            "barked",
+            "barking"
+          ],
+          "answerIndex": 0
+        },
+        {
+          "n": 49,
+          "question": "She ___ sick since Monday.",
+          "options": [
+            "is",
+            "was",
+            "has been",
+            "will be"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "n": 50,
+          "question": "They ___ the results next week.",
+          "options": [
+            "announce",
+            "announces",
+            "will announce",
+            "announced"
+          ],
+          "answerIndex": 2
         }
       ],
       "demo": true
@@ -978,106 +1623,6 @@ export const DEMO_SNAPSHOT = {
       "correct": 8,
       "total": 10,
       "percent": 80
-    },
-    {
-      "id": "demo-sheet-17",
-      "classId": "demo-cls-eng",
-      "className": "English 8-B",
-      "quizId": "demo-quiz-2",
-      "studentNo": 4,
-      "studentName": "Leo Mendoza",
-      "grade": "8",
-      "section": "Molave",
-      "answers": [
-        2,
-        2,
-        2,
-        2,
-        0,
-        3,
-        2,
-        -1
-      ],
-      "flags": [],
-      "correct": 3,
-      "total": 8,
-      "percent": 38,
-      "demo": true
-    },
-    {
-      "id": "demo-sheet-16",
-      "classId": "demo-cls-eng",
-      "className": "English 8-B",
-      "quizId": "demo-quiz-2",
-      "studentNo": 3,
-      "studentName": "Kat Bautista",
-      "grade": "8",
-      "section": "Molave",
-      "answers": [
-        2,
-        1,
-        3,
-        -1,
-        3,
-        -1,
-        0,
-        1
-      ],
-      "flags": [],
-      "correct": 0,
-      "total": 8,
-      "percent": 0,
-      "demo": true
-    },
-    {
-      "id": "demo-sheet-15",
-      "classId": "demo-cls-eng",
-      "className": "English 8-B",
-      "quizId": "demo-quiz-2",
-      "studentNo": 2,
-      "studentName": "Joy Aquino",
-      "grade": "8",
-      "section": "Molave",
-      "answers": [
-        1,
-        2,
-        1,
-        1,
-        1,
-        2,
-        2,
-        1
-      ],
-      "flags": [],
-      "correct": 6,
-      "total": 8,
-      "percent": 75,
-      "demo": true
-    },
-    {
-      "id": "demo-sheet-14",
-      "classId": "demo-cls-eng",
-      "className": "English 8-B",
-      "quizId": "demo-quiz-2",
-      "studentNo": 1,
-      "studentName": "Ivan Ramos",
-      "grade": "8",
-      "section": "Molave",
-      "answers": [
-        1,
-        2,
-        -1,
-        1,
-        3,
-        2,
-        2,
-        1
-      ],
-      "flags": [],
-      "correct": 5,
-      "total": 8,
-      "percent": 63,
-      "demo": true
     },
     {
       "id": "demo-sheet-13",
@@ -1428,6 +1973,950 @@ export const DEMO_SNAPSHOT = {
       "correct": 7,
       "total": 10,
       "percent": 70,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e1",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 5,
+      "studentName": "Mike Garcia",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        1,
+        2,
+        2,
+        1,
+        1,
+        2,
+        2,
+        3,
+        1,
+        2,
+        2,
+        0,
+        2,
+        2,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        0,
+        2,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        0,
+        2,
+        0,
+        3,
+        2,
+        0,
+        1,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2,
+        2,
+        0,
+        2,
+        2
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 45,
+      "total": 50,
+      "percent": 90,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e2",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 6,
+      "studentName": "Nina Flores",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        3,
+        2,
+        2,
+        1,
+        1,
+        2,
+        2,
+        0,
+        1,
+        2,
+        2,
+        0,
+        0,
+        2,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        0,
+        2,
+        2,
+        0,
+        1,
+        3,
+        2,
+        1,
+        2,
+        2,
+        3,
+        1,
+        2,
+        0,
+        2,
+        1,
+        0,
+        1,
+        2,
+        2,
+        2,
+        2,
+        0,
+        2,
+        2,
+        1,
+        0,
+        0
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 42,
+      "total": 50,
+      "percent": 84,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e3",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 7,
+      "studentName": "Omar Reyes",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        1,
+        3,
+        2,
+        1,
+        1,
+        2,
+        2,
+        0,
+        1,
+        2,
+        2,
+        0,
+        2,
+        2,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        0,
+        2,
+        1,
+        2,
+        2,
+        0,
+        1,
+        1,
+        2,
+        0,
+        1,
+        1,
+        2,
+        3,
+        3,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        0,
+        0,
+        1,
+        2,
+        0,
+        2,
+        2
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 38,
+      "total": 50,
+      "percent": 76,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e4",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 8,
+      "studentName": "Pia Navarro",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        1,
+        2,
+        3,
+        1,
+        1,
+        3,
+        1,
+        3,
+        1,
+        2,
+        2,
+        3,
+        1,
+        2,
+        2,
+        2,
+        1,
+        2,
+        3,
+        3,
+        2,
+        2,
+        0,
+        2,
+        2,
+        2,
+        1,
+        2,
+        1,
+        -1,
+        -1,
+        2,
+        2,
+        1,
+        2,
+        0,
+        1,
+        1,
+        0,
+        1,
+        2,
+        0,
+        1,
+        2,
+        0,
+        2,
+        2,
+        0,
+        2,
+        2
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 33,
+      "total": 50,
+      "percent": 66,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e5",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 9,
+      "studentName": "Ria Santos",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        1,
+        -1,
+        1,
+        1,
+        1,
+        2,
+        0,
+        0,
+        1,
+        2,
+        3,
+        3,
+        3,
+        2,
+        -1,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        0,
+        0,
+        1,
+        0,
+        3,
+        3,
+        3,
+        2,
+        1,
+        2,
+        1,
+        1,
+        3,
+        2,
+        -1,
+        2,
+        2,
+        0,
+        1,
+        1,
+        -1,
+        0,
+        2,
+        2,
+        0,
+        1,
+        0,
+        2,
+        2
+      ],
+      "flags": [
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "multi",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 29,
+      "total": 50,
+      "percent": 58,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e6",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 10,
+      "studentName": "Sam Ocampo",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        1,
+        3,
+        2,
+        2,
+        3,
+        2,
+        3,
+        -1,
+        2,
+        1,
+        2,
+        0,
+        1,
+        -1,
+        2,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+        1,
+        -1,
+        2,
+        2,
+        2,
+        1,
+        0,
+        2,
+        1,
+        2,
+        2,
+        -1,
+        2,
+        3,
+        3,
+        2,
+        2,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        0,
+        3,
+        3,
+        3,
+        3,
+        1
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 24,
+      "total": 50,
+      "percent": 48,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e7",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 11,
+      "studentName": "Tina Delgado",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        2,
+        0,
+        1,
+        -1,
+        2,
+        0,
+        2,
+        1,
+        3,
+        2,
+        1,
+        1,
+        2,
+        0,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        0,
+        2,
+        2,
+        1,
+        -1,
+        2,
+        1,
+        3,
+        -1,
+        3,
+        2,
+        2,
+        2,
+        1,
+        2,
+        0,
+        2,
+        1,
+        0,
+        1,
+        2,
+        1,
+        3,
+        -1,
+        2,
+        1,
+        0,
+        1,
+        -1,
+        3
+      ],
+      "flags": [
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "multi",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "multi",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok"
+      ],
+      "correct": 19,
+      "total": 50,
+      "percent": 38,
+      "demo": true
+    },
+    {
+      "id": "demo-sheet-e8",
+      "classId": "demo-cls-eng",
+      "className": "English 8-B",
+      "quizId": "demo-quiz-2",
+      "studentNo": 12,
+      "studentName": "Vina Castro",
+      "grade": "8",
+      "section": "Molave",
+      "answers": [
+        -1,
+        0,
+        0,
+        1,
+        3,
+        2,
+        3,
+        3,
+        2,
+        0,
+        2,
+        2,
+        3,
+        3,
+        1,
+        3,
+        3,
+        3,
+        -1,
+        1,
+        -1,
+        0,
+        1,
+        2,
+        -1,
+        1,
+        2,
+        3,
+        -1,
+        0,
+        1,
+        3,
+        0,
+        0,
+        2,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        2,
+        2,
+        -1,
+        2,
+        1,
+        3,
+        0,
+        1
+      ],
+      "flags": [
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "multi",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "multi",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "blank",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "correct": 13,
+      "total": 50,
+      "percent": 26,
       "demo": true
     }
   ]
