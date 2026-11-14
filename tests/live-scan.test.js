@@ -81,4 +81,12 @@ describe('liveScanStep', () => {
     }
     expect(absent).toBeGreaterThanOrEqual(LIVE_SCAN.rearmTicks)
   })
+
+  it('engages search decoding well before the re-arm point', () => {
+    // search mode exists to find small QRs while the camera sees nothing;
+    // it must switch on before the state machine forgets the last sheet
+    expect(LIVE_SCAN.searchAfterTicks).toBeLessThan(LIVE_SCAN.rearmTicks)
+    expect(LIVE_SCAN.searchWidth).toBeGreaterThan(LIVE_SCAN.previewWidth)
+    expect(LIVE_SCAN.previewWidth).toBeGreaterThanOrEqual(900)
+  })
 })

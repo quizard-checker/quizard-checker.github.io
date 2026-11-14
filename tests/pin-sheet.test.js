@@ -172,4 +172,45 @@ describe('readPinSheet on synthetic photos', () => {
     expect(res.pin).toBe(null)
     expect(res.pinFlags[0]).toBe('multi')
   })
+
+  // A half-sheet framed at ~48% of a 720p camera frame (a laptop screen across
+  // the desk): the 7pt markers sit under the old 0.8%-of-frame side floor and
+  // the pre-2.4.2 46pt QR fell under jsQR's module floor. Both must read now.
+  it('scans a far-framed sheet — markers, QR and PIN all read at distance', () => {
+    const answers = Array.from({ length: 50 }, (_, i) => key[i])
+    // render at 2x then box-average down to 1x — a cheap stand-in for the
+    // optical smoothing a real camera frame has (hard-edged raw pixels at
+    // 2.5px/module defeat jsQR in a way a camera never sees)
+    const S = 2, PAD = 8
+    const img = renderPinHalf({ answers, pin: '48213', qrPayload: pinSheetQrPayload('quiz-x'), scale: S, pad: PAD })
+    const w = Math.round(612 * S + PAD * 2), h = Math.round(468 * S + PAD * 2)
+    const dw = Math.round(w / 2), dh = Math.round(h / 2)
+    const small = new Uint8ClampedArray(dw * dh * 4)
+    for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0
+      for (const [dy, dx] of [[0, 0], [0, 1], [1, 0], [1, 1]]) {
+        const si = ((y * 2 + dy) * w + (x * 2 + dx)) * 4
+        r += img[si]; g += img[si + 1]; b += img[si + 2]
+      }
+      const di = (y * dw + x) * 4
+      small[di] = r / 4; small[di + 1] = g / 4; small[di + 2] = b / 4; small[di + 3] = 255
+    }
+    const VW = 1280, VH = 720
+    const frame = new Uint8ClampedArray(VW * VH * 4)
+    for (let i = 0; i < VW * VH; i++) { frame[i * 4] = frame[i * 4 + 1] = frame[i * 4 + 2] = 185; frame[i * 4 + 3] = 255 }
+    const x0 = Math.round((VW - dw) / 2), y0 = Math.round((VH - dh) / 2)
+    for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) {
+      const si = (y * dw + x) * 4, di = ((y0 + y) * VW + (x0 + x)) * 4
+      frame[di] = small[si]; frame[di + 1] = small[si + 1]; frame[di + 2] = small[si + 2]
+    }
+    // the marker floor is the gate being tested: sheet ~48% -> marker ~7px,
+    // under the old 10.2px floor, over the new 6.4px one
+    expect(PIN_SHEET.marker).toBeLessThan(VW * 0.008)
+    expect(PIN_SHEET.marker).toBeGreaterThanOrEqual(VW * 0.005)
+    const res = readPinSheet({ data: frame, width: VW, height: VH })
+    expect(res.ok).toBe(true)
+    expect(res.qr).toBe('QZ3:quiz-x')
+    expect(res.pin).toBe('48213')
+    for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(key[i])
+  })
 })

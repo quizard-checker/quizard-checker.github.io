@@ -287,7 +287,12 @@ export const PIN_SHEET = {
   letterR: 1.2, letterCap: 4.0,
   scanRadiusFrac: 0.85,
   marker: 7, markerGap: 6,
-  qrSize: 46, qrPadX: 12, qrPadY: 6,
+  // QR sized for distance: the half-sheet's grid ends ~70pt above the frame
+  // bottom, so a 64pt code (10.5% of the sheet width — close to the Letter
+  // sheet's 12.4%) fits clear of every bubble and still reads from across a
+  // room. The old 46pt code dropped under jsQR's ~2px-per-module floor once a
+  // far-framed sheet hit the live preview decode.
+  qrSize: 64, qrPadX: 12, qrPadY: 6,
   cutY: 468,
 }
 

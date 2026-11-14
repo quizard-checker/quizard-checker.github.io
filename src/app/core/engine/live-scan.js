@@ -12,6 +12,9 @@ export const LIVE_SCAN = {
   confirmHits: 2,       // same QR twice in a row before capturing
   cooldownMs: 1500,     // pause after a capture while the frame is processed
   rearmTicks: 8,        // ~2s with no sheet re-arms the last scanned QR
+  previewWidth: 900,    // cheap per-tick decode width
+  searchAfterTicks: 4,  // ~1s seeing nothing -> start full-res search decodes
+  searchWidth: 1600,    // search decode width (upscales small streams)
 }
 
 /**

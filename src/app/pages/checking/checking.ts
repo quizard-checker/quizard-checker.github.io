@@ -328,19 +328,26 @@ export class CheckingPage {
     this.liveBusy = true;
     try {
       const now = performance.now();
+      // A small QR (the PIN half-sheet's code is ~10% of the sheet width)
+      // drops under jsQR's ~2px-per-module floor once a far-framed sheet is
+      // squeezed into the cheap 900px preview decode. When nothing has been
+      // seen for a moment, step up to a full-resolution search decode so
+      // distance can't hide a sheet — the extra cost only lands while the
+      // camera is pointed at nothing.
+      const search = this.liveAbsent >= LIVE_SCAN.searchAfterTicks;
       let text: string | null = null;
       if (this.detector) {
         text = await this.detectWithDetector(video);
         if (text) {
           this.detectorMisses = 0;
-        } else if (++this.detectorMisses % 3 === 0) {
+        } else if (++this.detectorMisses % 3 === 0 || search) {
           // Some WebViews expose BarcodeDetector but return nothing (no
           // barcode module installed). Probe with jsQR every third empty tick
           // so the live scanner cannot end up blind.
-          text = this.decodeLiveFrame(video);
+          text = this.decodeLiveFrame(video, search ? LIVE_SCAN.searchWidth : LIVE_SCAN.previewWidth);
         }
       } else {
-        text = this.decodeLiveFrame(video);
+        text = this.decodeLiveFrame(video, search ? LIVE_SCAN.searchWidth : LIVE_SCAN.previewWidth);
       }
       const step = liveScanStep({
         text,
@@ -382,8 +389,11 @@ export class CheckingPage {
     }
   }
 
-  private decodeLiveFrame(video: HTMLVideoElement): string | null {
-    const width = Math.min(900, video.videoWidth);
+  private decodeLiveFrame(video: HTMLVideoElement, maxWidth = LIVE_SCAN.previewWidth): string | null {
+    // preview decodes never upscale (native pixels, downscaled to fit);
+    // search decodes always run at the full search width — upscaling a small
+    // stream gives jsQR the module resolution a far-framed QR loses at 720p
+    const width = Math.round(maxWidth > video.videoWidth ? maxWidth : Math.min(maxWidth, video.videoWidth));
     const height = Math.round(video.videoHeight * (width / video.videoWidth));
     let canvas = this.liveCanvas;
     if (!canvas) canvas = this.liveCanvas = document.createElement('canvas');
