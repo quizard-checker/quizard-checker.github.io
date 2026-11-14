@@ -1,1 +1,0 @@
-function c(t){if(/^(https?:|data:|blob:|capacitor:)/i.test(t))return t;let e=typeof document<`u`&&document.baseURI||`/`;return(e.endsWith(`/`)?e:e+`/`)+(t.startsWith(`/`)?t.slice(1):t)}export{c as t};
