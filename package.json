@@ -10,7 +10,8 @@
     "copy404": "node -e \"const fs=require('fs');fs.copyFileSync('dist/quizard-ng/browser/index.html','dist/quizard-ng/browser/404.html');console.log('404 synced')\"",
     "local": "node scripts/local-dev-server.mjs",
     "site": "node scripts/local-dev-server.mjs",
-    "relay:deploy": "node scripts/deploy-relay.mjs"
+    "relay:deploy": "node scripts/deploy-relay.mjs",
+    "android": "npm run build && npx cap sync android"
   },
   "private": true,
   "packageManager": "npm@11.19.0",
