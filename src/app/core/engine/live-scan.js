@@ -9,12 +9,15 @@ import { parseSheetQr } from './sheet-spec.js'
 
 export const LIVE_SCAN = {
   tickMs: 260,          // camera sample cadence — ~4 checks a second
-  confirmHits: 2,       // same QR twice in a row before capturing
+  confirmHits: 2,       // same QR twice before capturing (one miss may sit between)
   cooldownMs: 1500,     // pause after a capture while the frame is processed
   rearmTicks: 8,        // ~2s with no sheet re-arms the last scanned QR
   previewWidth: 900,    // cheap per-tick decode width
   searchAfterTicks: 4,  // ~1s seeing nothing -> start full-res search decodes
   searchWidth: 1600,    // search decode width (upscales small streams)
+  searchDeepWidth: 2400, // every other search tick — big modules decode where
+  //                         1600 fails (proven at 30% framing), at 2x the cost
+  missGrace: 1,         // one dropped frame keeps a confirming candidate alive
 }
 
 /**
@@ -46,7 +49,14 @@ export function liveScanStep({
 }) {
   const sheet = text && parseSheetQr(text) ? text : null
   if (!sheet) {
-    return { status: 'looking', candidate: null, hits: 0, absent: absent + 1, scan: null }
+    const nextAbsent = absent + 1
+    // One missed frame must not drop a mid-confirmation candidate — screens
+    // flicker, autofocus hunts, a hand jitters. Two consecutive misses means
+    // the sheet is really gone.
+    if (candidate && nextAbsent <= LIVE_SCAN.missGrace && scannedQr !== candidate) {
+      return { status: 'locking', candidate, hits, absent: nextAbsent, scan: null }
+    }
+    return { status: 'looking', candidate: null, hits: 0, absent: nextAbsent, scan: null }
   }
   if (scannedQr === sheet) {
     return { status: 'waiting', candidate: null, hits: 0, absent: 0, scan: null }

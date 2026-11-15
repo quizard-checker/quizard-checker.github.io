@@ -119,6 +119,17 @@
                   [attr.aria-label]="'Automatic scanning is ' + (autoScan() ? 'on' : 'off')">
             <span class="camera-auto-dot" aria-hidden="true"></span> Auto-scan {{ autoScan() ? 'on' : 'off' }}
           </button>
+          <button type="button" class="camera-tool" [class.on]="camZoom() === 2"
+                  (click)="toggleZoom()"
+                  [attr.aria-label]="'Camera zoom ' + camZoom() + 'x — tap to ' + (camZoom() === 1 ? 'zoom in' : 'zoom out')">
+            {{ camZoom() === 1 ? '1×' : '2×' }}
+          </button>
+          @if (torchSupported()) {
+            <button type="button" class="camera-tool torch" [class.on]="torchOn()"
+                    (click)="toggleTorch()" aria-label="Flashlight">
+              <span [innerHTML]="'zap' | ico"></span>
+            </button>
+          }
           @if (scanError()) {
             <div class="camera-error" role="alert">
               <span class="camera-error-ico" [innerHTML]="'alert' | ico"></span>
@@ -127,7 +138,7 @@
           }
           <div class="camera-status" role="status" aria-live="polite">{{ liveText() }}</div>
         </div>
-        <p class="faint center camera-hint">Hold the whole sheet in the frame — it scans by itself, no shutter needed.</p>
+        <p class="faint center camera-hint">Hold the whole sheet in the frame — it scans by itself. Far away or small on screen? Tap 2×.</p>
         <button class="btn btn-secondary gen-btn" (click)="captureFromCamera()"><span [innerHTML]="'camera' | ico"></span> Capture now</button>
         <button class="btn btn-secondary gen-btn" style="margin-top:0" (click)="closeCamera()">Close camera</button>
       } @else {

@@ -2295,6 +2295,15 @@ button.scan-cls:not(.on):hover { opacity: 1; }
   font-family: inherit; cursor: pointer;
 }
 .camera-auto-dot { width: 7px; height: 7px; border-radius: 50%; background: #5FC4D6; box-shadow: 0 0 8px #5FC4D6; }
+.camera-tool {
+  position: absolute; left: 10px; top: 10px; width: 34px; height: 30px;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 12px; font-weight: 800;
+  font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.camera-tool.torch { left: 50px; width: 30px; }
+.camera-tool.on { background: #5FC4D6; border-color: #5FC4D6; color: #0b2b31; }
+.camera-tool svg { width: 15px; height: 15px; }
 .camera-auto.off .camera-auto-dot { background: rgba(255, 255, 255, 0.45); box-shadow: none; }
 .camera-scanline {
   position: absolute; left: 8%; right: 8%; height: 2px; border-radius: 2px; pointer-events: none;

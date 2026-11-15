@@ -87,6 +87,30 @@ describe('liveScanStep', () => {
     // it must switch on before the state machine forgets the last sheet
     expect(LIVE_SCAN.searchAfterTicks).toBeLessThan(LIVE_SCAN.rearmTicks)
     expect(LIVE_SCAN.searchWidth).toBeGreaterThan(LIVE_SCAN.previewWidth)
+    expect(LIVE_SCAN.searchDeepWidth).toBeGreaterThan(LIVE_SCAN.searchWidth)
     expect(LIVE_SCAN.previewWidth).toBeGreaterThanOrEqual(900)
+  })
+
+  it('keeps a confirming candidate alive through one missed frame', () => {
+    // screens flicker and autofocus hunts — a single miss between sightings
+    // must not reset the confirmation counter
+    const sheet = 'QZ3:demo-quiz'
+    const first = liveScanStep({ text: sheet, candidate: null, hits: 0, absent: 8 })
+    expect(first.hits).toBe(1)
+    const miss = liveScanStep({ text: null, candidate: first.candidate, hits: first.hits, absent: first.absent })
+    expect(miss.candidate).toBe(sheet)
+    expect(miss.hits).toBe(1)
+    expect(miss.status).toBe('locking')
+    const second = liveScanStep({ text: sheet, candidate: miss.candidate, hits: miss.hits, absent: miss.absent })
+    expect(second.scan).toBe(sheet)
+  })
+
+  it('drops the candidate after two consecutive misses', () => {
+    const sheet = 'QZ3:demo-quiz'
+    const first = liveScanStep({ text: sheet })
+    const miss1 = liveScanStep({ text: null, candidate: first.candidate, hits: first.hits, absent: first.absent })
+    const miss2 = liveScanStep({ text: null, candidate: miss1.candidate, hits: miss1.hits, absent: miss1.absent })
+    expect(miss2.candidate).toBeNull()
+    expect(miss2.status).toBe('looking')
   })
 })

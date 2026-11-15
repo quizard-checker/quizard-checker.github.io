@@ -83,13 +83,22 @@ export class CheckingPage {
   // Auto-scan can be switched off to go back to manual captures.
   autoScan = signal(true);
   livePhase = signal<'off' | 'looking' | 'locking' | 'waiting'>('off');
+  // crop-based digital zoom (1 = full frame, 2 = center half) and the
+  // camera torch — the two controls that fix "hard to scan" at distance
+  camZoom = signal(1);
+  torchOn = signal(false);
+  torchSupported = signal(false);
+  searchHint = signal(false);
+  private track: MediaStreamTrack | null = null;
   readonly liveText = computed(() => {
     if (!this.autoScan()) return 'Auto-scan off — tap Capture now';
     if (this.scanError()) return 'Scan needs attention';
     switch (this.livePhase()) {
       case 'locking': return 'Sheet found — hold still…';
       case 'waiting': return 'Move to the next sheet';
-      case 'looking': return 'Looking for a sheet…';
+      case 'looking': return this.searchHint()
+        ? 'Move closer — fill about half the frame with the sheet'
+        : 'Looking for a sheet…';
       default: return 'Starting camera…';
     }
   });
@@ -97,6 +106,7 @@ export class CheckingPage {
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private liveCanvas: HTMLCanvasElement | null = null;
   private liveBusy = false;
+  private tickCount = 0;
   private liveCandidate: string | null = null;
   private liveHits = 0;
   private liveAbsent = 0;
@@ -251,8 +261,36 @@ export class CheckingPage {
       this.cameraActive.set(true);
       this.makeDetector();
       this.attachVideo();
+      const track = this.stream.getVideoTracks()[0] || null;
+      this.track = track;
+      try {
+        const caps = track?.getCapabilities?.() as any;
+        this.torchSupported.set(!!caps && caps.torch === true);
+      } catch {
+        this.torchSupported.set(false);
+      }
     } catch {
       this.toast.toast('Camera unavailable — use “Check from photo” instead', true);
+    }
+  }
+
+  // 2× crop zoom: the decode and capture read the center half of the frame at
+  // native pixels, so a sheet that filled 40% of the view now fills 80% of
+  // what the scanner sees — double the QR size and marker detail, no hardware
+  // zoom required. Toggled from the viewfinder.
+  toggleZoom() {
+    this.camZoom.set(this.camZoom() === 1 ? 2 : 1);
+  }
+
+  async toggleTorch() {
+    const track = this.track;
+    if (!track) return;
+    const next = !this.torchOn();
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] } as any);
+      this.torchOn.set(next);
+    } catch {
+      this.toast.toast('Flashlight is not available on this camera', true);
     }
   }
 
@@ -337,6 +375,13 @@ export class CheckingPage {
       // preview would miss the next ticks and the confirmation counter could
       // never reach 2 — the width must not oscillate under a confirming sheet.
       const search = this.liveAbsent >= LIVE_SCAN.searchAfterTicks || this.liveHits > 0;
+      // search ticks alternate 1600 ↔ 2400: the deep pass decodes tiny QRs
+      // where the 1600 upscale fails (the binarizer needs bigger modules),
+      // at twice the cost — acceptable only while pointed at nothing
+      const searchWidth = search
+        ? (this.tickCount % 2 === 0 ? LIVE_SCAN.searchDeepWidth : LIVE_SCAN.searchWidth)
+        : LIVE_SCAN.previewWidth;
+      this.tickCount++;
       let text: string | null = null;
       if (this.detector) {
         text = await this.detectWithDetector(video);
@@ -346,10 +391,10 @@ export class CheckingPage {
           // Some WebViews expose BarcodeDetector but return nothing (no
           // barcode module installed). Probe with jsQR every third empty tick
           // so the live scanner cannot end up blind.
-          text = this.decodeLiveFrame(video, search ? LIVE_SCAN.searchWidth : LIVE_SCAN.previewWidth);
+          text = this.decodeLiveFrame(video, searchWidth);
         }
       } else {
-        text = this.decodeLiveFrame(video, search ? LIVE_SCAN.searchWidth : LIVE_SCAN.previewWidth);
+        text = this.decodeLiveFrame(video, searchWidth);
       }
       const step = liveScanStep({
         text,
@@ -363,6 +408,9 @@ export class CheckingPage {
       this.liveCandidate = step.candidate;
       this.liveHits = step.hits;
       this.liveAbsent = step.absent;
+      // the absence counter drives the search decode (small QRs need the
+      // full-res pass), the re-arm below, and the "move closer" hint
+      this.searchHint.set(step.status === 'looking' && this.liveAbsent >= 12);
       // Seeing nothing for a moment re-arms the paper that was just scanned,
       // so a deliberate rescan works by lifting the phone away and back.
       if (step.absent >= LIVE_SCAN.rearmTicks) this.scannedQr = null;
@@ -391,30 +439,46 @@ export class CheckingPage {
     }
   }
 
+  // The zoom crop rectangle: center half of the frame at zoom 2, full frame at 1.
+  private zoomRect(video: HTMLVideoElement) {
+    const zoom = this.camZoom();
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const cw = Math.round(vw / zoom), ch = Math.round(vh / zoom);
+    return { sx: Math.round((vw - cw) / 2), sy: Math.round((vh - ch) / 2), cw, ch };
+  }
+
   private decodeLiveFrame(video: HTMLVideoElement, maxWidth = LIVE_SCAN.previewWidth): string | null {
+    const { sx, sy, cw, ch } = this.zoomRect(video);
+    if (!cw || !ch) return null;
     // preview decodes never upscale (native pixels, downscaled to fit);
     // search decodes always run at the full search width — upscaling a small
     // stream gives jsQR the module resolution a far-framed QR loses at 720p
-    const width = Math.round(maxWidth > video.videoWidth ? maxWidth : Math.min(maxWidth, video.videoWidth));
-    const height = Math.round(video.videoHeight * (width / video.videoWidth));
+    const width = Math.round(maxWidth > cw ? maxWidth : Math.min(maxWidth, cw));
+    const height = Math.round(ch * (width / cw));
     let canvas = this.liveCanvas;
     if (!canvas) canvas = this.liveCanvas = document.createElement('canvas');
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, width, height);
+    ctx.drawImage(video, sx, sy, cw, ch, 0, 0, width, height);
     const frame = ctx.getImageData(0, 0, width, height);
     return decodeQr(frame.data, width, height, { inversionAttempts: 'dontInvert' });
   }
 
-  private grabFrame(video: HTMLVideoElement, maxWidth = 1600): ImageData {
-    const scale = Math.min(1, maxWidth / video.videoWidth);
+  private grabFrame(video: HTMLVideoElement, maxWidth = 2048): ImageData {
+    const { sx, sy, cw, ch } = this.zoomRect(video);
+    // capture the (possibly zoomed) region sized for the OMR pass: upscale a
+    // small region toward ~1200px so a far-framed sheet's 7pt markers reach
+    // blob-detectable size (a zoom crop does not add pixels — the capture
+    // must reconstruct them the same way the search decode does), and never
+    // downscale a big one below the cap
+    const scale = Math.min(3, 1200 / cw, maxWidth / cw);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.width = Math.round(cw * Math.max(scale, 1));
+    canvas.height = Math.round(ch * Math.max(scale, 1));
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, sx, sy, cw, ch, 0, 0, canvas.width, canvas.height);
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
   }
 
@@ -422,12 +486,17 @@ export class CheckingPage {
     this.stopLiveLoop();
     this.stream?.getTracks().forEach(t => t.stop());
     this.stream = null;
+    this.track = null;
     this.cameraActive.set(false);
     this.livePhase.set('off');
     this.liveCandidate = null;
     this.liveHits = 0;
     this.liveAbsent = 0;
+    this.tickCount = 0;
     this.scannedQr = null;
+    this.camZoom.set(1);
+    this.torchOn.set(false);
+    this.searchHint.set(false);
   }
 
   captureFromCamera() {
