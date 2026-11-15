@@ -31,11 +31,14 @@ describe('demo data: 50-item Verb Tenses world', () => {
     })
   })
 
-  it('gives every English 8-B student a unique valid 5-digit PIN', () => {
-    const pins = eng.students.map(s => s.pin)
-    expect(pins.length).toBe(12)
-    for (const pin of pins) expect(isValidPin(pin)).toBe(true)
-    expect(new Set(pins).size).toBe(12)
+  it('gives every demo student a unique valid 5-digit PIN — all classes', () => {
+    for (const cls of DEMO_SNAPSHOT.classes) {
+      const pins = (cls.students || []).map(s => s.pin)
+      expect(pins.length, cls.name).toBeGreaterThan(0)
+      for (const pin of pins) expect(isValidPin(pin), `${cls.name} ${pin}`).toBe(true)
+      expect(new Set(pins).size, cls.name).toBe(pins.length)
+    }
+    expect(eng.students.length).toBe(12)
   })
 
   it('keeps the four demo-sheet students unchecked so scanning moves the card', () => {

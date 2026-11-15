@@ -390,16 +390,19 @@ export class ClassRosterPage {
       }
       // Spread the whole class so school year, archived state and any other
       // fields survive a roster edit — saveClass replaces the record wholesale.
+      // New students get a PIN (generatePins fills only the missing ones), so
+      // generic PIN sheets route to them without a manual registration pass.
+      const merged = generatePins([
+        ...(cls.students || []),
+        ...fresh.map((s: any) => ({
+          name: s.name,
+          grade: s.grade || cls.grade || '',
+          section: s.section || cls.section || '',
+        })),
+      ]).students;
       const record = await saveClass({
         ...cls,
-        students: [
-          ...(cls.students || []),
-          ...fresh.map((s: any) => ({
-            name: s.name,
-            grade: s.grade || cls.grade || '',
-            section: s.section || cls.section || '',
-          })),
-        ],
+        students: merged,
       });
       this.cls.set(record);
       this.rosterOpen.set(false);
@@ -412,11 +415,13 @@ export class ClassRosterPage {
     }
     const record = await saveClass({
       ...cls,
-      students: parsed.students.map((s: any) => ({
+      // a replaced roster still ends up fully pinned — generatePins keeps any
+      // PIN the surviving students already had and fills only the missing ones
+      students: generatePins(parsed.students.map((s: any): any => ({
         name: s.name,
         grade: s.grade || cls.grade || '',
         section: s.section || cls.section || '',
-      })),
+      }))).students,
     });
     this.cls.set(record);
     this.rosterOpen.set(false);

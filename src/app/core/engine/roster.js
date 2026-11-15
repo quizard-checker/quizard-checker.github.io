@@ -118,3 +118,29 @@ export function resolveStudentByPin(students = [], pin) {
   const matches = (students || []).filter(s => String(s?.pin || '') === want)
   return matches.length === 1 ? matches[0] : null
 }
+
+/**
+ * Register a shaded PIN as a student's identity after a manual pick — the
+ * first paper the teacher attaches by hand teaches the roster who that PIN
+ * belongs to, so every later paper from the same student routes by itself.
+ * Refuses an invalid PIN and one already claimed by a DIFFERENT student
+ * (re-picking the same student is a no-op).
+ * @param {Array<{ id: string, pin?: string }>} students
+ * @param {string} studentId
+ * @param {string} pin
+ * @returns {{ ok: boolean, reason?: 'invalid' | 'taken', changed: boolean, students: any[] }}
+ */
+export function claimPin(students = [], studentId, pin) {
+  const want = String(pin || '').replace(/\D/g, '')
+  if (!PIN_RE.test(want)) return { ok: false, reason: 'invalid', changed: false, students }
+  const claimed = (students || []).find(s => String(s?.pin || '') === want)
+  if (claimed && claimed.id !== studentId) return { ok: false, reason: 'taken', changed: false, students }
+  const student = (students || []).find(s => s?.id === studentId)
+  if (!student) return { ok: false, reason: 'invalid', changed: false, students }
+  if (String(student.pin || '') === want) return { ok: true, changed: false, students }
+  return {
+    ok: true,
+    changed: true,
+    students: (students || []).map(s => (s.id === studentId ? { ...s, pin: want } : s)),
+  }
+}

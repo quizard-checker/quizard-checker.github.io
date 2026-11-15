@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, listSheets, saveClass, deleteClass, getActiveAccountId, getAccount, getQuiz } from '../../core/engine/storage.js';
-import { parseRoster } from '../../core/engine/roster.js';
+import { parseRoster, generatePins } from '../../core/engine/roster.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { filterClasses, sortClasses, classFilterOptions } from '../../core/engine/class-filters.js';
 import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
@@ -204,6 +204,9 @@ export class HomePage {
       this.toast.toast('Paste or upload at least one student name', true);
       return;
     }
+    // every student carries a PIN — generic PIN sheets route by it, so a
+    // roster without codes would silently fall back to manual picking
+    students = generatePins(students).students;
     await saveClass({
       id: this.editingId() || undefined,
       name,

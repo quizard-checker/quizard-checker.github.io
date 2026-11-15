@@ -1,9 +1,9 @@
 import { Component, computed, inject, signal, NgZone, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
-import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz } from '../../core/engine/storage.js';
+import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
 import { readSheet, readPinSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
-import { resolveStudentByPin } from '../../core/engine/roster.js';
+import { resolveStudentByPin, claimPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { resolveDemoSheet } from '../../core/engine/demo-sheet.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
@@ -89,6 +89,9 @@ export class CheckingPage {
   torchOn = signal(false);
   torchSupported = signal(false);
   searchHint = signal(false);
+  // the 5-digit PIN read off the sheet being checked — a manual pick registers
+  // it to the picked student so later papers route automatically
+  scannedPin = signal<string | null>(null);
   private track: MediaStreamTrack | null = null;
   readonly liveText = computed(() => {
     if (!this.autoScan()) return 'Auto-scan off — tap Capture now';
@@ -151,10 +154,25 @@ export class CheckingPage {
 
   subjectMismatch = signal(false);
 
-  selectStudent(id: string) {
+  async selectStudent(id: string) {
     const st = this.roster().find(r => r.id === id) || null;
     this.attachStudent(st, 'manual');
     this.qrUnknownName.set(null);
+    // A PIN sheet the scanner couldn't auto-match: registering the shaded PIN
+    // to the hand-picked student means every later paper from that student
+    // routes by itself — the first checked paper teaches the roster.
+    const pin = this.scannedPin();
+    if (st && pin) {
+      const cls = this.classes().find(c => c.id === st.classId);
+      if (cls) {
+        const res = claimPin(cls.students || [], st.id, pin);
+        if (res.ok && res.changed) {
+          await saveClass({ ...cls, students: res.students });
+          this.classes.set(await listClasses());
+          this.toast.toast(`PIN ${pin.split('').join(' ')} registered to ${st.name} — their papers route automatically now.`);
+        }
+      }
+    }
   }
 
   // One place that binds a roster student to the sheet being checked, so the
@@ -543,6 +561,7 @@ export class CheckingPage {
     if (!fromLive) this.scanError.set('');
     // let the spinner paint before the synchronous CV work blocks the frame
     await new Promise(r => setTimeout(r, 60));
+    this.scannedPin.set(null);
 
     // the QR identifies the quiz — and, on roster-printed sheets, the student
     // — before any geometry work: one CV pass total
@@ -616,14 +635,17 @@ export class CheckingPage {
         ? this.rosterEntry(demoMatch.cls, demoMatch.student)
         : this.matchRosterStudent(parsed);
       // Generic PIN sheets name nobody in the QR: the shaded 5-digit PIN is
-      // the student's identity, matched inside the quiz's own class.
+      // the student's identity, matched inside the quiz's own class. The read
+      // PIN is kept so a manual pick can register it (first paper teaches the
+      // roster who that PIN belongs to).
+      this.scannedPin.set(result.pin || null);
       let pinStudent: any = null;
       let pinHint = '';
       if (!qrStudent && result.pin !== undefined) {
         if (result.pin) {
           pinStudent = this.matchPinStudent(quiz, result.pin);
           if (!pinStudent) {
-            pinHint = `The shaded PIN ${result.pin.split('').join(' ')} didn't match one student in ${quiz.className || 'this class'} — pick whose paper this is below.`;
+            pinHint = `The shaded PIN ${result.pin.split('').join(' ')} didn't match one student in ${quiz.className || 'this class'} — pick whose paper this is below; it will be registered to them.`;
           }
         } else {
           pinHint = `The PIN wasn't readable (${result.pinDigits.map((d: number) => (d >= 0 ? String(d) : '·')).join(' ')}) — pick whose paper this is below.`;

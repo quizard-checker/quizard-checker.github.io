@@ -1,9 +1,10 @@
 // The bundled demo world: a realistic week of teacher data built around the
-// scanning flow. English 8-B carries a 50-item Verb Tenses quiz and a pinned
-// roster, so the four demo PIN half-sheets (site + app Settings) scan and
-// route exactly like real paper — see scripts/make-demo-pin-sheets.mjs.
-// Records are tagged demo: true and re-keyed per account by demo.js, which
-// pours this snapshot through the real storage layer idempotently.
+// scanning flow. Every demo class carries a fully pinned roster, so generic
+// PIN half-sheets route by the shaded 5-digit PIN in every class — the four
+// demo sheets (site + app Settings) target English 8-B's 50-item Verb
+// Tenses quiz. Records are tagged demo: true and re-keyed per account by
+// demo.js, which pours this snapshot through the real storage layer
+// idempotently.
 export const DEMO_SNAPSHOT = {
   "capturedAt": "2026-10-22",
   "classes": [
@@ -88,35 +89,43 @@ export const DEMO_SNAPSHOT = {
       "students": [
         {
           "name": "Ana Reyes",
-          "no": 1
+          "no": 1,
+          "pin": "53812"
         },
         {
           "name": "Ben Cruz",
-          "no": 2
+          "no": 2,
+          "pin": "71046"
         },
         {
           "name": "Cara Diaz",
-          "no": 3
+          "no": 3,
+          "pin": "26953"
         },
         {
           "name": "Darna Villanueva",
-          "no": 4
+          "no": 4,
+          "pin": "83407"
         },
         {
           "name": "Elias Cruz",
-          "no": 5
+          "no": 5,
+          "pin": "41568"
         },
         {
           "name": "Fina Mercado",
-          "no": 6
+          "no": 6,
+          "pin": "97210"
         },
         {
           "name": "Gab Torres",
-          "no": 7
+          "no": 7,
+          "pin": "60734"
         },
         {
           "name": "Hana Lopez",
-          "no": 8
+          "no": 8,
+          "pin": "18392"
         }
       ],
       "demo": true
@@ -131,27 +140,33 @@ export const DEMO_SNAPSHOT = {
       "students": [
         {
           "name": "Paolo Cruz",
-          "no": 1
+          "no": 1,
+          "pin": "51428"
         },
         {
           "name": "Bea Lim",
-          "no": 2
+          "no": 2,
+          "pin": "76093"
         },
         {
           "name": "Carlo Reyes",
-          "no": 3
+          "no": 3,
+          "pin": "29564"
         },
         {
           "name": "Dana Sy",
-          "no": 4
+          "no": 4,
+          "pin": "83170"
         },
         {
           "name": "Eli Tan",
-          "no": 5
+          "no": 5,
+          "pin": "46715"
         },
         {
           "name": "Faith Uy",
-          "no": 6
+          "no": 6,
+          "pin": "91286"
         }
       ],
       "demo": true
