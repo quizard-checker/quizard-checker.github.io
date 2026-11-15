@@ -66,7 +66,7 @@ export class SettingsPage implements OnInit {
   usageLine = signal('');
 
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.4.4'; }
+  get version() { return '2.4.5'; }
   get theme() { return this.ui.theme; }
 
   // ── Cloud sync (sync-code locker) ──

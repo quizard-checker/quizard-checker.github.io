@@ -203,6 +203,7 @@ export class ClassRosterPage {
 
   openScores(id: string) { this.scoreQuizId.set(id); }
   closeScores() { this.scoreQuizId.set(null); }
+  goScan() { this.router.navigate(['/tabs/checking']); }
 
   // ── Student PINs (for the generic PIN answer sheets) ──────────────────────
   // Every student gets a 5-digit PIN; they write + shade it on their half

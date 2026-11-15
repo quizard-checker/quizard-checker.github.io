@@ -111,53 +111,61 @@
             </div>
           </div>
           @if (!sc.scanned) {
-            <p class="parse-note" style="margin:0 0 10px">No papers scanned for this quiz yet — scores appear here as each paper is checked. Answers students gave on other quizzes stay under those quizzes.</p>
-          }
-          <div class="cr-table-wrap">
-            <table class="cr-table">
-              <thead>
-                <tr>
-                  <th class="cr-th-stud"><span class="cr-th-ico" [innerHTML]="'users' | ico"></span>Student</th>
-                  <th class="cr-th-quiz">Score</th>
-                  <th class="cr-th-more" aria-hidden="true"></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of scoreRows(); track row.id) {
-                  <tr class="cr-row">
-                    <td class="cr-stud">
-                      <span class="cr-no">{{ row.no }}</span>
-                      <span class="cr-ava" [style.background]="avatarColorOf(row)">{{ initialsOf(row) }}</span>
-                      <span class="cr-stud-main">
-                        <span class="cr-stud-name">{{ row.name }}</span>
-                        @if (row.cell?.scored) {
-                          <button type="button" class="cr-answers" (click)="openAnswers(row, scoreQuizId())" title="This student's answers for this quiz">
-                            <span class="cr-answers-ico" [innerHTML]="'fileText' | ico"></span> Answers
-                          </button>
-                        }
-                      </span>
-                    </td>
-                    <td class="cr-score">
-                      @if (row.cell?.scored) {
-                        <span class="cr-pill" [class.pass]="row.cell.percent >= 50" [class.fail]="row.cell.percent < 50"
-                              [title]="row.cell.correct + ' of ' + row.cell.total + ' · ' + row.cell.percent + '%'">
-                          <span class="cr-pill-ico" aria-hidden="true">{{ row.cell.percent >= 50 ? '✓' : '✗' }}</span>
-                          {{ row.cell.correct }}/{{ row.cell.total }} · {{ row.cell.percent }}%
-                        </span>
-                      } @else {
-                        <span class="cr-none">—</span>
-                      }
-                    </td>
-                    <td class="cr-more">
-                      @if (row.cell?.scored) {
-                        <button type="button" class="cr-more-btn" (click)="openAnswers(row, scoreQuizId())" [attr.aria-label]="'Open ' + row.name + ' answers for this quiz'" [innerHTML]="'chevronRight' | ico"></button>
-                      }
-                    </td>
+            <div class="empty-state cr-empty">
+              <div class="empty-ico" [innerHTML]="'chart' | ico"></div>
+              <h3>No papers scanned yet</h3>
+              <p>Check a paper for this quiz and its score lands here, per student.</p>
+              <button class="btn btn-secondary" style="max-width:240px;margin:0 auto" (click)="goScan()">
+                <span [innerHTML]="'scan' | ico"></span> Scan papers
+              </button>
+            </div>
+          } @else {
+            <div class="cr-table-wrap">
+              <table class="cr-table">
+                <thead>
+                  <tr>
+                    <th class="cr-th-stud"><span class="cr-th-ico" [innerHTML]="'users' | ico"></span>Student</th>
+                    <th class="cr-th-quiz">Score</th>
+                    <th class="cr-th-more" aria-hidden="true"></th>
                   </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  @for (row of scoreRows(); track row.id) {
+                    <tr class="cr-row">
+                      <td class="cr-stud">
+                        <span class="cr-no">{{ row.no }}</span>
+                        <span class="cr-ava" [style.background]="avatarColorOf(row)">{{ initialsOf(row) }}</span>
+                        <span class="cr-stud-main">
+                          <span class="cr-stud-name">{{ row.name }}</span>
+                          @if (row.cell?.scored) {
+                            <button type="button" class="cr-answers" (click)="openAnswers(row, scoreQuizId())" title="This student's answers for this quiz">
+                              <span class="cr-answers-ico" [innerHTML]="'fileText' | ico"></span> Answers
+                            </button>
+                          }
+                        </span>
+                      </td>
+                      <td class="cr-score">
+                        @if (row.cell?.scored) {
+                          <span class="cr-pill" [class.pass]="row.cell.percent >= 50" [class.fail]="row.cell.percent < 50"
+                                [title]="row.cell.correct + ' of ' + row.cell.total + ' · ' + row.cell.percent + '%'">
+                            <span class="cr-pill-ico" aria-hidden="true">{{ row.cell.percent >= 50 ? '✓' : '✗' }}</span>
+                            {{ row.cell.correct }}/{{ row.cell.total }} · {{ row.cell.percent }}%
+                          </span>
+                        } @else {
+                          <span class="cr-none">—</span>
+                        }
+                      </td>
+                      <td class="cr-more">
+                        @if (row.cell?.scored) {
+                          <button type="button" class="cr-more-btn" (click)="openAnswers(row, scoreQuizId())" [attr.aria-label]="'Open ' + row.name + ' answers for this quiz'" [innerHTML]="'chevronRight' | ico"></button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         } @else if (scoreCards().length) {
           <div class="section-title" style="margin-top:16px">Scores</div>
           <div class="doc-list class-grid">
