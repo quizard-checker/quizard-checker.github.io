@@ -145,12 +145,26 @@ export function qrCaption(count) {
 }
 
 // ── Sheet QR payload (shared by the printer and the scanner) ──
-// A blank sheet carries only the quiz id (QZ1). A sheet printed for a roster
-// student carries the student id and name too (QZ2), so scanning attaches the
-// student instead of the teacher picking from a list. The scanner resolves by
-// id first and name second, so a QZ1 sheet keeps working exactly as before.
-export function sheetQrPayload(quizId, student) {
-  if (!student) return `QZ1:${quizId}`
+// A blank sheet carries the quiz id and, room permitting, the quiz name (QZ1).
+// A sheet printed for a roster student carries the student id and name too
+// (QZ2), so scanning attaches the student instead of the teacher picking from
+// a list — roster codes stay nameless on the quiz side to keep their module
+// count down. The scanner resolves by id first and name second, so codes
+// printed before quiz names existed keep working exactly as before.
+
+// The quiz name rides along for humans: pointing a phone camera at the code
+// shows "English — Verb Tenses" instead of an opaque id. Pipes are swapped
+// out like student names, and the 24-char cap keeps the fixed-size QR at a
+// scannable module count (guarded by the capacity tests below).
+function cleanQuizName(quizName) {
+  return String(quizName || '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim().slice(0, 24)
+}
+
+export function sheetQrPayload(quizId, student, quizName) {
+  if (!student) {
+    const named = cleanQuizName(quizName)
+    return `QZ1:${quizId}${named ? '|' + named : ''}`
+  }
   const name = String(student.name || '').replace(/\|/g, '/').slice(0, 40)
   return `QZ2:${quizId}|${student.id}|${name}`
 }
@@ -176,10 +190,13 @@ export function demoPinSheetQrPayload(classKey, quizKey) {
 /**
  * @param {string | null} text raw QR contents
  * @returns {{ quizId: string | null, studentId: string | null,
- *   studentName: string | null, demo?: { classKey: string, quizKey: string,
+ *   studentName: string | null, quizName: string | null,
+ *   demo?: { classKey: string, quizKey: string,
  *   studentNo: number | null }, pinSheet?: boolean } | null}
  *   null for anything that isn't a Quizard sheet code. `pinSheet` marks a
  *   generic QZ3 half-sheet whose student comes from the shaded 5-digit PIN.
+ *   `quizName` is the human-readable quiz name newer codes carry (null for
+ *   codes printed before names were added, and for demo codes).
  */
 export function parseSheetQr(text) {
   if (typeof text !== 'string' || !text) return null
@@ -193,6 +210,7 @@ export function parseSheetQr(text) {
       quizId: null,
       studentId: null,
       studentName: null,
+      quizName: null,
       demo: { classKey, quizKey, studentNo }
     }
   }
@@ -206,6 +224,7 @@ export function parseSheetQr(text) {
       quizId: null,
       studentId: null,
       studentName: null,
+      quizName: null,
       demo: { classKey, quizKey, studentNo: null },
       pinSheet: true
     }
@@ -217,15 +236,23 @@ export function parseSheetQr(text) {
     const quizId = text.slice(4, first)
     const studentId = text.slice(first + 1, second)
     if (!quizId || !studentId) return null
-    return { quizId, studentId, studentName: text.slice(second + 1) || null }
+    return { quizId, studentId, studentName: text.slice(second + 1) || null, quizName: null }
   }
-  if (text.startsWith('QZ1:')) return { quizId: text.slice(4), studentId: null, studentName: null }
+  if (text.startsWith('QZ1:')) {
+    // the quiz name, when present, trails the id after the first pipe
+    const bar = text.indexOf('|')
+    const quizId = bar < 0 ? text.slice(4) : text.slice(4, bar)
+    const quizName = bar < 0 ? null : (text.slice(bar + 1) || null)
+    return { quizId, studentId: null, studentName: null, quizName }
+  }
   if (text.startsWith('QZ3:')) {
-    const quizId = text.slice(4)
+    const bar = text.indexOf('|')
+    const quizId = bar < 0 ? text.slice(4) : text.slice(4, bar)
     if (!quizId) return null
     // generic PIN half-sheet: the student is identified by the shaded 5-digit
     // PIN, not by anything in the QR
-    return { quizId, studentId: null, studentName: null, pinSheet: true }
+    const quizName = bar < 0 ? null : (text.slice(bar + 1) || null)
+    return { quizId, studentId: null, studentName: null, quizName, pinSheet: true }
   }
   return null
 }
@@ -376,9 +403,8 @@ export function pinCutLineY() {
   return PIN_SHEET.cutY
 }
 
-/** Generic PIN sheet QR: quiz identity only — the student comes from the PIN. */
-
-/** Generic PIN sheet QR: quiz identity only — the student comes from the PIN. */
-export function pinSheetQrPayload(quizId) {
-  return `QZ3:${quizId}`
+/** Generic PIN sheet QR: quiz identity (and name) only — the student comes from the shaded PIN. */
+export function pinSheetQrPayload(quizId, quizName) {
+  const named = cleanQuizName(quizName)
+  return `QZ3:${quizId}${named ? '|' + named : ''}`
 }

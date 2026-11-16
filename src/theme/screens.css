@@ -2319,6 +2319,23 @@ button.scan-cls:not(.on):hover { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .camera-scanline { animation: none; top: 50%; opacity: 0.5; }
 }
+/* Wide scan: a wide sheet (PIN half-sheets, or one shown on a laptop screen)
+   outgrows the portrait viewfinder — in landscape the stage takes the full
+   width so all four corner squares fit in frame. The .wide class is set by
+   the ⤢ tool; the orientation media query does the rest the moment the
+   device (or an orientation lock) is actually landscape. */
+.camera-tool.widescreen { left: 86px; width: 30px; }
+.camera-wide-hint {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  max-width: calc(100% - 20px); padding: 6px 12px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11.5px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.camera-stage.wide:fullscreen { border-radius: 0; }
+@media (orientation: landscape) {
+  .camera-stage.wide { max-width: min(92vw, 960px); }
+  .camera-stage.wide .camera-view { max-height: 76vh; }
+}
 .scan-thumb { width: 72px; height: 96px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); flex: none; }
 .answer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
 .ans-chip {

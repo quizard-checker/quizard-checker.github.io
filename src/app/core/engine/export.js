@@ -294,11 +294,14 @@ export async function buildBubbleSheetsPdf(quiz, students, size = 'letter') {
     pdf.setFillColor('#0b0820')
     for (const m of markerRects(count)) pdf.rect(m.x, m.y, SHEET.marker, SHEET.marker, 'F')
 
-    // QR: identifies the quiz, and the student when printed for a roster. A
-    // name makes the payload long, so roster sheets drop to level L — fewer
-    // modules keeps the cell size large enough to scan from a phone photo.
+    // QR: identifies the quiz — name and all, so a phone camera shows
+    // "English — Verb Tenses" instead of an opaque id — and the student when
+    // printed for a roster. A name makes the payload long, so roster sheets
+    // drop to level L — fewer modules keeps the cell size large enough to
+    // scan from a phone photo.
     const qr = qrRect(count)
-    bubbleQr(pdf, sheetQrPayload(quiz.id, student), qr.x, qr.y, qr.size, student ? 'L' : 'M')
+    const quizLabel = quiz.subject + (quiz.title ? ' — ' + quiz.title : '')
+    bubbleQr(pdf, sheetQrPayload(quiz.id, student, quizLabel), qr.x, qr.y, qr.size, student ? 'L' : 'M')
 
     // the roster number and name in plain sight under the code, so a printed
     // stack can be sorted and handed out from the bottom of the page alone
@@ -430,7 +433,7 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
 
   // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
   const qr = pinQrRect(half)
-  bubbleQr(pdf, qrPayload || pinSheetQrPayload(quiz.id), qr.x, qr.y, qr.size, 'M')
+  bubbleQr(pdf, qrPayload || pinSheetQrPayload(quiz.id, quiz.subject + (quiz.title ? ' — ' + quiz.title : '')), qr.x, qr.y, qr.size, 'M')
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#374151')
   pdf.text('Quizard PIN sheet', f.x + 6, f.y + f.h - 8)
 }

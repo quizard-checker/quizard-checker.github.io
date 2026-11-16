@@ -108,11 +108,14 @@
       </div>
 
       @if (cameraActive()) {
-        <div class="camera-stage">
+        <div class="camera-stage" [class.wide]="wideOn()">
           <video class="camera-view" autoplay playsinline muted></video>
           <div class="camera-guides" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
           @if (autoScan() && livePhase() !== 'waiting') {
             <span class="camera-scanline" aria-hidden="true"></span>
+          }
+          @if (wideOn() && wideHint()) {
+            <div class="camera-wide-hint" role="status">Turn your phone sideways ↻</div>
           }
           <button type="button" class="camera-auto" [class.off]="!autoScan()" role="switch"
                   [attr.aria-checked]="autoScan()" (click)="toggleAutoScan()"
@@ -130,6 +133,11 @@
               <span [innerHTML]="'zap' | ico"></span>
             </button>
           }
+          <button type="button" class="camera-tool widescreen" [class.on]="wideOn()"
+                  (click)="toggleWide()"
+                  aria-label="Wide scan — landscape viewfinder for wide sheets">
+            <span [innerHTML]="'expand' | ico"></span>
+          </button>
           @if (scanError()) {
             <div class="camera-error" role="alert">
               <span class="camera-error-ico" [innerHTML]="'alert' | ico"></span>

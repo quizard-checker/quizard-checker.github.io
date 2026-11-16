@@ -5,6 +5,7 @@ import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, 
 import { readSheet, readPinSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
 import { resolveStudentByPin, claimPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
+import { wideScanEnterPlan, wideScanExitPlan } from '../../core/engine/wide-scan.js';
 import { resolveDemoSheet } from '../../core/engine/demo-sheet.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { liveScanStep, LIVE_SCAN } from '../../core/engine/live-scan.js';
@@ -88,6 +89,12 @@ export class CheckingPage {
   camZoom = signal(1);
   torchOn = signal(false);
   torchSupported = signal(false);
+  // wide scan: the viewfinder turns landscape so wide sheets (PIN half-sheets
+  // on long bond, or a sheet shown on a laptop screen) fit all four corner
+  // squares in frame. Fullscreen + orientation lock where the platform
+  // allows it; a rotate hint where it does not.
+  wideOn = signal(false);
+  wideHint = signal(false);
   searchHint = signal(false);
   // the 5-digit PIN read off the sheet being checked — a manual pick registers
   // it to the picked student so later papers route automatically
@@ -312,6 +319,42 @@ export class CheckingPage {
     }
   }
 
+  // Wide scan: the sensor's long axis runs across the sheet, so wide papers
+  // keep all four corner squares in frame. How far this can go is the
+  // platform's call — Android locks landscape for real (fullscreen first:
+  // orientation locks are only granted there), iOS just widens the layout
+  // once the phone physically rotates.
+  async toggleWide() {
+    if (this.wideOn()) {
+      this.exitWide();
+      return;
+    }
+    const plan = wideScanEnterPlan(screen);
+    this.wideOn.set(true);
+    this.wideHint.set(plan.hint);
+    try {
+      if (plan.fullscreen) await this.stageEl()?.requestFullscreen?.();
+    } catch {
+      // fullscreen refusal (kiosk, older WebView) — the wide layout still
+      // applies the moment the device actually is landscape
+    }
+    try {
+      if (plan.lockTo) await screen.orientation.lock(plan.lockTo);
+    } catch {
+      // locking is best-effort: physical rotation triggers the same layout
+    }
+  }
+
+  private exitWide() {
+    const plan = wideScanExitPlan(screen);
+    // lock back before leaving fullscreen — Android only honors locks while
+    // fullscreen, so order matters here
+    if (plan.lockTo) void screen.orientation.lock(plan.lockTo).catch(() => {});
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    this.wideOn.set(false);
+    this.wideHint.set(false);
+  }
+
   // BarcodeDetector is hardware-backed on Android and reads a video frame far
   // faster than jsQR; where it is missing (iOS Safari, older WebViews) the live
   // loop falls back to jsQR on a downscaled frame.
@@ -328,6 +371,10 @@ export class CheckingPage {
 
   private videoEl(): HTMLVideoElement | null {
     return document.querySelector('video.camera-view') as HTMLVideoElement | null;
+  }
+
+  private stageEl(): HTMLElement | null {
+    return document.querySelector('div.camera-stage');
   }
 
   private attachVideo(attempt = 0) {
@@ -515,6 +562,7 @@ export class CheckingPage {
     this.camZoom.set(1);
     this.torchOn.set(false);
     this.searchHint.set(false);
+    if (this.wideOn()) this.exitWide();
   }
 
   captureFromCamera() {
@@ -594,8 +642,10 @@ export class CheckingPage {
       // two different failures wore one message before: a photo with no
       // readable QR at all, and a QR naming a quiz this device doesn't have
       // (sheets printed on another phone / browser, or a deleted quiz)
+      // the quiz name rides in the QR (newer sheets), so the teacher at least
+      // knows which paper this is even when the quiz isn't on this device
       this.scanError.set(parsed
-        ? `This sheet’s quiz isn’t on this device${parsed.studentName ? ` (the QR names ${parsed.studentName})` : ''} — it was printed somewhere else or deleted here. Pick the quiz manually on the setup screen and scan again.`
+        ? `This sheet’s quiz isn’t on this device${parsed.quizName ? ` — the QR says “${parsed.quizName}”` : parsed.studentName ? ` (the QR names ${parsed.studentName})` : ''} — it was printed somewhere else or deleted here. Pick the quiz manually on the setup screen and scan again.`
         : 'No QR code found on that photo — fill the frame with the sheet, keep it flat and well-lit, then try again. Or pick the quiz manually on the setup screen to scan without one.');
       if (fromLive && parsed) this.scannedQr = qrText;
       return;

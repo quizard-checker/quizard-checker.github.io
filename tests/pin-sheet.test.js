@@ -110,7 +110,7 @@ describe('PIN half-sheet geometry', () => {
 describe('QZ3 payload', () => {
   it('round-trips through parseSheetQr as a pin sheet', () => {
     const parsed = parseSheetQr(pinSheetQrPayload('quiz-123'))
-    expect(parsed).toEqual({ quizId: 'quiz-123', studentId: null, studentName: null, pinSheet: true })
+    expect(parsed).toEqual({ quizId: 'quiz-123', studentId: null, studentName: null, quizName: null, pinSheet: true })
   })
 
   it('rejects malformed QZ3 codes', () => {
