@@ -38,3 +38,24 @@ describe('wideScanExitPlan', () => {
     expect(wideScanExitPlan(iosLike)).toEqual({ exitFullscreen: true, lockTo: null })
   })
 })
+
+describe('wideScanEnterPlan — native app (Capacitor)', () => {
+  it('forces landscape through the native plugin: no fullscreen, no hint, whatever the web API says', () => {
+    const native = { native: true }
+    // The Capacitor WebView exposes screen.orientation.lock but silently
+    // rejects it — the plan must not trust the web API when a native plugin
+    // is doing the locking.
+    expect(wideScanEnterPlan(androidLike, native)).toEqual({ fullscreen: false, lockTo: 'landscape', native: true, hint: false })
+    expect(wideScanEnterPlan(iosLike, native)).toEqual({ fullscreen: false, lockTo: 'landscape', native: true, hint: false })
+    expect(wideScanEnterPlan(partial, native)).toEqual({ fullscreen: false, lockTo: 'landscape', native: true, hint: false })
+    expect(wideScanEnterPlan(null, native)).toEqual({ fullscreen: false, lockTo: 'landscape', native: true, hint: false })
+  })
+})
+
+describe('wideScanExitPlan — native app (Capacitor)', () => {
+  it('unlocks natively (follow the system again) instead of forcing portrait', () => {
+    const native = { native: true }
+    expect(wideScanExitPlan(androidLike, native)).toEqual({ exitFullscreen: false, lockTo: 'unlock', native: true })
+    expect(wideScanExitPlan(null, native)).toEqual({ exitFullscreen: false, lockTo: 'unlock', native: true })
+  })
+})

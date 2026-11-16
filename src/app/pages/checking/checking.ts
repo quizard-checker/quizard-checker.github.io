@@ -1,5 +1,7 @@
 import { Component, computed, inject, signal, NgZone, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
+import { Capacitor } from '@capacitor/core';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
 import { readSheet, readPinSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
@@ -321,17 +323,28 @@ export class CheckingPage {
 
   // Wide scan: the sensor's long axis runs across the sheet, so wide papers
   // keep all four corner squares in frame. How far this can go is the
-  // platform's call — Android locks landscape for real (fullscreen first:
-  // orientation locks are only granted there), iOS just widens the layout
-  // once the phone physically rotates.
+  // platform's call — inside the APK the native plugin rotates the screen for
+  // real (the WebView's web-level lock silently fails, and system
+  // auto-rotate is often switched off), Android Chrome locks landscape for
+  // real too (fullscreen first: orientation locks are only granted there),
+  // iOS just widens the layout once the phone physically rotates.
   async toggleWide() {
     if (this.wideOn()) {
       this.exitWide();
       return;
     }
-    const plan = wideScanEnterPlan(screen);
+    const plan = wideScanEnterPlan(screen, { native: Capacitor.isNativePlatform() });
     this.wideOn.set(true);
     this.wideHint.set(plan.hint);
+    if (plan.native) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'landscape' });
+      } catch {
+        // plugin refusal — the wide layout still applies once the device
+        // actually is landscape
+      }
+      return;
+    }
     try {
       if (plan.fullscreen) await this.stageEl()?.requestFullscreen?.();
     } catch {
@@ -346,10 +359,18 @@ export class CheckingPage {
   }
 
   private exitWide() {
-    const plan = wideScanExitPlan(screen);
+    const plan = wideScanExitPlan(screen, { native: Capacitor.isNativePlatform() });
+    if (plan.native) {
+      // unlock, don't force portrait: the screen follows the system setting
+      // again (some tablets default to landscape)
+      void ScreenOrientation.unlock().catch(() => {});
+      this.wideOn.set(false);
+      this.wideHint.set(false);
+      return;
+    }
     // lock back before leaving fullscreen — Android only honors locks while
     // fullscreen, so order matters here
-    if (plan.lockTo) void screen.orientation.lock(plan.lockTo).catch(() => {});
+    if (plan.lockTo === 'portrait') void screen.orientation.lock(plan.lockTo).catch(() => {});
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     this.wideOn.set(false);
     this.wideHint.set(false);
