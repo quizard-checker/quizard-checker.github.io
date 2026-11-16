@@ -24,8 +24,7 @@ export function toGray(data, width, height) {
 }
 
 // Bradley/Wellner: pixel is dark when below (1 - t) × mean of its window.
-export function threshold(gray, width, height, { t = 0.2, winFrac = 0.045 } = {}) {
-  const win = Math.max(15, Math.round(Math.min(width, height) * winFrac)) | 1
+export function threshold(gray, width, height, { t = 0.2, winFrac = 0.045 } = {}) {  const win = Math.max(15, Math.round(Math.min(width, height) * winFrac)) | 1
   const integral = new Float64Array((width + 1) * (height + 1))
   for (let y = 0; y < height; y++) {
     let rowSum = 0
@@ -47,6 +46,57 @@ export function threshold(gray, width, height, { t = 0.2, winFrac = 0.045 } = {}
     }
   }
   return out
+}
+
+// ── preprocessing: undo the global lift a screen photo (or a dim room) adds ──
+
+// Separable [1,2,1]/4 smoothing, one pass — stills sensor noise before the
+// contrast stretch so the stretch doesn't amplify it into false ink.
+export function smooth(gray, width, height) {
+  const tmp = new Float32Array(width * height)
+  for (let y = 0; y < height; y++) {
+    const row = y * width
+    for (let x = 0; x < width; x++) {
+      tmp[row + x] = (gray[row + Math.max(0, x - 1)] + 2 * gray[row + x] + gray[row + Math.min(width - 1, x + 1)]) / 4
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    const up = Math.max(0, y - 1) * width, mid = y * width, down = Math.min(height - 1, y + 1) * width
+    for (let x = 0; x < width; x++) {
+      gray[mid + x] = (tmp[up + x] + 2 * tmp[mid + x] + tmp[down + x]) / 4
+    }
+  }
+  return gray
+}
+
+// Robust contrast stretch: map the 1st/99th percentile gray levels to 0/1.
+// A screen photo arrives with "black" as a grey — the panel's black is
+// emissive and the camera exposes for the bright display — so Bradley's fixed
+// relative threshold loses its margin and the corner squares read as paper.
+// Stretching the observed range back to [0,1] restores the margin the
+// thresholds were tuned for, and leaves photos that already span the range
+// (paper under decent light) effectively untouched.
+export function stretch(gray, width, height) {
+  const hist = new Uint32Array(256)
+  for (let i = 0; i < gray.length; i++) hist[Math.min(255, (gray[i] * 255) | 0)]++
+  const lo = gray.length * 0.01, hi = gray.length * 0.99
+  let acc = 0, p1 = 0, p99 = 255
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= lo) { p1 = v; break } }
+  acc = 0
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= hi) { p99 = v; break } }
+  const span = p99 - p1
+  if (span < 12) return gray // no meaningful range — nothing to stretch
+  for (let i = 0; i < gray.length; i++) {
+    const v = (gray[i] * 255 - p1) / span
+    gray[i] = v < 0 ? 0 : v > 1 ? 1 : v
+  }
+  return gray
+}
+
+// The shared front half of both readers: grayscale → smooth → stretch →
+// Bradley threshold.
+function binarize(data, width, height) {
+  return threshold(stretch(smooth(toGray(data, width, height), width, height), width, height), width, height)
 }
 
 // Connected components (flood fill) over ink pixels; returns blobs large
@@ -232,8 +282,7 @@ export const FLAG = { OK: 'ok', BLANK: 'blank', MULTI: 'multi', FAINT: 'faint' }
 export function readSheet(image, itemCount) {
   const { data, width, height } = image
   const qr = decodeQr(data, width, height)
-  const gray = toGray(data, width, height)
-  const binary = threshold(gray, width, height)
+  const binary = binarize(data, width, height)
   const quad = findMarkerQuads(binary, width, height, markerCenters(itemCount))
   if (!quad) return { ok: false, reason: 'markers', qr }
 
@@ -242,8 +291,10 @@ export function readSheet(image, itemCount) {
   if (!H) return { ok: false, reason: 'markers', qr }
 
   // the printed frame must land on ink — rejects rectangles fitted to
-  // bubble rings or other non-frame structures
-  if (!frameInk(binary, width, height, H, frameRect())) return { ok: false, reason: 'frame', qr }
+  // bubble rings or other non-frame structures. Window 3 (same as the PIN
+  // sheet): wave-wobbled marker centroids tilt the homography 1–2px, and a
+  // defocused 3.5pt line binarizes ~2px wide, so ±2 missed real frames.
+  if (!frameInk(binary, width, height, H, frameRect(), 3)) return { ok: false, reason: 'frame', qr }
 
   // pixels-per-point from the marker spread
   const pdfSpan = Math.hypot(pdfMarkers[1].x - pdfMarkers[0].x, pdfMarkers[1].y - pdfMarkers[0].y)
@@ -323,16 +374,15 @@ export function scoreSheet(answers, items) {
 export function readPinSheet(image) {
   const { data, width, height } = image
   const qr = decodeQr(data, width, height)
-  const gray = toGray(data, width, height)
-  const binary = threshold(gray, width, height)
+  const binary = binarize(data, width, height)
   const expected = pinMarkerCenters(0)
   const quad = findMarkerQuads(binary, width, height, expected)
   if (!quad) return { ok: false, reason: 'markers', qr }
 
   const H = homography(expected, quad)
   if (!H) return { ok: false, reason: 'markers', qr }
-  // the printed half-sheet frame is thinner than the Letter one, so its
-  // verification window is a pixel wider
+  // both readers verify the frame with the same ±3px window — wave-wobbled
+  // marker centroids tilt the homography on any photo, not just PIN ones
   if (!frameInk(binary, width, height, H, pinFrameRect(0), 3)) return { ok: false, reason: 'frame', qr }
 
   const pdfSpan = Math.hypot(expected[1].x - expected[0].x, expected[1].y - expected[0].y)

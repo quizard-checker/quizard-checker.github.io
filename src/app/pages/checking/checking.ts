@@ -685,7 +685,13 @@ export class CheckingPage {
     }
     if (!result.ok) {
       this.processing.set(false);
-      this.scanError.set('Could not align the sheet — fit all four corner squares and the black frame inside the frame. It will retry automatically.');
+      // the engine reports which step failed — name it, so the teacher can
+      // act instead of re-framing blind (glare, moiré and a small sheet kill
+      // the corner squares; a shadow, a fold or a glare streak breaks the
+      // printed frame line)
+      this.scanError.set(result.reason === 'frame'
+        ? 'Found the corner squares, but the black frame line is broken — even light works best: avoid glare and shadows across the page. It will retry automatically.'
+        : 'Could not align the sheet — the four corner squares are not reading. Fill more of the frame, keep the sheet flat and evenly lit. It will retry automatically.');
       // a framing miss is worth another automatic try once the phone is moved
       if (fromLive) this.scannedQr = null;
       return;

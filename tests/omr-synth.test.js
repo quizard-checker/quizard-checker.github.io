@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { readSheet, scoreSheet, FLAG, toGray, threshold, homography, applyH } from '../src/app/core/engine/omr.js'
 import { SHEET, frameRect, markerRects, markerCenters, bubbleCenter, bubbleSheetLayout, idDigitCenter } from '../src/app/core/engine/sheet-spec.js'
+import { applyScreenDefects } from '../src/app/core/engine/sheet-synth.js'
 
 // These render millions of pixels and then run the whole CV pipeline, so a
 // single case can exceed the 5s default once the workers compete for CPU.
@@ -115,6 +116,19 @@ describe('readSheet — synthetic sheets', () => {
     const img = renderSheet({ count: 10, answers, rotateDeg: 3.5, noise: 14 })
     const res = readSheet(img, 10)
     expect(res.ok).toBe(true)
+    expect(res.answers).toEqual(answers)
+  })
+
+  // A sheet shown on a laptop screen and photographed: the screen's black is
+  // emissive (ink arrives as grey), the sensor adds moiré waves the size of
+  // the printed features, and the panel's refresh rolls bands across the shot.
+  // This is the "works on paper, fails on the screen" case.
+  it('reads a sheet photographed off a laptop screen (glow, moiré, refresh bands)', () => {
+    const answers = [1, 3, 2, 0, 1, 3, 2, 0, 1, 3]
+    const img = renderSheet({ count: 10, answers, rotateDeg: 2, noise: 6 })
+    applyScreenDefects(img, { seed: 7 })
+    const res = readSheet(img, 10)
+    expect(res.ok, `reason: ${res?.reason}`).toBe(true)
     expect(res.answers).toEqual(answers)
   })
 

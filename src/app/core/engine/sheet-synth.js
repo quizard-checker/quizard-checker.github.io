@@ -86,6 +86,81 @@ function mulberry32(a) {
   }
 }
 
+// ── screen-photo defects ──
+// What a phone camera actually sees when it photographs a laptop screen, as
+// pure pixel math (no canvas) so the same simulation drives the dev panel and
+// the vitest suite — the tests and the "Simulate scan" panel can never drift.
+//
+//   glow  the screen's black is emissive, so "black" arrives as a grey and the
+//         whole range compresses (display brightness × camera auto-exposure).
+//         When the phone exposes for the bright panel, ink lands ~190 and
+//         paper ~235 — a ~45-level gap where a paper photo gives ~240. This
+//         is the defect that breaks alignment: the blur-softened frame line
+//         tips under the threshold, and wave swings flip marker edges.
+//   focus camera defocus + screen bloom erode thin strokes before the sensor
+//         sees them: the 3.5px frame line drops to ~50% depth, right at the
+//         threshold's tipping point, and patchy glare finishes the job.
+//   moiré interference between the screen's pixel grid and the sensor — waves
+//         roughly the size of printed features (markers ~22px at test scale)
+//   bands PWM/refresh stripes rolling across the panel (50/60 Hz shooting)
+export function applyScreenDefects(image, { glow = 0.7, moire = 6, bands = 4, seed = 1 } = {}) {
+  const { data, width, height } = image
+  const gain = 1 - glow * 1.2   // highlights come down more than blacks go up
+  const lift = 255 * glow
+  // 1. glow — the global exposure lift
+  for (let i = 0; i < data.length; i += 4) {
+    const v = lift + data[i] * gain
+    data[i] = data[i + 1] = data[i + 2] = v
+  }
+  // 2. defocus/bloom — one separable 5-tap binomial pass, the standard
+  //    approximation of a moderate handheld blur. Thin strokes lose ~half
+  //    their depth; big markers stay solid.
+  blur5(data, width, height)
+  // 3. moiré + refresh bands — waves land on the already-blurred signal, so
+  //    they stay crisp, the way they look in real screen photos.
+  const rnd = mulberry32((seed * 0x9E3779B1) >>> 0)
+  // seed-wobbled wavelengths (px) — a fixed frequency would overfit one
+  // camera/screen pairing; real moiré wanders
+  const l1 = 18 + rnd() * 12, l2 = 24 + rnd() * 14
+  const t1 = rnd() * Math.PI, t2 = rnd() * Math.PI
+  const c1 = Math.cos(t1), s1 = Math.sin(t1), c2 = Math.cos(t2), s2 = Math.sin(t2)
+  const bandWl = 40 + rnd() * 15
+  for (let y = 0; y < height; y++) {
+    const band = Math.sin((y * 2 * Math.PI) / bandWl) * bands
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4
+      const u = x * c1 + y * s1, v = x * c2 + y * s2
+      const m = (Math.sin((u * 2 * Math.PI) / l1) + Math.sin((v * 2 * Math.PI) / l2)) * (moire / 2)
+      const out = Math.max(0, Math.min(255, data[i] + m + band))
+      data[i] = data[i + 1] = data[i + 2] = out
+    }
+  }
+  return image
+}
+
+// In-place separable [1,4,6,4,1]/16 blur. Channels are equal (the sim keeps
+// the photo grey), so it reads the red channel and writes all three back.
+function blur5(data, width, height) {
+  const tmp = new Float32Array(width * height)
+  for (let y = 0; y < height; y++) {
+    const row = y * width
+    for (let x = 0; x < width; x++) {
+      const i = (row + x) * 4
+      tmp[row + x] = (data[(row + Math.max(0, x - 2)) * 4] + 4 * data[(row + Math.max(0, x - 1)) * 4]
+        + 6 * data[i] + 4 * data[(row + Math.min(width - 1, x + 1)) * 4] + data[(row + Math.min(width - 1, x + 2)) * 4]) / 16
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    const y0 = Math.max(0, y - 2) * width, y1 = Math.max(0, y - 1) * width
+    const y2 = y * width, y3 = Math.min(height - 1, y + 1) * width, y4 = Math.min(height - 1, y + 2) * width
+    for (let x = 0; x < width; x++) {
+      const v = (tmp[y0 + x] + 4 * tmp[y1 + x] + 6 * tmp[y2 + x] + 4 * tmp[y3 + x] + tmp[y4 + x]) / 16
+      const i = (y2 + x) * 4
+      data[i] = data[i + 1] = data[i + 2] = v
+    }
+  }
+}
+
 // ── rendering ──
 
 // Matches the resolution the camera path downsamples to (`min(1, 1600/width)`
