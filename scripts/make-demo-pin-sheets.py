@@ -53,12 +53,10 @@ window.renderSheet = async (profile) => {
     ctx.beginPath(); ctx.arc(px(cx), px(cy), px(r), 0, Math.PI * 2); ctx.stroke()
   }
 
-  // dashed cut line between the two halves
+  // no cut line is baked into the demo half-sheets: the crop keeps only the
+  // half itself, so 2-up print layouts (and the docs images) aren't handed a
+  // stray 'cut here' line that duplicates the printer's own cut guide
   const cut = spec.pinCutLineY()
-  ctx.setLineDash([px(6), px(5)])
-  line(10, cut, 612 - 10, cut, 0.8, '#9ca3af')
-  ctx.setLineDash([])
-  text('cut here', 612 - 12, cut - 4, 6.5, '#9ca3af', 'right')
 
   for (const half of [0, 1]) {
     const f = spec.pinFrameRect(half)
