@@ -40,7 +40,7 @@
     "url": "https://quizard-checker.github.io/quizard-docs/",
     "installUrl": "https://quizard-checker.github.io/",
     "downloadUrl": "https://github.com/quizard-checker/quizard-checker.github.io/releases/latest/download/Quizard.apk",
-    "softwareVersion": "2.4.0",
+    "softwareVersion": "2.4.8",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "description": "Turn an answer key or lesson into printable bubble sheets, scan them with a phone, and score offline."
   }
@@ -227,7 +227,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </span>
             <h3>Printable bubble sheets</h3>
-            <p>The quiz’s class decides the roster: one page per student, four corner markers, and a QR carrying the quiz and student name. Letter, A4, or Long paper.</p>
+            <p>The quiz’s class decides the roster: one page per student, four corner markers, and a QR carrying the quiz and student name — any phone camera that scans the QR shows which quiz the sheet belongs to. Letter, A4, or Long paper.</p>
           </article>
 
           <article class="feature-card reveal">
@@ -235,7 +235,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
             </span>
             <h3>Offline scanning</h3>
-            <p>The live camera finds each sheet's QR and records the score as soon as it is held steady — no shutter tap. You can also check a photo. Blank, multiple, and faint marks are flagged, and the QR attaches the student automatically.</p>
+            <p>The live camera finds each sheet's QR and records the score as soon as it is held steady — no shutter tap. Sheets that won't fit get two fixes: tap 2× to zoom in, or ⤢ to turn the viewfinder landscape so wide sheets keep all four corner squares in frame. You can also check a photo. Blank, multiple, and faint marks are flagged, and the QR attaches the student automatically.</p>
           </article>
 
           <article class="feature-card reveal">
@@ -347,7 +347,7 @@
           <div>
             <span class="eyebrow">Try the scanner</span>
             <h3>Scan the built-in demo sheets</h3>
-            <p>Load demo data in the app, open any of these filled sheets on another screen, and scan it with the phone. Each sheet is a real <b>50-item PIN half-sheet</b> — the ZipGrade-style form, cut from a Long page — and the phone reads the shaded 5-digit PIN to route the score to its demo student automatically. All four count toward the demo <b>Verb Tenses</b> quiz in English 8-B (the class already has eight checked papers; these four move the progress card to 12). Open one full-screen and zoom to fit the whole screen. If the scanner struggles to lock, tap 2× in the viewfinder.</p>
+            <p>Load demo data in the app, open any of these filled sheets on another screen, and scan it with the phone. Each sheet is a real <b>50-item PIN half-sheet</b> — the ZipGrade-style form, cut from a Long page — and the phone reads the shaded 5-digit PIN to route the score to its demo student automatically. All four count toward the demo <b>Verb Tenses</b> quiz in English 8-B (the class already has eight checked papers; these four move the progress card to 12). Open one full-screen and zoom to fit the whole screen. If the scanner struggles to lock, tap 2× in the viewfinder — and for a wide sheet (or one shown on a laptop screen), tap ⤢ to turn the viewfinder landscape so all four corner squares fit.</p>
             <div class="demo-sheet-links">
               <a href="assets/demo/pin-sheet-ivan.png" target="_blank" rel="noopener"><b>Perfect — Ivan Ramos</b><span>50/50 · 100% · no flags</span></a>
               <a href="assets/demo/pin-sheet-joy.png" target="_blank" rel="noopener"><b>Missed two — Joy Aquino</b><span>48/50 · 96% · no flags</span></a>
@@ -498,9 +498,11 @@
             <div class="doc-body">
               <ul>
                 <li>Keep the whole sheet in frame, flat, evenly lit, with all four corner squares and the black frame visible.</li>
+                <li>Wide sheet? Tap <b>⤢</b> in the viewfinder — the camera goes fullscreen and landscape so all four corner squares fit. On iPhone, the app asks you to turn the phone sideways instead.</li>
+                <li>Sheet shown on a laptop or TV screen? Treat it like paper: back up until the whole sheet fits, tap ⤢ for landscape, and avoid glare over the QR and corner squares.</li>
                 <li>The live view scans by itself once the sheet is held steady. If it can't align, a red message over the camera tells you to reframe and it retries automatically.</li>
                 <li>Blank, multiple-shaded, and faint answers are flagged. Tap a question to cycle A → B → C → D → blank.</li>
-                <li>The QR attaches the student and quiz automatically. If a QR won't read, pick the quiz manually.</li>
+                <li>The QR attaches the student and quiz automatically. Any phone camera pointed at the sheet's QR also shows the quiz name, so a pile of papers can be told apart at a glance. If a QR won't read, pick the quiz manually.</li>
                 <li>Rescanning the same student/quiz replaces the earlier result instead of duplicating it.</li>
               </ul>
             </div>
@@ -563,7 +565,7 @@
           </details>
           <details class="faq reveal">
             <summary>“No QR code found” or the sheet won't align.</summary>
-            <p>Fill the frame with the sheet, keep it flat, avoid shadows, and make sure all four corner squares and the full black frame are visible. You can also pick the quiz manually and attach the student on the result screen.</p>
+            <p>Fill the frame with the sheet, keep it flat, avoid shadows, and make sure all four corner squares and the full black frame are visible. A wide sheet that keeps failing? Tap <b>⤢</b> in the viewfinder to scan in landscape. You can also pick the quiz manually and attach the student on the result screen.</p>
           </details>
           <details class="faq reveal">
             <summary>“Quiz not on this device.”</summary>
@@ -633,7 +635,7 @@
         <b>Project</b>
         <a href="https://github.com/quizard-checker/quizard-checker.github.io">GitHub</a>
         <a href="https://github.com/quizard-checker/quizard-checker.github.io/releases">Releases</a>
-        <span class="footer-version">Version 2.1.0</span>
+        <span class="footer-version">Version 2.4.8</span>
       </div>
     </div>
     <div class="wrap footer-bottom">
