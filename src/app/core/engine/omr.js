@@ -14,6 +14,10 @@ import {
   frameRect, markerCenters, bubbleCenter, qrRect,
   pinFrameRect, pinMarkerCenters, pinItemCenter, pinDigitCenter, pinQrRect,
 } from './sheet-spec.js'
+import {
+  PIN_SHEET_V3,
+  pinV3MarkerCenters, pinV3FrameRect, pinV3QrRect, pinV3ItemCenter, pinV3DigitCenter,
+} from './sheet-v3.js'
 
 export function toGray(data, width, height) {
   const gray = new Float32Array(width * height)
@@ -896,6 +900,99 @@ export function readPinSheet(image, qrText = null, qrSource = null, qrLocation =
     const col = []
     for (let v = 0; v < PIN_SHEET.pinRows; v++) {
       const c = pinDigitCenter(d, v)
+      col.push(inkFraction(binary, width, height, H, c.x, c.y, dPx))
+    }
+    const order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].sort((a, b) => col[b] - col[a])
+    const top = col[order[0]], second = col[order[1]]
+    if (top < 0.30) { pinDigits.push(-1); pinFlags.push(FLAG.BLANK); continue }
+    if (top - second < 0.10) { pinDigits.push(-1); pinFlags.push(FLAG.MULTI); continue }
+    if (top < 0.50) { pinDigits.push(order[0]); pinFlags.push(FLAG.FAINT); continue }
+    pinDigits.push(order[0]); pinFlags.push(FLAG.OK)
+  }
+  const complete = pinDigits.every(v => v >= 0)
+  return {
+    ok: true, answers, flags, fills, qr, markers: quad, scale,
+    pin: complete ? pinDigits.join('') : null,
+    pinDigits, pinFlags,
+    diag: {
+      ...diagBase,
+      rot: resolved.rot ?? -1, qrAnchor: !!resolved.qrAnchor, pageAnchor: !!resolved.pageAnchor, frameAnchor: !!resolved.frameAnchor,
+      frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0, score: resolved.score ?? 0,
+      quad, scale, rPx, dPx,
+      thresholds: { blank: 0.30, multi: 0.12, faint: 0.55 },
+      pinThresholds: { blank: 0.30, multi: 0.10, faint: 0.50 },
+      answers, flags, fills,
+      pinDigits, pinFlags, pin: complete ? pinDigits.join('') : null,
+    },
+  }
+}
+
+/**
+ * Read a QZ3v3 PIN half-sheet with the v3 geometry. Kept separate from the v2
+ * reader so existing sheets and their thresholds stay byte-for-byte unchanged.
+ *
+ * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
+ * @param {string | null} [qrText]
+ * @param {string | null} [qrSource]
+ * @param {any | null} [qrLocation]
+ */
+export function readPinSheetV3(image, qrText = null, qrSource = null, qrLocation = null) {
+  const { data, width, height } = image
+  const qr = qrText || decodeQr(data, width, height)
+  const diagBase = {
+    width, height, itemCount: PIN_ITEMS, layout: 'v3', qr,
+    qrSource: qrSource || (qrText ? 'provided' : qr ? 'frame' : 'none'),
+  }
+  const binary = binarize(data, width, height)
+  const expected = pinV3MarkerCenters(0)
+  const aligned = alignWithFrame(binary, width, height, expected, pinV3FrameRect(0), 3, qr ? pinV3QrRect(0) : null, 0)
+  const resolved = resolveAlignment(
+    aligned, pinV3QrRect(0), qrLocation, width, height,
+    { w: PIN_SHEET_V3.W, h: PIN_SHEET_V3.halfH }, pinV3FrameRect(0),
+  )
+  if (!resolved) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
+  if (!resolved.H) {
+    return {
+      ok: false, reason: 'frame', qr,
+      diag: {
+        ...diagBase, reason: 'frame', rot: resolved.rot ?? -1,
+        frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0,
+        quad: resolved.quad,
+      },
+    }
+  }
+  const H = resolved.H
+  const quad = resolved.quad
+  const pdfSpan = Math.hypot(expected[1].x - expected[0].x, expected[1].y - expected[0].y)
+  const pxSpan = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y)
+  const scale = (resolved.qrAnchor || resolved.pageAnchor || resolved.frameAnchor) ? resolved.scale : pxSpan / pdfSpan
+  const rPx = Math.max(2, Math.round(PIN_SHEET_V3.circleR * PIN_SHEET_V3.scanRadiusFrac * scale))
+  const dPx = Math.max(2, Math.round(PIN_SHEET_V3.pinR * PIN_SHEET_V3.scanRadiusFrac * scale))
+
+  const answers = []
+  const flags = []
+  const fills = []
+  for (let i = 0; i < PIN_ITEMS; i++) {
+    const row = []
+    for (let b = 0; b < 4; b++) {
+      const c = pinV3ItemCenter(i, b)
+      row.push(inkFraction(binary, width, height, H, c.x, c.y, rPx))
+    }
+    fills.push(row)
+    const order = [0, 1, 2, 3].sort((a, b) => row[b] - row[a])
+    const top = row[order[0]], second = row[order[1]]
+    if (top < 0.30) { answers.push(-1); flags.push(FLAG.BLANK); continue }
+    if (top - second < 0.12) { answers.push(-1); flags.push(FLAG.MULTI); continue }
+    if (top < 0.55) { answers.push(order[0]); flags.push(FLAG.FAINT); continue }
+    answers.push(order[0]); flags.push(FLAG.OK)
+  }
+
+  const pinDigits = []
+  const pinFlags = []
+  for (let d = 0; d < PIN_SHEET_V3.pinDigits; d++) {
+    const col = []
+    for (let v = 0; v < PIN_SHEET_V3.pinRows; v++) {
+      const c = pinV3DigitCenter(d, v)
       col.push(inkFraction(binary, width, height, H, c.x, c.y, dPx))
     }
     const order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].sort((a, b) => col[b] - col[a])

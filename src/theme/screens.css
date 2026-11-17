@@ -162,8 +162,8 @@
   display: grid; place-items: center; font-size: 24px; font-weight: 800; color: #fff;
   background: rgba(255, 255, 255, 0.22); border: 2px solid rgba(255, 255, 255, 0.9);
 }
-.cls-body { padding: 18px; }
-.cls-stats { display: flex; align-items: baseline; gap: 6px; }
+.cls-body { padding: 18px; display: grid; gap: 12px; }
+.cls-stats { display: flex; align-items: center; gap: 10px; }
 .cls-stats b { font-size: 22px; font-weight: 800; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .cls-stats span { font-size: 12px; font-weight: 600; color: var(--text-faint); }
 .cls-stats .key-chip.sy {
@@ -172,8 +172,9 @@
 }
 .cls-card.archived { opacity: .78; }
 .cls-card.archived .cls-banner { filter: grayscale(.35); }
-.cls-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.class-grid .doc-actions { margin-top: 14px; }
+.cls-meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cls-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0; }
+.class-grid .doc-actions { margin-top: 2px; padding-top: 14px; border-top: 1px solid var(--border); }
 .class-grid .doc-actions .btn-secondary { flex: 1; padding: 12px 14px; }
 
 @media (min-width: 900px) {

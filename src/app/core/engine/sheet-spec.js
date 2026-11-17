@@ -245,6 +245,14 @@ export function parseSheetQr(text) {
     const quizName = bar < 0 ? null : (text.slice(bar + 1) || null)
     return { quizId, studentId: null, studentName: null, quizName }
   }
+  if (text.startsWith('QZ3v3:')) {
+    const rest = text.slice(7)
+    const bar = rest.indexOf('|')
+    const quizId = bar < 0 ? rest : rest.slice(0, bar)
+    if (!quizId) return null
+    const quizName = bar < 0 ? null : (rest.slice(bar + 1) || null)
+    return { quizId, studentId: null, studentName: null, quizName, pinSheet: true, pinSheetVersion: 3 }
+  }
   if (text.startsWith('QZ3:')) {
     const bar = text.indexOf('|')
     const quizId = bar < 0 ? text.slice(4) : text.slice(4, bar)
