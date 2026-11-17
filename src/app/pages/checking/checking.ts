@@ -5,7 +5,7 @@ import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { App } from '@capacitor/app';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
-import { readSheet, readPinSheet, scoreSheet, decodeQr, decodeQrAnywhere, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
+import { readSheet, readPinSheet, readPinSheetV3, scoreSheet, decodeQr, decodeQrAnywhere, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
 import { resolveStudentByPin, claimPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { wideScanEnterPlan, wideScanExitPlan } from '../../core/engine/wide-scan.js';
@@ -872,11 +872,14 @@ export class CheckingPage {
     // try the PIN geometry as a fallback — the override flow is how PIN sheets
     // get scanned when the code won't decode.
     const pinSheet = parsed?.pinSheet === true;
+    const pinV3 = parsed?.pinSheetVersion === 3
+      || (typeof qrText === 'string' && qrText.startsWith('QZ3v3:'));
+    const readPin = pinV3 ? readPinSheetV3 : readPinSheet;
     let result: any = pinSheet
-      ? readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation)
+      ? readPin({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation)
       : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length, qrText, qrSource, qrLocation);
     if (!result.ok && !pinSheet && this.quizOverrideId()) {
-      result = readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation);
+      result = readPin({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation);
     }
     if (!result.ok) {
       this.processing.set(false);

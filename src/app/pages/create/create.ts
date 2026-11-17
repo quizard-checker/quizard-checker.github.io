@@ -620,8 +620,9 @@ export class CreatePage {
   }
 
   pinPagesOf(c: any): number { return Math.max(1, Math.ceil((c?.students?.length || 0) / 2)); }
-  paper = signal<'letter' | 'a4' | 'long'>('letter');
-  setPaper(p: any) { this.paper.set(p); }
+  // Long bond (8.5x13) is the only paper stock: both sheet types print on it
+  // (PIN half-sheets 2-up, cut in half), so there is nothing to choose.
+  paper = signal<'letter' | 'a4' | 'long'>('long');
   // Sheet type: personalized QR sheets (one per student) or generic PIN
   // half-sheets (2-up on Long paper, cut in half, matched by shaded PIN).
   printMode = signal<'qr' | 'pin'>('qr');

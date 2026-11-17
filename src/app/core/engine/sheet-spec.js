@@ -192,7 +192,7 @@ export function demoPinSheetQrPayload(classKey, quizKey) {
  * @returns {{ quizId: string | null, studentId: string | null,
  *   studentName: string | null, quizName: string | null,
  *   demo?: { classKey: string, quizKey: string,
- *   studentNo: number | null }, pinSheet?: boolean } | null}
+ *   studentNo: number | null }, pinSheet?: boolean, pinSheetVersion?: number } | null}
  *   null for anything that isn't a Quizard sheet code. `pinSheet` marks a
  *   generic QZ3 half-sheet whose student comes from the shaded 5-digit PIN.
  *   `quizName` is the human-readable quiz name newer codes carry (null for

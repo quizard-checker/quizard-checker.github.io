@@ -5,6 +5,10 @@ import {
   pinFrameRect, pinMarkerRects, pinItemCenter, pinRowLabelRight, pinItemColX, pinItemRowY, pinWriteBox, pinDigitCenter,
   pinQrRect, pinSheetQrPayload, pinCutLineY,
 } from './sheet-spec.js'
+import {
+  PIN_SHEET_V3, pinV3MarkerRects, pinV3ItemCenter, pinV3DigitCenter,
+  pinV3QrRect, pinV3WriteBox, pinV3SheetQrPayload,
+} from './sheet-v3.js'
 import { sectionBreakdown } from './reports.js'
 
 export { bubbleSheetLayout } from './sheet-spec.js'
@@ -461,9 +465,120 @@ export async function buildPinSheetsPdf(quiz, students, size = 'long', className
   return pdf
 }
 
-export async function exportPinSheets(quiz, students, size = 'long') {
-  const pdf = await buildPinSheetsPdf(quiz, students, size)
-  pdf.save(`quizard-pin-sheets-${slug(quiz.subject || quiz.title)}.pdf`)
+function drawPinHalfV3(pdf, quiz, half, className, qrPayload) {
+  const P = PIN_SHEET_V3
+  const dy = half ? P.halfH : 0
+  const y = v => v + dy
+  const contentX = P.content.x
+  const contentW = P.content.w
+  const rowH = 18
+  const labelW = 36
+
+  // 10 mm anchors, no printed border.
+  pdf.setFillColor('#0b0820')
+  for (const m of pinV3MarkerRects(half)) pdf.rect(m.x, m.y, m.w, m.h, 'F')
+
+  const labelCell = (x, ry, text) => {
+    pdf.setFillColor('#d1d5db'); pdf.rect(x, y(ry), labelW, rowH, 'FD')
+    pdf.setDrawColor('#374151'); pdf.setLineWidth(0.7); pdf.rect(x, y(ry), labelW, rowH, 'S')
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+    pdf.text(text, x + 4, y(ry + rowH / 2 + 2.3))
+  }
+  const blankCell = (x, ry, w, printed) => {
+    pdf.setDrawColor('#374151'); pdf.setLineWidth(0.7); pdf.rect(x, y(ry), w, rowH, 'S')
+    if (printed) {
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor('#1c2438')
+      let t = pdfSafe(printed)
+      const cap = w - 8
+      while (pdf.getTextWidth(t) > cap && t.length > 4) t = t.slice(0, -1)
+      pdf.text(t, x + 4, y(ry + rowH / 2 + 2.6))
+    }
+  }
+
+  const hx = contentX, hy = P.content.y
+  labelCell(hx, hy, 'Name'); blankCell(hx + labelW, hy, contentW - labelW, '')
+  labelCell(hx, hy + rowH, 'Class'); blankCell(hx + labelW, hy + rowH, 128, className)
+  labelCell(hx + labelW + 128, hy + rowH, 'Quiz'); blankCell(hx + labelW + 164, hy + rowH, contentW - labelW - 164, quiz.subject + (quiz.title ? ' — ' + quiz.title : ''))
+
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor('#1c2438')
+  pdf.text('Form 50-P v3', hx, y(hy + 44))
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#6b7280')
+  pdf.text('Write each PIN digit in its box, then shade the same number below.', hx + 58, y(hy + 45))
+
+  // PIN write boxes and digit strips
+  pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.9)
+  for (let d = 0; d < P.pinDigits; d++) {
+    const b = pinV3WriteBox(half, d)
+    pdf.rect(b.x, b.y, b.w, b.h, 'S')
+  }
+  for (let r = 0; r < P.pinRows; r++) {
+    const value = 9 - r
+    for (let d = 0; d < P.pinDigits; d++) {
+      const c = pinV3DigitCenter(d, value, half)
+      pdf.circle(c.x, c.y, P.pinR, 'S')
+      if (d === 0) {
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(5); pdf.setTextColor('#6b7280')
+        pdf.text(String(value), c.x - P.pinR - 3, c.y + 1.6, { align: 'right' })
+      }
+    }
+  }
+
+  // Distinct horizontal bars above item columns; no extra square anchors.
+  pdf.setFillColor('#0b0820')
+  for (let c = 0; c < 5; c++) {
+    pdf.rect(P.itemX0 + c * P.itemDx + 6, y(P.itemRowY0 - 12), 18, 4, 'F')
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+    for (let b = 0; b < 4; b++) {
+      const bc = pinV3ItemCenter(c * 10, b, half)
+      pdf.text(P.letters[b], bc.x, y(P.itemRowY0 - 6), { align: 'center' })
+    }
+  }
+
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 5; c++) {
+      const item = c * 10 + r
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(5.5); pdf.setTextColor('#6b7280')
+      pdf.text(String(item + 1), P.itemX0 + c * P.itemDx - 2, y(P.itemRowY0 + r * P.itemPitch - 5), { align: 'right' })
+      for (let b = 0; b < 4; b++) {
+        const bc = pinV3ItemCenter(item, b, half)
+        pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.8)
+        pdf.circle(bc.x, bc.y, P.circleR, 'S')
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(5.5); pdf.setTextColor('#6b7280')
+        pdf.text(P.letters[b], bc.x, bc.y + 1.8, { align: 'center' })
+      }
+    }
+  }
+
+  const qr = pinV3QrRect(half)
+  bubbleQr(pdf, qrPayload || pinV3SheetQrPayload(quiz.id, quiz.subject + (quiz.title ? ' — ' + quiz.title : '')), qr.x, qr.y, qr.size, 'M')
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#6b7280')
+  pdf.text('QZ3 v3', qr.x, qr.y - 4)
+}
+
+export async function buildPinSheetsV3Pdf(quiz, students, size = 'long', className = '', qrPayload = '') {
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ unit: 'pt', format: PAPER[size] || PAPER.long })
+  const roster = Array.isArray(students) ? students : []
+  const pages = Math.max(1, Math.ceil(roster.length / 2))
+  for (let copy = 0; copy < pages; copy++) {
+    if (copy > 0) pdf.addPage()
+    pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.8)
+    pdf.setLineDashPattern([6, 5], 0)
+    pdf.line(10, PIN_SHEET_V3.cutY, PIN_SHEET_V3.W - 10, PIN_SHEET_V3.cutY)
+    pdf.setLineDashPattern([], 0)
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor('#9ca3af')
+    pdf.text('cut here', PIN_SHEET_V3.W - 12, PIN_SHEET_V3.cutY - 4, { align: 'right' })
+    drawPinHalfV3(pdf, quiz, 0, className, qrPayload)
+    drawPinHalfV3(pdf, quiz, 1, className, qrPayload)
+  }
+  return pdf
+}
+
+export async function exportPinSheets(quiz, students, size = 'long', version = 'v2') {
+  const pdf = version === 'v3'
+    ? await buildPinSheetsV3Pdf(quiz, students, size)
+    : await buildPinSheetsPdf(quiz, students, size)
+  pdf.save(`quizard-pin-sheets-${slug(quiz.subject || quiz.title)}-${version}.pdf`)
 }
 
 // One-page roster handout: who has which PIN, so the teacher can hand the
