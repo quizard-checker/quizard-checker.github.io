@@ -1854,6 +1854,14 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
   justify-content: center; border-radius: var(--radius-md);
 }
 @media (min-width: 900px) { .home-actions { margin-bottom: 22px; } }
+/* Home's compact meta line (replaces the old duplicate 'Home' hero): the
+   top bar already names the tab, so the screen opens straight into actions. */
+.home-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin: 0 2px 12px;
+}
+.home-stats { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+.home-meta .hero-help { margin-top: 0; }
 /* Class search/sort/filter toolbar — reuses the legacy library patterns. */
 .home-tools { margin-bottom: 12px; }
 .home-filters { margin-top: 0; margin-bottom: 18px; }

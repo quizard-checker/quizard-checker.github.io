@@ -8,13 +8,9 @@
   </header>
   <div class="screen lib-screen" [class.screen-center]="!classes().length && !archivedClasses().length">
     @if (classes().length) {
-      <div class="hero lib-hero">
-        <div class="hero-ico" [innerHTML]="'home' | ico"></div>
-        <div>
-          <h1>Home</h1>
-          <p>{{ activeClasses().length }} class{{ activeClasses().length === 1 ? '' : 'es' }} · {{ totalStudents() }} students · {{ quizzes().length }} quiz{{ quizzes().length === 1 ? '' : 'zes' }}</p>
-          <button type="button" class="hero-help" (click)="guide.show()">How to use Quizard</button>
-        </div>
+      <div class="home-meta">
+        <p class="home-stats">{{ activeClasses().length }} class{{ activeClasses().length === 1 ? '' : 'es' }} · {{ totalStudents() }} students · {{ quizzes().length }} quiz{{ quizzes().length === 1 ? '' : 'zes' }}</p>
+        <button type="button" class="hero-help" (click)="guide.show()">How to use Quizard</button>
       </div>
       <div class="home-actions">
         <button class="btn btn-primary" (click)="openSheet()"><span [innerHTML]="'plus' | ico"></span> Add class</button>
