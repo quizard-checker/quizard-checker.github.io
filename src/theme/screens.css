@@ -2124,6 +2124,9 @@ html[data-theme='dark'] .cq-body .key-chip.graded {
 .file-clear { display: block; margin: 4px auto 8px; font-size: 11.5px; color: var(--text-faint); background: none; border: none; cursor: pointer; text-decoration: underline; }
 .gen-btn { width: 100%; justify-content: center; margin: 14px 0 6px; padding: 13px; font-size: 14.5px; }
 .gen-btn:disabled { opacity: .55; }
+
+/* The setup page is long on a phone; keep the primary action above the fixed
+   bottom nav instead of letting it sit under the system navigation bar. */
 .gen-needs {
   display: flex; align-items: flex-start; gap: 7px; margin: 12px 0 0; padding: 9px 11px;
   border-radius: var(--radius-sm); border: 1px dashed var(--border);
@@ -2269,6 +2272,17 @@ button.scan-cls:not(.on):hover { opacity: 1; }
 .camera-guides i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
 .camera-guides i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
 .camera-guides i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+.camera-guides.off { opacity: 0; transition: opacity 150ms ease; }
+/* Detected sheet, not a fixed target: polygon and boxes follow the four
+   printed markers in full-video coordinates. Cyan = acquiring, amber = a
+   marker is touching the frame edge, green = stable enough to capture. */
+.camera-detect { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.camera-detect polygon { fill: rgba(95, 196, 214, 0.08); stroke: rgba(95, 196, 214, 0.95); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.camera-detect polygon.edge { fill: rgba(245, 158, 11, 0.10); stroke: #f59e0b; }
+.camera-detect polygon.stable { fill: rgba(34, 197, 94, 0.12); stroke: #22c55e; }
+.camera-detect circle { fill: rgba(95, 196, 214, 0.20); stroke: rgba(95, 196, 214, 0.95); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.camera-detect circle.edge { fill: rgba(245, 158, 11, 0.22); stroke: #f59e0b; }
+.camera-detect circle.stable { fill: rgba(34, 197, 94, 0.26); stroke: #22c55e; }
 .camera-status {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
   max-width: calc(100% - 20px); padding: 6px 12px; border-radius: 999px;

@@ -38,6 +38,10 @@
           }
         </div>
 
+        <button class="btn btn-primary gen-btn" [disabled]="!classId()" (click)="startSession()">
+          <span [innerHTML]="'scan' | ico"></span> Start checking
+        </button>
+
         <div class="section-title">Which quiz are you scoring against?</div>
         <button type="button" class="text-input picker-btn" (click)="quizPickOpen.set(true)">
           @if (quizOverrideId(); as id) {
@@ -47,10 +51,6 @@
           }
         </button>
         <p class="faint" style="font-size:11.5px;margin:6px 2px 0">Every printed sheet's QR names its own quiz and student — you only pick a quiz as a backup when a QR won't read.</p>
-
-        <button class="btn btn-primary gen-btn" [disabled]="!classId()" (click)="startSession()">
-          <span [innerHTML]="'scan' | ico"></span> Start checking
-        </button>
 
         @if (quizPickOpen()) {
           <div class="org-overlay" (click)="quizPickOpen.set(false)">
@@ -106,7 +106,19 @@
       @if (cameraActive()) {
         <div class="camera-stage" [class.wide]="wideOn()">
           <video class="camera-view" autoplay playsinline muted></video>
-          <div class="camera-guides" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="camera-guides" [class.off]="!!sheetQuad()" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          @if (sheetQuad(); as quad) {
+            @if (videoW() && videoH()) {
+              <svg class="camera-detect" [attr.viewBox]="'0 0 ' + videoW() + ' ' + videoH()"
+                   preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <polygon [attr.points]="quadPolygon(quad)" [class.edge]="quad.edge" [class.stable]="quad.stable" />
+                @for (p of quad.points; track $index) {
+                  <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="quadRadius()"
+                          [class.edge]="quad.edge" [class.stable]="quad.stable" />
+                }
+              </svg>
+            }
+          }
           @if (autoScan() && livePhase() !== 'waiting') {
             <span class="camera-scanline" aria-hidden="true"></span>
           }

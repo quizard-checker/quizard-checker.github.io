@@ -142,8 +142,11 @@ export class AccountsPage implements OnInit {
   }
 
   back() {
-    if (this.cameFromPicker) this.go({ mode: 'picker' });
-    else this.router.navigateByUrl('/tabs/classes');
+    // Backing out of the create form must never enter the app: nobody has
+    // picked or created a profile yet, and the auto-created default account
+    // would otherwise log the user straight in without them choosing one.
+    // The profile picker is always the right destination.
+    this.go({ mode: 'picker' });
   }
 
   // ── lock pad ──

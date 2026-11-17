@@ -246,6 +246,305 @@ export function decodeQr(data, width, height, options) {
   } catch { return null }
 }
 
+// Same decode, but keeps jsQR's four QR corners. The marker fallback uses
+// these corners as a second alignment source when the printed registration
+// squares are clipped by a printer.
+export function decodeQrLocated(data, width, height, options) {
+  try {
+    const res = options ? jsQR(data, width, height, options) : jsQR(data, width, height)
+    if (!res || !res.data || !res.location) return null
+    const location = res.location
+    if (!location.topLeftCorner || !location.topRightCorner
+      || !location.bottomRightCorner || !location.bottomLeftCorner) return null
+    return { text: res.data, location }
+  } catch { return null }
+}
+
+// TL, TR, BR, BL in PDF space — the same order jsQR returns a QR location.
+export function rectCorners(rect) {
+  const { x, y, size } = rect
+  return [
+    { x, y },
+    { x: x + size, y },
+    { x: x + size, y: y + size },
+    { x, y: y + size },
+  ]
+}
+
+function locationCorners(location) {
+  return [
+    location.topLeftCorner,
+    location.topRightCorner,
+    location.bottomRightCorner,
+    location.bottomLeftCorner,
+  ]
+}
+
+function shiftLocation(location, dx, dy) {
+  const shift = p => ({ x: p.x + dx, y: p.y + dy })
+  return {
+    topLeftCorner: shift(location.topLeftCorner),
+    topRightCorner: shift(location.topRightCorner),
+    bottomRightCorner: shift(location.bottomRightCorner),
+    bottomLeftCorner: shift(location.bottomLeftCorner),
+  }
+}
+
+function cropRgba(data, width, height, x0, y0, w, h) {
+  const out = new Uint8ClampedArray(w * h * 4)
+  for (let y = 0; y < h; y++) {
+    const src = ((y0 + y) * width + x0) * 4
+    out.set(data.subarray(src, src + w * 4), y * w * 4)
+  }
+  return out
+}
+
+// jsQR's full-frame locator sometimes misses a perfectly readable QR in a
+// multi-megapixel photo. Tiled decoding gives it smaller, denser crops. The
+// location is translated back into full-image coordinates.
+export function decodeQrAnywhere(image) {
+  const { data, width, height } = image
+  const full = decodeQrLocated(data, width, height)
+  if (full) return { text: full.text, location: full.location, source: 'full' }
+
+  const tiles = []
+  const addTiles = (nx, ny) => {
+    const overlap = 0.16
+    for (let ty = 0; ty < ny; ty++) {
+      for (let tx = 0; tx < nx; tx++) {
+        const x0 = Math.max(0, Math.round((tx / nx - overlap / nx) * width))
+        const x1 = Math.min(width, Math.round(((tx + 1) / nx + overlap / nx) * width))
+        const y0 = Math.max(0, Math.round((ty / ny - overlap / ny) * height))
+        const y1 = Math.min(height, Math.round(((ty + 1) / ny + overlap / ny) * height))
+        if (x1 - x0 > 160 && y1 - y0 > 160) tiles.push({ x0, y0, w: x1 - x0, h: y1 - y0 })
+      }
+    }
+  }
+  addTiles(2, 2)
+  addTiles(3, 3)
+
+  for (const t of tiles) {
+    const crop = cropRgba(data, width, height, t.x0, t.y0, t.w, t.h)
+    const found = decodeQrLocated(crop, t.w, t.h)
+    if (found) {
+      return {
+        text: found.text,
+        location: shiftLocation(found.location, t.x0, t.y0),
+        source: 'tile',
+      }
+    }
+  }
+  return null
+}
+
+export function qrAnchorHomography(rect, location) {
+  const H = homography(rectCorners(rect), locationCorners(location))
+  return H || null
+}
+
+// A small QR square gives a noisy projective homography when its corners are
+// only approximate; the error is amplified across the rest of the sheet. The
+// QR's two edge vectors are much more stable, so use the affine transform they
+// imply for the QR-only fallback. Marker alignment still uses the full
+// homography whenever the registration squares are available.
+function qrAnchorAffine(rect, location) {
+  const [tl, tr, br, bl] = locationCorners(location)
+  const s = rect.size
+  if (!s) return null
+  const ux = ((tr.x - tl.x) + (br.x - bl.x)) / (2 * s)
+  const uy = ((tr.y - tl.y) + (br.y - bl.y)) / (2 * s)
+  const vx = ((bl.x - tl.x) + (br.x - tr.x)) / (2 * s)
+  const vy = ((bl.y - tl.y) + (br.y - tr.y)) / (2 * s)
+  return [
+    ux, vx, tl.x - rect.x * ux - rect.y * vx,
+    uy, vy, tl.y - rect.x * uy - rect.y * vy,
+    0, 0, 1,
+  ]
+}
+
+export function qrLocationCenter(location) {
+  const pts = locationCorners(location)
+  return {
+    x: (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4,
+    y: (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4,
+  }
+}
+
+export function qrLocationSide(location) {
+  const pts = locationCorners(location)
+  const side = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  return (side(pts[0], pts[1]) + side(pts[1], pts[2]) + side(pts[2], pts[3]) + side(pts[3], pts[0])) / 4
+}
+
+function qrAnchorAlignment(rect, location) {
+  if (!location || !rect?.size) return null
+  const H = qrAnchorAffine(rect, location)
+  if (!H) return null
+  return {
+    H,
+    quad: locationCorners(location),
+    scale: qrLocationSide(location) / rect.size,
+    rot: 0,
+    frameScore: 0,
+    qrScore: 0,
+    score: 0,
+    qrAnchor: true,
+  }
+}
+
+function quadTouchesEdge(quad, width, height, frac = 0.02) {
+  if (!quad?.length) return false
+  const margin = Math.max(8, Math.round(Math.min(width, height) * frac))
+  return quad.some(p => p.x <= margin || p.y <= margin || p.x >= width - margin || p.y >= height - margin)
+}
+
+// When the printed corner squares are clipped, the paper's own four edges are
+// still there. Map the known half/full page rectangle onto that outline and
+// check the predicted QR position against jsQR's actual corners. This is much
+// more stable than extrapolating a whole page from the tiny QR square.
+export function pageAnchorAlignment(page, quad, rect, location) {
+  if (!page?.w || !page?.h || !quad?.length || !location || !rect?.size) return null
+  const pagePts = [
+    { x: 0, y: 0 }, { x: page.w, y: 0 },
+    { x: page.w, y: page.h }, { x: 0, y: page.h },
+  ]
+  const qr = qrLocationCenter(location)
+  const side = qrLocationSide(location)
+  const cx = rect.x + rect.size / 2
+  const cy = rect.y + rect.size / 2
+  let best = null
+  for (let r = 0; r < 4; r++) {
+    const q = r ? quad.map((_, i) => quad[(i + r) % 4]) : quad.slice()
+    const H = homography(pagePts, q)
+    if (!H) continue
+    const p = applyH(H, cx, cy)
+    const err = Math.hypot(p.x - qr.x, p.y - qr.y)
+    if (!best || err < best.err) best = { H, quad: q, rot: r, err }
+  }
+  if (!best || best.err > side * 0.55) return null
+  const edge = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  const sw = (edge(best.quad[0], best.quad[1]) + edge(best.quad[3], best.quad[2])) / (2 * page.w)
+  const sh = (edge(best.quad[1], best.quad[2]) + edge(best.quad[0], best.quad[3])) / (2 * page.h)
+  return {
+    H: best.H,
+    quad: best.quad,
+    scale: (sw + sh) / 2,
+    rot: best.rot,
+    frameScore: 0,
+    qrScore: 0,
+    score: 0,
+    qrAnchor: false,
+    pageAnchor: true,
+    qrError: best.err,
+  }
+}
+
+// The same idea when the detected quad is the printed frame instead of the
+// paper edge. The frame sits inside the page, so mapping page corners to it
+// would shift every bubble; mapping the known frame rectangle to the quad
+// aligns the grid directly.
+function frameAnchorAlignment(frame, quad, rect, location) {
+  if (!frame?.w || !quad?.length || !location || !rect?.size) return null
+  const framePts = [
+    { x: frame.x, y: frame.y },
+    { x: frame.x + frame.w, y: frame.y },
+    { x: frame.x + frame.w, y: frame.y + frame.h },
+    { x: frame.x, y: frame.y + frame.h },
+  ]
+  const qr = qrLocationCenter(location)
+  const side = qrLocationSide(location)
+  const cx = rect.x + rect.size / 2
+  const cy = rect.y + rect.size / 2
+  let best = null
+  for (let r = 0; r < 4; r++) {
+    const q = r ? quad.map((_, i) => quad[(i + r) % 4]) : quad.slice()
+    const H = homography(framePts, q)
+    if (!H) continue
+    const p = applyH(H, cx, cy)
+    const err = Math.hypot(p.x - qr.x, p.y - qr.y)
+    if (!best || err < best.err) best = { H, quad: q, rot: r, err }
+  }
+  if (!best || best.err > side * 0.55) return null
+  const edge = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  const sw = (edge(best.quad[0], best.quad[1]) + edge(best.quad[3], best.quad[2])) / (2 * frame.w)
+  const sh = (edge(best.quad[1], best.quad[2]) + edge(best.quad[0], best.quad[3])) / (2 * frame.h)
+  return {
+    H: best.H,
+    quad: best.quad,
+    scale: (sw + sh) / 2,
+    rot: best.rot,
+    frameScore: 0,
+    qrScore: 0,
+    score: 0,
+    qrAnchor: false,
+    pageAnchor: false,
+    frameAnchor: true,
+    qrError: best.err,
+  }
+}
+
+// The page/frame quad can be slightly off in scale or translation. The QR is
+// a precise landmark inside it, so adjust the base homography with a similarity
+// that puts the QR exactly where jsQR found it. This keeps the paper's
+// perspective while correcting the accumulated print/camera error.
+function correctWithQr(base, rect, location) {
+  if (!base?.H || !location || !rect?.size) return base
+  const cx = rect.x + rect.size / 2
+  const cy = rect.y + rect.size / 2
+  const pc = applyH(base.H, cx, cy)
+  const p0 = applyH(base.H, rect.x, rect.y)
+  const p1 = applyH(base.H, rect.x + rect.size, rect.y)
+  const predSide = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+  const actSide = qrLocationSide(location)
+  const s = predSide > 0 ? actSide / predSide : 1
+  if (!Number.isFinite(s) || s <= 0) return base
+  const actual = qrLocationCenter(location)
+  const tx = actual.x - s * pc.x
+  const ty = actual.y - s * pc.y
+  const H = base.H.slice()
+  H[0] *= s; H[1] *= s; H[2] = H[2] * s + tx
+  H[3] *= s; H[4] *= s; H[5] = H[5] * s + ty
+  return { ...base, H, scale: (base.scale || 1) * s, qrCorrected: true }
+}
+
+// Prefer the marker quad when it agrees with the QR's actual location. A
+// paper-edge/shadow quad can look like four markers; when it does, it maps the
+// known QR rect to the wrong part of the image. The QR corners are a second,
+// independent alignment source for prints whose corner squares were clipped.
+function resolveAlignment(aligned, rect, location, width, height, page = null, frame = null) {
+  const anchor = qrAnchorAlignment(rect, location)
+  const pageAnchor = pageAnchorAlignment(page, aligned?.quad, rect, location)
+  const frameAnchor = frameAnchorAlignment(frame, aligned?.quad, rect, location)
+  const base = pageAnchor || frameAnchor
+  const corrected = base ? correctWithQr(base, rect, location) : null
+  const extrapolated = corrected || [pageAnchor, frameAnchor]
+    .filter(Boolean)
+    .sort((a, b) => a.qrError - b.qrError)[0] || null
+  if (!aligned || !aligned.H) return extrapolated || anchor
+  if (!anchor) return { ...aligned, qrAnchor: false, pageAnchor: false, frameAnchor: false }
+  const actual = qrLocationCenter(location)
+  const mapped = applyH(aligned.H, rect.x + rect.size / 2, rect.y + rect.size / 2)
+  const off = Math.hypot(mapped.x - actual.x, mapped.y - actual.y)
+  const side = qrLocationSide(location)
+  if (off > side * 0.35) {
+    if (extrapolated) {
+      return {
+        ...extrapolated,
+        markerRot: aligned.rot,
+        markerFrameScore: aligned.frameScore,
+        markerQrScore: aligned.qrScore,
+      }
+    }
+    return {
+      ...anchor,
+      markerRot: aligned.rot,
+      markerFrameScore: aligned.frameScore,
+      markerQrScore: aligned.qrScore,
+    }
+  }
+  return { ...aligned, qrAnchor: false, pageAnchor: false, frameAnchor: false }
+}
+
 // Rectify just the printed QR square, using the corner-marker homography.
 // The full-frame decode asks jsQR to find a 76–80pt code in a multi-megapixel
 // photo; once the markers are found we know exactly where the code is, so a
@@ -335,7 +634,7 @@ function alignWithFrame(binary, width, height, centers, frame, window = 3, qr = 
  * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
  * @returns {{ kind: 'letter'|'pin', quad: { x: number, y: number }[], edge: boolean } | null}
  */
-export function detectSheet(image) {
+export function detectSheet(image, minFrame = 0.6) {
   const { data, width, height } = image
   const binary = binarize(data, width, height)
   const sheets = [
@@ -345,7 +644,7 @@ export function detectSheet(image) {
   const margin = Math.max(8, Math.round(Math.min(width, height) * 0.02))
   let best = null
   for (const sheet of sheets) {
-    const aligned = alignWithFrame(binary, width, height, sheet.centers, sheet.frame, 3, sheet.qr)
+    const aligned = alignWithFrame(binary, width, height, sheet.centers, sheet.frame, 3, sheet.qr, minFrame)
     if (!aligned || !aligned.H) continue
     if (!best || aligned.score > best.score) best = { ...sheet, ...aligned }
   }
@@ -418,9 +717,10 @@ export const FLAG = { OK: 'ok', BLANK: 'blank', MULTI: 'multi', FAINT: 'faint' }
  * @param {number} itemCount items on the sheet (drives the expected geometry)
  * @param {string | null} [qrText] QR already decoded from the frame / live view
  * @param {string | null} [qrSource] diagnostic source label
+ * @param {any | null} [qrLocation] jsQR corners for QR-only alignment
  * @returns {SheetRead | SheetReadFail}
  */
-export function readSheet(image, itemCount, qrText = null, qrSource = null) {
+export function readSheet(image, itemCount, qrText = null, qrSource = null, qrLocation = null) {
   const { data, width, height } = image
   const qr = qrText || decodeQr(data, width, height)
   const diagBase = {
@@ -430,24 +730,26 @@ export function readSheet(image, itemCount, qrText = null, qrSource = null) {
   const binary = binarize(data, width, height)
   const pdfMarkers = markerCenters(itemCount)
   const aligned = alignWithFrame(binary, width, height, pdfMarkers, frameRect(), 3, qr ? qrRect(itemCount) : null, qr ? 0 : 0.6)
-  if (!aligned) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
-  if (!aligned.H) {
+  const resolved = resolveAlignment(aligned, qrRect(itemCount), qrLocation, width, height, { w: SHEET.W, h: SHEET.H }, frameRect())
+  if (!resolved) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
+  if (!resolved.H) {
     return {
       ok: false, reason: 'frame', qr,
       diag: {
-        ...diagBase, reason: 'frame', rot: aligned.rot,
-        frameScore: aligned.frameScore, qrScore: aligned.qrScore,
-        quad: aligned.quad,
+        ...diagBase, reason: 'frame', rot: resolved.rot ?? -1,
+        frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0,
+        quad: resolved.quad,
       },
     }
   }
-  const H = aligned.H
-  const quad = aligned.quad
+  const H = resolved.H
+  const quad = resolved.quad
 
-  // pixels-per-point from the marker spread
+  // pixels-per-point from the marker spread, or from the QR square when the
+  // markers were clipped and the QR anchored the sheet instead.
   const pdfSpan = Math.hypot(pdfMarkers[1].x - pdfMarkers[0].x, pdfMarkers[1].y - pdfMarkers[0].y)
   const pxSpan = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y)
-  const scale = pxSpan / pdfSpan
+  const scale = (resolved.qrAnchor || resolved.pageAnchor) ? resolved.scale : pxSpan / pdfSpan
   const rPx = Math.max(3, Math.round(SHEET.circleR * SHEET.scanRadiusFrac * scale))
 
   const answers = []
@@ -471,8 +773,8 @@ export function readSheet(image, itemCount, qrText = null, qrSource = null) {
     ok: true, answers, flags, fills, qr, markers: quad, scale,
     diag: {
       ...diagBase,
-      rot: aligned.rot,
-      frameScore: aligned.frameScore, qrScore: aligned.qrScore, score: aligned.score,
+      rot: resolved.rot ?? -1, qrAnchor: !!resolved.qrAnchor, pageAnchor: !!resolved.pageAnchor, frameAnchor: !!resolved.frameAnchor,
+      frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0, score: resolved.score ?? 0,
       quad, scale, rPx,
       thresholds: { blank: 0.30, multi: 0.12, faint: 0.55 },
       answers, flags, fills,
@@ -533,8 +835,9 @@ export function scoreSheet(answers, items) {
  *   | { ok: false, reason: 'markers'|'frame', qr: string | null }}
  * @param {string | null} [qrText] QR already decoded from the frame / live view
  * @param {string | null} [qrSource] diagnostic source label
+ * @param {any | null} [qrLocation] jsQR corners for QR-only alignment
  */
-export function readPinSheet(image, qrText = null, qrSource = null) {
+export function readPinSheet(image, qrText = null, qrSource = null, qrLocation = null) {
   const { data, width, height } = image
   const qr = qrText || decodeQr(data, width, height)
   const diagBase = {
@@ -543,24 +846,28 @@ export function readPinSheet(image, qrText = null, qrSource = null) {
   }
   const binary = binarize(data, width, height)
   const expected = pinMarkerCenters(0)
-  const aligned = alignWithFrame(binary, width, height, expected, pinFrameRect(0), 3, qr ? pinQrRect(0) : null, qr ? 0 : 0.6)
-  if (!aligned) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
-  if (!aligned.H) {
+  // The printed frame is optional: four corner squares are enough to map the
+  // PIN half-sheet. PIN readability and the low-confidence gate in the UI are
+  // the safety net; a faint/missing border must not reject a good print.
+  const aligned = alignWithFrame(binary, width, height, expected, pinFrameRect(0), 3, qr ? pinQrRect(0) : null, 0)
+  const resolved = resolveAlignment(aligned, pinQrRect(0), qrLocation, width, height, { w: PIN_SHEET.W, h: PIN_SHEET.H / 2 }, pinFrameRect(0))
+  if (!resolved) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
+  if (!resolved.H) {
     return {
       ok: false, reason: 'frame', qr,
       diag: {
-        ...diagBase, reason: 'frame', rot: aligned.rot,
-        frameScore: aligned.frameScore, qrScore: aligned.qrScore,
-        quad: aligned.quad,
+        ...diagBase, reason: 'frame', rot: resolved.rot ?? -1,
+        frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0,
+        quad: resolved.quad,
       },
     }
   }
-  const H = aligned.H
-  const quad = aligned.quad
+  const H = resolved.H
+  const quad = resolved.quad
 
   const pdfSpan = Math.hypot(expected[1].x - expected[0].x, expected[1].y - expected[0].y)
   const pxSpan = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y)
-  const scale = pxSpan / pdfSpan
+  const scale = (resolved.qrAnchor || resolved.pageAnchor) ? resolved.scale : pxSpan / pdfSpan
   const rPx = Math.max(2, Math.round(PIN_SHEET.circleR * PIN_SHEET.scanRadiusFrac * scale))
   const dPx = Math.max(2, Math.round(PIN_SHEET.pinR * PIN_SHEET.scanRadiusFrac * scale))
 
@@ -605,8 +912,8 @@ export function readPinSheet(image, qrText = null, qrSource = null) {
     pinDigits, pinFlags,
     diag: {
       ...diagBase,
-      rot: aligned.rot,
-      frameScore: aligned.frameScore, qrScore: aligned.qrScore, score: aligned.score,
+      rot: resolved.rot ?? -1, qrAnchor: !!resolved.qrAnchor, pageAnchor: !!resolved.pageAnchor, frameAnchor: !!resolved.frameAnchor,
+      frameScore: resolved.frameScore ?? 0, qrScore: resolved.qrScore ?? 0, score: resolved.score ?? 0,
       quad, scale, rPx, dPx,
       thresholds: { blank: 0.30, multi: 0.12, faint: 0.55 },
       pinThresholds: { blank: 0.30, multi: 0.10, faint: 0.50 },

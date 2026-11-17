@@ -24,6 +24,7 @@
     "@angular/router": "^22.1.0",
     "@angular/service-worker": "^22.1.6",
     "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.1",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/local-notifications": "^8.3.1",

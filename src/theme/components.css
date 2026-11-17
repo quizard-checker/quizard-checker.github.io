@@ -1,17 +1,12 @@
 /* ── Page transition ── */
 .screen {
-  padding: 18px 0 40px;
+  /* The bottom nav is fixed at every width, so every screen reserves its
+     height. On phones this is what keeps the last button out of the system
+     navigation area; on desktop the nav is a floating pill. */
+  padding: 18px 0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));
   /* `backwards` (not `both`): a lingering fill would leave a transform on the
      screen and re-anchor position:fixed children to it instead of the viewport */
   animation: screenIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-}
-/* From this width up the tab bar leaves the layout flow and becomes a floating
-   pill (see the ion-tab-bar rule in styles.scss), so the last thing on a screen
-   would otherwise end up underneath it — reserve the pill's height plus a gap.
-   Declared here, next to the base rule, because an equal-specificity override
-   from screens.css loses: this file loads after it (angular.json). */
-@media (min-width: 768px) {
-  .screen { padding-bottom: calc(var(--nav-h) + 42px + env(safe-area-inset-bottom)); }
 }
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(12px) scale(0.99); }

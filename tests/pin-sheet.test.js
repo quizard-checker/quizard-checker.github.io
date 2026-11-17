@@ -3,7 +3,7 @@ import {
   PIN_SHEET, PIN_ITEMS, pinFrameRect, pinMarkerRects, pinMarkerCenters, pinItemCenter,
   pinDigitCenter, pinWriteBox, pinQrRect, pinSheetQrPayload, parseSheetQr, pinCutLineY,
 } from '../src/app/core/engine/sheet-spec.js'
-import { readPinSheet, scoreSheet, decodeQrFromSheet, detectSheet } from '../src/app/core/engine/omr.js'
+import { readPinSheet, scoreSheet, decodeQrFromSheet, decodeQrAnywhere, detectSheet } from '../src/app/core/engine/omr.js'
 import { renderPinHalf, OUT_W, OUT_H } from './helpers/pin-render.js'
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
@@ -206,6 +206,33 @@ describe('readPinSheet on synthetic photos', () => {
     expect(res.pin).toBe('13579')
     for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(answers[i])
   })
+
+  it('aligns from the QR alone when the printed corner markers are clipped', () => {
+    const answers = Array.from({ length: 50 }, (_, i) => (i + 3) % 4)
+    const payload = pinSheetQrPayload('quiz-qr-only')
+    const img = renderPinHalf({ answers, pin: '48213', qrPayload: payload })
+    const S = 3, pad = 60
+    const white = (x, y) => {
+      const i = (y * OUT_W + x) * 4
+      img[i] = img[i + 1] = img[i + 2] = 255
+    }
+    // Simulate the print-shop clipping: remove all four registration squares,
+    // leaving the frame, PIN grid and QR untouched.
+    for (const m of pinMarkerRects(0)) {
+      const x0 = Math.round(m.x * S) + pad - 3
+      const y0 = Math.round(m.y * S) + pad - 3
+      const x1 = Math.round((m.x + m.w) * S) + pad + 3
+      const y1 = Math.round((m.y + m.h) * S) + pad + 3
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) white(x, y)
+    }
+    const located = decodeQrAnywhere({ data: img, width: OUT_W, height: OUT_H })
+    expect(located?.text).toBe(payload)
+    const res = readPinSheet({ data: img, width: OUT_W, height: OUT_H }, payload, 'diag', located.location)
+    expect(res.ok).toBe(true)
+    expect(res.diag.qrAnchor).toBe(true)
+    expect(res.pin).toBe('48213')
+    for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(answers[i])
+  }, 15000)
 
   it('locks onto a clean sheet without needing its QR', () => {
     const img = renderPinHalf({ answers: key })

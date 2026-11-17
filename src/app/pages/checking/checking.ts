@@ -2,9 +2,10 @@ import { Component, computed, inject, signal, NgZone, HostListener } from '@angu
 import { Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { App } from '@capacitor/app';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
-import { readSheet, readPinSheet, scoreSheet, decodeQr, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
+import { readSheet, readPinSheet, scoreSheet, decodeQr, decodeQrAnywhere, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
 import { resolveStudentByPin, claimPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { wideScanEnterPlan, wideScanExitPlan } from '../../core/engine/wide-scan.js';
@@ -30,6 +31,9 @@ interface MatchedStudent {
   classId: string;
   className: string;
 }
+
+type SheetPoint = { x: number; y: number };
+type SheetLock = NonNullable<ReturnType<typeof detectSheet>> & { quadVideo: SheetPoint[] };
 
 @Component({
   selector: 'app-checking',
@@ -102,6 +106,11 @@ export class CheckingPage {
   // previous failed capture does not keep saying "Scan needs attention" while
   // the four corner squares are actually lined up.
   sheetHint = signal('');
+  // Detected quad in full-video pixels for the live overlay. amber = a marker
+  // is at the edge; green = all four are stable enough to capture.
+  sheetQuad = signal<{ points: SheetPoint[]; edge: boolean; stable: boolean } | null>(null);
+  videoW = signal(0);
+  videoH = signal(0);
   // the 5-digit PIN read off the sheet being checked — a manual pick registers
   // it to the picked student so later papers route automatically
   scannedPin = signal<string | null>(null);
@@ -119,7 +128,15 @@ export class CheckingPage {
       default: return 'Starting camera…';
     }
   });
+  quadPolygon(q: { points: SheetPoint[] }): string {
+    return q.points.map(p => `${Math.round(p.x)},${Math.round(p.y)}`).join(' ');
+  }
+  quadRadius(): number {
+    return Math.max(10, Math.round(this.videoW() * 0.012));
+  }
   private stream: MediaStream | null = null;
+  private backListener: { remove: () => Promise<void> } | null = null;
+  private cameraStarting = false;
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private liveCanvas: HTMLCanvasElement | null = null;
   private liveBusy = false;
@@ -226,12 +243,45 @@ export class CheckingPage {
     // target before any scanning starts.
     const qm = /[?&]quiz=([A-Za-z0-9-]+)/.exec(this.router.url || '');
     if (qm) this.quizOverrideId.set(qm[1]);
+    void this.installBackHandler();
   }
 
   // Leaving the tab mid-scan must release the camera and stop the live loop;
   // Ionic caches the page, so nothing else would switch it off.
   ionViewWillLeave() {
     this.closeCamera();
+    void this.removeBackHandler();
+  }
+
+  // Android's hardware back must never close the app on a pending result.
+  // The native default (when the WebView has no history) is to finish the
+  // activity, which used to throw away the scanned sheet. Stay on the result
+  // screen until the teacher saves or deliberately backs out with the header
+  // arrow; on the scanner, back ends the session safely.
+  private async installBackHandler() {
+    if (this.backListener) return;
+    try {
+      this.backListener = await App.addListener('backButton', () => {
+        if (this.stage() === 'result') {
+          this.toast.toast('Save this sheet or use the back arrow to return to scanning.');
+          return;
+        }
+        if (this.stage() === 'scan') {
+          this.closeCamera();
+          this.endSession();
+          return;
+        }
+        this.toast.toast('Tap Home to leave the scanner.');
+      });
+    } catch {
+      this.backListener = null;
+    }
+  }
+
+  private async removeBackHandler() {
+    const handle = this.backListener;
+    this.backListener = null;
+    try { await handle?.remove(); } catch { /* plugin already gone */ }
   }
 
   // Browsers freeze or suspend camera tracks when the tab/app is hidden; a
@@ -288,7 +338,8 @@ export class CheckingPage {
 
   // ── camera ──
   async openCamera() {
-    if (this.cameraActive()) return;
+    if (this.cameraActive() || this.cameraStarting) return;
+    this.cameraStarting = true;
     this.scanError.set('');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -308,6 +359,8 @@ export class CheckingPage {
       }
     } catch {
       this.toast.toast('Camera unavailable — use “Check from photo” instead', true);
+    } finally {
+      this.cameraStarting = false;
     }
   }
 
@@ -417,6 +470,13 @@ export class CheckingPage {
       return;
     }
     if (this.stream && video.srcObject !== this.stream) video.srcObject = this.stream;
+    const syncSize = () => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      if (this.videoW() !== video.videoWidth) this.videoW.set(video.videoWidth);
+      if (this.videoH() !== video.videoHeight) this.videoH.set(video.videoHeight);
+    };
+    video.addEventListener('loadedmetadata', syncSize, { once: true });
+    syncSize();
     void video.play().catch(() => {});
     this.startLiveLoop();
   }
@@ -433,6 +493,7 @@ export class CheckingPage {
     this.sheetHits = 0;
     this.sheetArmed = true;
     this.sheetHint.set('');
+    this.sheetQuad.set(null);
     this.livePhase.set('looking');
     this.liveTimer = setInterval(() => { void this.tickLive(); }, LIVE_SCAN.tickMs);
   }
@@ -526,6 +587,7 @@ export class CheckingPage {
         this.sheetHits = 0;
         this.sheetArmed = false;
         this.sheetHint.set('');
+        this.sheetQuad.set(null);
         if ('vibrate' in navigator) navigator.vibrate?.(35);
         // Keep the live QR that triggered the capture. `grabFrame` is a
         // different image (and may be smaller or blurrier than the search
@@ -544,6 +606,7 @@ export class CheckingPage {
       if (!lock) {
         this.sheetHits = 0;
         this.sheetHint.set('');
+        this.sheetQuad.set(null);
         return;
       }
       // The sheet is present, so the QR-absence counter must not climb and
@@ -554,16 +617,19 @@ export class CheckingPage {
       if (lock.edge) {
         this.sheetHits = 0;
         this.livePhase.set('looking');
-        this.sheetHint.set('Move back — the sheet is cropped at the edge');
+        this.sheetHint.set('Move back - the sheet is cropped at the edge');
+        this.sheetQuad.set({ points: lock.quadVideo, edge: true, stable: false });
         return;
       }
       this.livePhase.set('locking');
       this.sheetHint.set('Sheet found — hold still…');
       this.sheetHits++;
+      this.sheetQuad.set({ points: lock.quadVideo, edge: false, stable: this.sheetHits >= 2 });
       if (!this.sheetArmed || this.sheetHits < 2) return;
       this.sheetArmed = false;
       this.sheetHits = 0;
       this.sheetHint.set('');
+      this.sheetQuad.set(null);
       this.cooldownUntil = now + LIVE_SCAN.cooldownMs;
       const qrHint = this.liveCandidate;
       this.liveCandidate = null;
@@ -618,7 +684,9 @@ export class CheckingPage {
   // Cheap marker/frame lock for the auto-capture trigger. QR decoding alone
   // cannot fire when the code is too small for the preview; four corner
   // squares are much easier to see. Uses the same zoom crop as the preview.
-  private detectLiveSheet(video: HTMLVideoElement): ReturnType<typeof detectSheet> {
+  private detectLiveSheet(video: HTMLVideoElement): SheetLock | null {
+    if (video.videoWidth && this.videoW() !== video.videoWidth) this.videoW.set(video.videoWidth);
+    if (video.videoHeight && this.videoH() !== video.videoHeight) this.videoH.set(video.videoHeight);
     const { sx, sy, cw, ch } = this.zoomRect(video);
     if (!cw || !ch) return null;
     const width = Math.min(LIVE_SCAN.previewWidth, cw);
@@ -631,7 +699,16 @@ export class CheckingPage {
     if (!ctx) return null;
     ctx.drawImage(video, sx, sy, cw, ch, 0, 0, width, height);
     const frame = ctx.getImageData(0, 0, width, height);
-    return detectSheet({ data: frame.data, width, height });
+    // Four printed corner squares are enough to arm the live capture. The old
+    // black frame was removed from the sheet design, so requiring it here made
+    // borderless prints impossible to auto-scan.
+    const detected = detectSheet({ data: frame.data, width, height }, 0);
+    if (!detected) return null;
+    const quadVideo = detected.quad.map((p: SheetPoint) => ({
+      x: sx + p.x * (cw / width),
+      y: sy + p.y * (ch / height),
+    }));
+    return { ...detected, quadVideo };
   }
 
   private grabFrame(video: HTMLVideoElement, maxWidth = 2048): ImageData {
@@ -655,6 +732,12 @@ export class CheckingPage {
     this.stream = null;
     this.track = null;
     this.cameraActive.set(false);
+    // Release the preview canvas and platform barcode detector too; the page
+    // can sit in the background for a long time between scans.
+    this.liveCanvas = null;
+    this.detector = null;
+    this.detectorFails = 0;
+    this.detectorMisses = 0;
     this.livePhase.set('off');
     this.liveCandidate = null;
     this.liveHits = 0;
@@ -662,6 +745,9 @@ export class CheckingPage {
     this.sheetHits = 0;
     this.sheetArmed = true;
     this.sheetHint.set('');
+    this.sheetQuad.set(null);
+    this.videoW.set(0);
+    this.videoH.set(0);
     this.tickCount = 0;
     this.scannedQr = null;
     this.camZoom.set(1);
@@ -725,13 +811,20 @@ export class CheckingPage {
     // the saved frame may be cropped, downscaled or motion-blurred compared
     // with the frame that produced the live hit. If neither has it, find the
     // corner squares and decode a rectified crop of the known QR rectangle.
-    let qrSource: 'live' | 'full' | 'crop' | 'none' = qrHint ? 'live' : 'none';
+    let qrSource: 'live' | 'full' | 'tile' | 'crop' | 'none' = qrHint ? 'live' : 'none';
     let qrText = qrHint;
-    if (!qrText) {
-      qrText = decodeQr(data.data, data.width, data.height);
-      if (qrText) qrSource = 'full';
-    }
-    if (!qrText) {
+    let qrLocation: any = null;
+    // Keep the QR corners from the captured frame. They are a second
+    // alignment source when the printed corner squares are clipped or a
+    // paper-edge/shadow quad was mistaken for the markers.
+    const located = decodeQrAnywhere({ data: data.data, width: data.width, height: data.height });
+    if (located) {
+      qrLocation = located.location;
+      if (!qrText || located.text !== qrText) {
+        qrText = located.text;
+        qrSource = located.source === 'tile' ? 'tile' : 'full';
+      }
+    } else if (!qrText) {
       qrText = decodeQrFromSheet({ data: data.data, width: data.width, height: data.height });
       if (qrText) qrSource = 'crop';
     }
@@ -780,10 +873,10 @@ export class CheckingPage {
     // get scanned when the code won't decode.
     const pinSheet = parsed?.pinSheet === true;
     let result: any = pinSheet
-      ? readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource)
-      : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length, qrText, qrSource);
+      ? readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation)
+      : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length, qrText, qrSource, qrLocation);
     if (!result.ok && !pinSheet && this.quizOverrideId()) {
-      result = readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource);
+      result = readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource, qrLocation);
     }
     if (!result.ok) {
       this.processing.set(false);
@@ -802,6 +895,19 @@ export class CheckingPage {
       return;
     }
     const answers = result.answers, flags = result.flags;
+    // A PIN half-sheet whose PIN is unreadable and whose bubble grid is almost
+    // entirely blank is not a result — it is a failed alignment. Showing a
+    // random 1/50 score is worse than asking for a rescan. A genuinely blank
+    // sheet still works because its PIN identifies the student.
+    const answered = answers.filter((a: number) => a >= 0).length;
+    const minRead = Math.max(5, Math.ceil((quiz.items?.length || 50) * 0.1));
+    if (pinSheet && !result.pin && answered < minRead) {
+      this.processing.set(false);
+      this.logScanDiag({ ...(result.diag || {}), reason: 'low-confidence', answered });
+      this.scanError.set('Could not read the shaded PIN or enough answers — nothing was saved. Move back so the whole page is inside, avoid glare, and try again. If this is an older print with clipped corner squares, use the clean sheet.');
+      if (fromLive) this.scannedQr = null;
+      return;
+    }
     this.logScanDiag(result.diag || {
       reason: 'ok', qr: qrText, qrSource, width: data.width, height: data.height,
     });
