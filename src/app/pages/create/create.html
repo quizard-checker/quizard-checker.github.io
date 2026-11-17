@@ -235,7 +235,7 @@
           <p class="parse-note">Building the preview…</p>
         } @else {
           <p class="preview-count">
-            {{ previewPages() }} page{{ previewPages() === 1 ? '' : 's' }} in this PDF{{ printMode() === 'pin' ? ' · 2 sheets per page' : ' · one per student' }}
+            {{ previewPages() }} page{{ previewPages() === 1 ? '' : 's' }} in this PDF · 2 sheets per page
           </p>
           <div class="preview-canvas-wrap">
             <canvas class="preview-canvas"></canvas>
@@ -279,97 +279,25 @@
       </div>
 
       <div class="section-title">Print sheets</div>
-      <div class="seg" style="margin-top:6px" role="group" aria-label="Sheet type">
-        <button type="button" [class.on]="printMode() === 'qr'" (click)="setPrintMode('qr')">Per student (QR)</button>
-        <button type="button" [class.on]="printMode() === 'pin'" (click)="setPrintMode('pin')">Generic PIN (2-up)</button>
-      </div>
-      @if (printMode() === 'pin') {
-        <p class="faint" style="font-size:11.5px;margin:6px 2px 0">Two identical sheets per Long page — cut in half, reusable. Students write + shade their 5-digit PIN; the scanner matches it to the roster.</p>
-      }
+      <p class="faint" style="font-size:11.5px;margin:6px 2px 0">Two identical sheets per Long page — cut in half, reusable. Students write + shade their 5-digit PIN; the scanner matches it to the roster.</p>
       <div class="copies-row" style="margin-top:6px">
-        <span class="faint">Class:</span>
-        <select class="text-input" style="width:auto;padding:7px 8px" [attr.aria-label]="'Class for this quiz'" (change)="setSheetClassId($any($event.target).value)">
-          <option value="" [selected]="!sheetClassId()" disabled>— pick a class —</option>
-          @for (c of assignableClasses(); track c.id) {
-            <option [value]="c.id" [selected]="sheetClassId() === c.id">{{ c.name }} · {{ c.students.length }} students</option>
-          }
-        </select>
+        @if (quizFullClass(); as qc) {
+          <span class="faint">Class: <b>{{ qc.name }} · {{ qc.students.length }} students</b></span>
+        }
         <span class="faint" style="display:inline-flex;gap:6px;align-items:center">Paper: <b>Long (8.5×13)</b></span>
       </div>
-      @if (quizClass(); as qc) {
-        <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">Assigned to <b>{{ qc.name }}</b>. Picking another class moves this quiz; past results stay under their original class.</p>
-      } @else {
-        <p class="faint" style="font-size:11.5px;margin:4px 2px 10px">No class yet — pick one here and it will be saved with the quiz.</p>
-      }
       <div class="export-grid" style="margin-top:0">
-        <button class="btn btn-primary" [disabled]="!sheetClassId()" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> {{ printMode() === 'pin' ? 'PIN sheets (2-up)' : 'Bubble sheets' }}</button>
+        <button class="btn btn-primary" [disabled]="!quizClassId()" (click)="printSheets()"><span [innerHTML]="'scan' | ico"></span> PIN sheets (2-up)</button>
       </div>
       <div class="copies-row">
-        @if (printMode() === 'pin') {
-          @if (sheetClass(); as c) {
-            <span class="faint">{{ c.students.length }} sheets · {{ pinPagesOf(c) }} Long pages · cut in half</span>
-          } @else {
-            <span class="faint">Pick a class — one half-sheet per student, two per page</span>
-          }
-        } @else {
-          @if (sheetClass(); as c) {
-            <span class="faint">{{ c.students.length }} sheets · one per student, no extras</span>
-          } @else {
-            <span class="faint">Pick a class — prints only its students</span>
-          }
+        @if (quizFullClass(); as qc) {
+          <span class="faint">{{ qc.students.length }} sheets · {{ pinPagesOf(qc) }} Long pages · cut in half</span>
         }
       </div>
-      @if (printMode() === 'pin') {
-        @if (sheetClass()) {
-          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Two generic sheets per Long (8.5×13) page — cut along the dashed line. Students write + shade their 5-digit PIN; scanning matches it to the roster automatically.</p>
-        }
+      @if (quizFullClass()) {
+        <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Two generic sheets per Long (8.5×13) page — cut along the dashed line. Students write + shade their 5-digit PIN; scanning matches it to the roster automatically.</p>
       } @else {
-        @if (sheetClass()) {
-          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Exactly {{ sheetClass()!.students.length }} sheet{{ sheetClass()!.students.length === 1 ? '' : 's' }} — one per student in {{ sheetClass()!.name }}, each QR carrying that student's name so scanning attaches them automatically.</p>
-        } @else if (classList().length) {
-          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Pick a class to print its roster. Sheets are never printed blank — every sheet belongs to a student.</p>
-        } @else {
-          <p class="faint center" style="font-size:11.5px;margin:8px 0 0">Add a class on the Classes tab first — sheets print exactly that class's students.</p>
-        }
-      }
-
-      <div class="section-title">Class &amp; progress</div>
-      @if (quizProgress(); as p) {
-        <div class="quiz-progress-card">
-          <div class="qp-head">
-            <span class="qp-ico" [innerHTML]="'users' | ico"></span>
-            <div class="qp-head-txt">
-              <b>{{ p.cls?.name || 'No class yet' }}</b>
-              <span>@if (p.roster) { {{ p.roster }} student{{ p.roster === 1 ? '' : 's' }} } @else { Assign a class in Print sheets }</span>
-            </div>
-            @if (p.roster) { <span class="qp-pct">{{ p.pct }}% scanned</span> }
-          </div>
-          @if (p.roster) {
-            <div class="qp-bar" role="progressbar" [attr.aria-valuenow]="p.scanned" [attr.aria-valuemin]="0" [attr.aria-valuemax]="p.roster" [attr.aria-label]="p.scanned + ' of ' + p.roster + ' papers scanned'">
-              <i [style.width.%]="p.pct"></i>
-            </div>
-          }
-          <p class="qp-line">
-            @if (p.scanned) {
-              {{ p.scanned }} of {{ p.roster }} papers scanned@if (p.avg != null) { · class average {{ p.avg }}% }@if (p.last) { · last scan {{ dateOf(p.last) }} }
-            } @else if (p.roster) {
-              No papers scanned yet — print the sheets, hand them out, then scan them here.
-            } @else {
-              This quiz has no class. Pick one in Print sheets above to track scanning progress.
-            }
-          </p>
-          <div class="qp-actions">
-            @if (p.roster && p.remaining > 0) {
-              <button class="btn btn-primary" (click)="scanSaved()">
-                <span [innerHTML]="'scan' | ico"></span>
-                {{ p.scanned ? 'Scan remaining (' + p.remaining + ')' : 'Scan papers' }}
-              </button>
-            }
-            @if (p.scanned) {
-              <button class="btn btn-secondary" (click)="resultsSaved()"><span [innerHTML]="'chart' | ico"></span> View results</button>
-            }
-          </div>
-        </div>
+        <p class="faint center" style="font-size:11.5px;margin:8px 0 0">This quiz has no class assigned.</p>
       }
 
       <div class="section-title">Use in another section</div>

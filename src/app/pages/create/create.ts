@@ -10,8 +10,8 @@ import { parseKeyText } from '../../core/engine/answerkey.js';
 import { xlsxToRows, parseCsv, rowsToKeyText } from '../../core/engine/keysheet.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
 import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz, duplicateQuiz, saveClass } from '../../core/engine/storage.js';
-import { fmtDate, bannerTheme } from '../../shared/helpers.js';
-import { buildBubbleSheetsPdf, buildPinSheetsPdf } from '../../core/engine/export.js';
+import { bannerTheme } from '../../shared/helpers.js';
+import { buildPinSheetsPdf } from '../../core/engine/export.js';
 import { quizTitle, quizClassLabel, resolveQuizClass } from '../../core/engine/quiz-classes.js';
 import { generatePins } from '../../core/engine/roster.js';
 import { IcoPipe } from '../../shared/ico.pipe';
@@ -36,7 +36,6 @@ export class CreatePage {
   readonly native = Capacitor.isNativePlatform();
 
   readonly maxItems = MAX_ITEMS;
-  readonly dateOf = fmtDate;
   // Library cards wear the same hashed gradients as classes/keys, so a
   // subject-colored tile reads consistently across the app.
   readonly bannerTheme = bannerTheme;
@@ -153,6 +152,12 @@ export class CreatePage {
   // New quizzes and printing always target a live (non-archived) class; archived
   // classes stay visible only where history is shown.
   readonly assignableClasses = computed(() => this.classList().filter(c => !c.archived));
+  // The quiz's own class with its full roster (quizClass() is a lightweight
+  // label object — printing needs the students).
+  readonly quizFullClass = computed(() => {
+    const id = this.quizClassId();
+    return id ? this.classList().find(c => c.id === id) || null : null;
+  });
   readonly quizTitle = quizTitle;
   readonly quizClassLabel = (q: any) => quizClassLabel(q, this.classList());
   readonly quizClassOf = (q: any) => resolveQuizClass(q, this.classList());
@@ -167,7 +172,6 @@ export class CreatePage {
     if (!currentSubject || currentSubject === prevSubject) this.subject.set(nextSubject);
     this.quizClassId.set(c.id);
     this.quizClassNameSnap.set(c.name || '');
-    this.sheetClassId.set(c.id);
     this.classPickOpen.set(false);
   }
 
@@ -373,7 +377,6 @@ export class CreatePage {
     this.selectedQuiz.set(quiz);
     this.quizClassId.set(quiz.classId || null);
     this.quizClassNameSnap.set(quiz.className || '');
-    this.sheetClassId.set(quiz.classId || null);
     this.sheets.set(await listSheets());
     this.wizardExport.set(false);
     this.stage.set('export');
@@ -401,21 +404,10 @@ export class CreatePage {
     this.editingSource = q.source || null;
     this.quizClassId.set(q.classId || null);
     this.quizClassNameSnap.set(q.className || '');
-    this.sheetClassId.set(q.classId || null);
     this.subject.set(q.subject || '');
     this.title.set(q.title || '');
     this.items.set((q.items || []).map((it: any) => ({ ...it })));
     this.stage.set('review');
-  }
-
-  scanSaved() {
-    const q = this.selectedQuiz();
-    if (q) this.router.navigateByUrl(`/tabs/checking?quiz=${q.id}`);
-  }
-
-  resultsSaved() {
-    const q = this.selectedQuiz();
-    if (q) this.router.navigateByUrl(`/tabs/reports?quiz=${q.id}`);
   }
 
   // ── copy to another section ──────────────────────────────────────────────
@@ -471,33 +463,25 @@ export class CreatePage {
     if (!quiz) return;
     this.previewBusy.set(true);
     try {
-      // Sheets print exactly the chosen class's roster — one page per student,
-      // nothing blank and nothing spare. A class is required because the QR on
-      // each sheet is what tells the scanner whose paper it is.
-      const cls = this.sheetClass();
+      // PIN sheets print for the quiz's own class — the one it was created
+      // in. The QR carries only the quiz; each student is matched by the
+      // 5-digit PIN they shade, so every roster student needs one before
+      // printing.
+      const cls = this.quizFullClass();
       if (!cls?.students?.length) {
-        this.toast.toast('Pick a class first — sheets print only that class’s students.');
+        this.toast.toast('This quiz has no class with students to print for.');
         this.previewBusy.set(false);
         return;
       }
-      if (this.printMode() === 'pin') {
-        // Generic PIN sheets: 2-up on Long paper, cut in half. The QR carries
-        // only the quiz — each student is matched by the 5-digit PIN they
-        // shade, so every roster student needs one before printing.
-        const { students, assigned } = generatePins(cls.students || []);
-        if (assigned) {
-          await saveClass({ ...cls, students });
-          this.classList.set(await listClasses());
-          this.toast.toast(`${assigned} PIN${assigned === 1 ? '' : 's'} assigned automatically — print the PIN list from the class page.`);
-        }
-        this.previewDoc = await buildPinSheetsPdf(quiz, students, 'long', cls.name);
-        this.previewFilename = `quizard-pin-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
-        this.previewLabel.set(`PIN answer sheets (2-up, cut in half) — ${cls.name}`);
-      } else {
-        this.previewDoc = await buildBubbleSheetsPdf(quiz, cls.students, this.paper());
-        this.previewFilename = `quizard-bubble-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
-        this.previewLabel.set(`Bubble answer sheets — ${cls.name}`);
+      const { students, assigned } = generatePins(cls.students || []);
+      if (assigned) {
+        await saveClass({ ...cls, students });
+        this.classList.set(await listClasses());
+        this.toast.toast(`${assigned} PIN${assigned === 1 ? '' : 's'} assigned automatically — print the PIN list from the class page.`);
       }
+      this.previewDoc = await buildPinSheetsPdf(quiz, students, 'long', cls.name);
+      this.previewFilename = `quizard-pin-sheets-${slugify(quiz.subject || quiz.title)}-${slugify(cls.name)}`;
+      this.previewLabel.set(`PIN answer sheets (2-up, cut in half) — ${cls.name}`);
       // a new document always starts at sheet 1, and the cached pdfjs doc
       // belongs to the old one
       this.previewPdfDoc = null;
@@ -595,7 +579,7 @@ export class CreatePage {
       });
       await Share.share({
         title: 'Answer sheets',
-        text: n > 1 ? `${n} pages — ${this.printMode() === 'pin' ? '2 sheets per page' : 'one per student'}` : filename,
+        text: n > 1 ? `${n} pages — 2 sheets per page` : filename,
         files: [file.uri],
         dialogTitle: 'Save or print the PDF',
       });
@@ -620,64 +604,9 @@ export class CreatePage {
   }
 
   pinPagesOf(c: any): number { return Math.max(1, Math.ceil((c?.students?.length || 0) / 2)); }
-  // Long bond (8.5x13) is the only paper stock: both sheet types print on it
-  // (PIN half-sheets 2-up, cut in half), so there is nothing to choose.
-  paper = signal<'letter' | 'a4' | 'long'>('long');
-  // Sheet type: personalized QR sheets (one per student) or generic PIN
-  // half-sheets (2-up on Long paper, cut in half, matched by shaded PIN).
-  printMode = signal<'qr' | 'pin'>('qr');
-  setPrintMode(m: any) { this.printMode.set(m === 'pin' ? 'pin' : 'qr'); }
+  // Everything prints on Long bond (8.5x13): PIN half-sheets 2-up, cut in
+  // half. One paper stock, so there is nothing to choose.
 
-  // Sheets print for exactly one class: one page per student on its roster,
-  // each with that student's name in the QR and on the header.
-  sheetClassId = signal<string | null>(null);
-  async setSheetClassId(id: any) {
-    this.sheetClassId.set(id || null);
-    const c = this.sheetClass();
-    const q = this.selectedQuiz();
-    if (!c || !q?.id) return;
-    if (q.classId === c.id && (q.className || '') === c.name) return;
-    // One quiz belongs to one class: picking a print class moves the quiz there
-    // so the card on the home board never lies about its class.
-    try {
-      const updated = await saveQuiz({ ...q, classId: c.id, className: c.name });
-      this.selectedQuiz.set(updated);
-      this.quizClassId.set(c.id);
-      this.quizClassNameSnap.set(c.name);
-      this.toast.toast(`Quiz assigned to ${c.name}`);
-    } catch {
-      this.toast.toast('Could not assign the class', true);
-    }
-  }
-  readonly sheetClass = computed(() =>
-    this.classList().find(c => c.id === this.sheetClassId()) || null);
-
-  // Progress for the quiz's own class: how many roster students already have a
-  // result, the class average, and the latest scan. Rescans replace a row, so
-  // count the latest sheet per student to avoid double-counting old data.
-  readonly quizProgress = computed(() => {
-    const q = this.selectedQuiz();
-    const cls = this.quizClass();
-    const roster = Array.isArray((cls as any)?.students) ? (cls as any).students.length : 0;
-    const rows = q && cls
-      ? this.sheets().filter(s => s.quizId === q.id && s.classId === cls.id)
-      : [];
-    const byStudent = new Map<string, any>();
-    for (const s of rows) {
-      const key = s.studentNo != null ? `n:${s.studentNo}` : `name:${s.studentName}`;
-      const prev = byStudent.get(key);
-      if (!prev || (s.createdAt || 0) > (prev.createdAt || 0)) byStudent.set(key, s);
-    }
-    const unique = [...byStudent.values()];
-    const scanned = unique.length;
-    const avg = scanned
-      ? Math.round(unique.reduce((sum, s) => sum + (Number(s.percent) || 0), 0) / scanned)
-      : null;
-    const last = unique.reduce((max, s) => Math.max(max, Number(s.createdAt) || 0), 0);
-    const remaining = Math.max(0, roster - scanned);
-    const pct = roster ? Math.min(100, Math.round((scanned / roster) * 100)) : 0;
-    return { cls, roster, scanned, avg, last, remaining, pct };
-  });
 
   backToSetup() {
     this.keyPickOpen.set(false);
