@@ -200,6 +200,49 @@ export class SettingsPage implements OnInit {
     }
   }
 
+  // ── Rename profile ──
+  namePanel = signal(false);
+  nameDraft = '';
+  nameBusy = signal(false);
+  nameMsg = signal('');
+
+  openNameChange() {
+    this.nameDraft = this.account?.name || '';
+    this.nameMsg.set('');
+    this.namePanel.set(true);
+  }
+  closeNamePanel() {
+    this.namePanel.set(false);
+    this.nameDraft = '';
+    this.nameMsg.set('');
+  }
+
+  async submitNameChange() {
+    const acc = this.account;
+    if (!acc || this.nameBusy()) return;
+    const name = this.nameDraft.trim();
+    if (!name) { this.nameMsg.set('Enter a profile name'); return; }
+    if (name.length > 24) { this.nameMsg.set('Keep the name to 24 characters or fewer'); return; }
+    if (name === acc.name) { this.closeNamePanel(); return; }
+    this.nameBusy.set(true);
+    this.nameMsg.set('');
+    try {
+      const updated = await updateAccount(acc.id, { name });
+      if (!updated) { this.nameMsg.set('Could not update the profile name'); return; }
+      this.account = updated;
+      this.accounts = this.accounts.map(a => a.id === updated.id ? updated : a);
+      // Keep the session copy in sync so headers and the profile picker show
+      // the new name immediately, not after the next reload.
+      this.ui.account.set(updated);
+      this.closeNamePanel();
+      this.toast.toast('Profile name updated ✓');
+    } catch (err: any) {
+      this.nameMsg.set(String(err?.message || 'Could not update the profile name'));
+    } finally {
+      this.nameBusy.set(false);
+    }
+  }
+
   // ── Change profile PIN ──
   pinPanel = signal(false);
   pinOld = '';

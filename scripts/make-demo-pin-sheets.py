@@ -60,7 +60,6 @@ window.renderSheet = async (profile) => {
 
   for (const half of [0, 1]) {
     const f = spec.pinFrameRect(half)
-    rect(f.x, f.y, f.w, f.h, { stroke: INK, lw: 1.4 })
     ctx.fillStyle = INK
     for (const m of spec.pinMarkerRects(half)) ctx.fillRect(px(m.x), px(m.y), px(m.w), px(m.h))
 
@@ -142,7 +141,6 @@ window.renderSheet = async (profile) => {
     for (let rr = 0; rr < cells; rr++) for (let cc = 0; cc < cells; cc++) {
       if (q.isDark(rr, cc)) ctx.fillRect(Math.round(px(qr.x + cc * cell)), Math.round(px(qr.y + rr * cell)), wpx, wpx)
     }
-    text('Quizard PIN sheet', f.x + 6, f.y + f.h - 8, 6, EDGE)
   }
 
   // crop to the half this student "cut"

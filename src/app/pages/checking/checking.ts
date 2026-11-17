@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
-import { readSheet, readPinSheet, scoreSheet, decodeQr, FLAG } from '../../core/engine/omr.js';
+import { readSheet, readPinSheet, scoreSheet, decodeQr, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
 import { resolveStudentByPin, claimPin } from '../../core/engine/roster.js';
 import { parseSheetQr, resolveSheetStudent } from '../../core/engine/sheet-spec.js';
 import { wideScanEnterPlan, wideScanExitPlan } from '../../core/engine/wide-scan.js';
@@ -98,18 +98,23 @@ export class CheckingPage {
   wideOn = signal(false);
   wideHint = signal(false);
   searchHint = signal(false);
+  // Live marker-lock feedback. Kept separate from the red scan error so a
+  // previous failed capture does not keep saying "Scan needs attention" while
+  // the four corner squares are actually lined up.
+  sheetHint = signal('');
   // the 5-digit PIN read off the sheet being checked — a manual pick registers
   // it to the picked student so later papers route automatically
   scannedPin = signal<string | null>(null);
   private track: MediaStreamTrack | null = null;
   readonly liveText = computed(() => {
     if (!this.autoScan()) return 'Auto-scan off — tap Capture now';
+    if (this.sheetHint()) return this.sheetHint();
     if (this.scanError()) return 'Scan needs attention';
     switch (this.livePhase()) {
       case 'locking': return 'Sheet found — hold still…';
-      case 'waiting': return 'Move to the next sheet';
+      case 'waiting': return 'Already scanned — next sheet, or tap Capture now';
       case 'looking': return this.searchHint()
-        ? 'Move closer — fill about half the frame with the sheet'
+        ? 'Fit the whole page inside — move back if a corner is cut off'
         : 'Looking for a sheet…';
       default: return 'Starting camera…';
     }
@@ -122,6 +127,11 @@ export class CheckingPage {
   private liveCandidate: string | null = null;
   private liveHits = 0;
   private liveAbsent = 0;
+  // Marker-lock auto-capture: two consecutive frames with a verified printed
+  // frame are enough. `sheetArmed` stops re-firing while the same sheet stays
+  // in view; it re-arms after the same absence window as a QR rescan.
+  private sheetHits = 0;
+  private sheetArmed = true;
   private scannedQr: string | null = null;
   private cooldownUntil = 0;
   private detector: any = null;
@@ -322,12 +332,14 @@ export class CheckingPage {
   }
 
   // Wide scan: the sensor's long axis runs across the sheet, so wide papers
-  // keep all four corner squares in frame. How far this can go is the
-  // platform's call — inside the APK the native plugin rotates the screen for
-  // real (the WebView's web-level lock silently fails, and system
-  // auto-rotate is often switched off), Android Chrome locks landscape for
-  // real too (fullscreen first: orientation locks are only granted there),
-  // iOS just widens the layout once the phone physically rotates.
+  // keep all four corner squares in frame. The CSS widens the stage whenever
+  // the phone is actually landscape, so a normal rotate needs no button.
+  // This tool is for devices where auto-rotate is off: inside the APK the
+  // native plugin rotates the screen for real (the WebView's web-level lock
+  // silently fails, and system auto-rotate is often switched off), Android
+  // Chrome locks landscape for real too (fullscreen first: orientation locks
+  // are only granted there), and iOS just widens the layout once the phone
+  // physically rotates.
   async toggleWide() {
     if (this.wideOn()) {
       this.exitWide();
@@ -418,6 +430,9 @@ export class CheckingPage {
     this.liveCandidate = null;
     this.liveHits = 0;
     this.liveAbsent = 0;
+    this.sheetHits = 0;
+    this.sheetArmed = true;
+    this.sheetHint.set('');
     this.livePhase.set('looking');
     this.liveTimer = setInterval(() => { void this.tickLive(); }, LIVE_SCAN.tickMs);
   }
@@ -499,14 +514,62 @@ export class CheckingPage {
       this.searchHint.set(step.status === 'looking' && this.liveAbsent >= 12);
       // Seeing nothing for a moment re-arms the paper that was just scanned,
       // so a deliberate rescan works by lifting the phone away and back.
-      if (step.absent >= LIVE_SCAN.rearmTicks) this.scannedQr = null;
+      if (step.absent >= LIVE_SCAN.rearmTicks) {
+        this.scannedQr = null;
+        this.sheetArmed = true;
+      }
       this.livePhase.set(step.status);
-      if (!step.scan) return;
+      if (step.scan) {
+        this.cooldownUntil = now + LIVE_SCAN.cooldownMs;
+        this.liveCandidate = null;
+        this.liveHits = 0;
+        this.sheetHits = 0;
+        this.sheetArmed = false;
+        this.sheetHint.set('');
+        if ('vibrate' in navigator) navigator.vibrate?.(35);
+        // Keep the live QR that triggered the capture. `grabFrame` is a
+        // different image (and may be smaller or blurrier than the search
+        // decode), so re-reading it can fail even though the sheet was just
+        // identified.
+        void this.processImage(this.grabFrame(video), true, step.scan);
+        return;
+      }
+
+      // The QR is not required to trigger a capture. A sheet whose four
+      // corner squares and printed frame are visible can fire on its own;
+      // the high-resolution capture then reads the QR from a rectified crop.
+      // This is what makes a landscape sheet on a laptop screen work even
+      // when its QR is below the preview decoder's resolution floor.
+      const lock = this.detectLiveSheet(video);
+      if (!lock) {
+        this.sheetHits = 0;
+        this.sheetHint.set('');
+        return;
+      }
+      // The sheet is present, so the QR-absence counter must not climb and
+      // re-arm a second capture while it is still sitting in view.
+      this.liveAbsent = 0;
+      this.searchHint.set(false);
+      this.scanError.set('');
+      if (lock.edge) {
+        this.sheetHits = 0;
+        this.livePhase.set('looking');
+        this.sheetHint.set('Move back — the sheet is cropped at the edge');
+        return;
+      }
+      this.livePhase.set('locking');
+      this.sheetHint.set('Sheet found — hold still…');
+      this.sheetHits++;
+      if (!this.sheetArmed || this.sheetHits < 2) return;
+      this.sheetArmed = false;
+      this.sheetHits = 0;
+      this.sheetHint.set('');
       this.cooldownUntil = now + LIVE_SCAN.cooldownMs;
+      const qrHint = this.liveCandidate;
       this.liveCandidate = null;
       this.liveHits = 0;
       if ('vibrate' in navigator) navigator.vibrate?.(35);
-      void this.processImage(this.grabFrame(video), true);
+      void this.processImage(this.grabFrame(video), true, qrHint);
     } finally {
       this.liveBusy = false;
     }
@@ -552,17 +615,35 @@ export class CheckingPage {
     return decodeQr(frame.data, width, height, { inversionAttempts: 'dontInvert' });
   }
 
+  // Cheap marker/frame lock for the auto-capture trigger. QR decoding alone
+  // cannot fire when the code is too small for the preview; four corner
+  // squares are much easier to see. Uses the same zoom crop as the preview.
+  private detectLiveSheet(video: HTMLVideoElement): ReturnType<typeof detectSheet> {
+    const { sx, sy, cw, ch } = this.zoomRect(video);
+    if (!cw || !ch) return null;
+    const width = Math.min(LIVE_SCAN.previewWidth, cw);
+    const height = Math.round(ch * (width / cw));
+    let canvas = this.liveCanvas;
+    if (!canvas) canvas = this.liveCanvas = document.createElement('canvas');
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(video, sx, sy, cw, ch, 0, 0, width, height);
+    const frame = ctx.getImageData(0, 0, width, height);
+    return detectSheet({ data: frame.data, width, height });
+  }
+
   private grabFrame(video: HTMLVideoElement, maxWidth = 2048): ImageData {
     const { sx, sy, cw, ch } = this.zoomRect(video);
-    // capture the (possibly zoomed) region sized for the OMR pass: upscale a
-    // small region toward ~1200px so a far-framed sheet's 7pt markers reach
-    // blob-detectable size (a zoom crop does not add pixels — the capture
-    // must reconstruct them the same way the search decode does), and never
-    // downscale a big one below the cap
-    const scale = Math.min(3, 1200 / cw, maxWidth / cw);
+    // Capture the (possibly zoomed) region at native resolution for OMR.
+    // The old 1200px cap downscaled a 1920px stream to 1200 — shrinking a
+    // sheet's corner squares and QR below what the reader can resolve. Only
+    // upscale small regions (toward 1600px) and cap truly huge frames.
+    const scale = Math.min(3, Math.max(1, 1600 / cw), maxWidth / cw);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(cw * Math.max(scale, 1));
-    canvas.height = Math.round(ch * Math.max(scale, 1));
+    canvas.width = Math.round(cw * scale);
+    canvas.height = Math.round(ch * scale);
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(video, sx, sy, cw, ch, 0, 0, canvas.width, canvas.height);
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -578,6 +659,9 @@ export class CheckingPage {
     this.liveCandidate = null;
     this.liveHits = 0;
     this.liveAbsent = 0;
+    this.sheetHits = 0;
+    this.sheetArmed = true;
+    this.sheetHint.set('');
     this.tickCount = 0;
     this.scannedQr = null;
     this.camZoom.set(1);
@@ -613,16 +697,20 @@ export class CheckingPage {
 
   // A thrown storage or vision error used to reject silently and leave the
   // "Analyzing…" overlay (or the camera) with no explanation.
-  private async processImage(data: ImageData, fromLive = false) {
+  private async processImage(data: ImageData, fromLive = false, qrHint: string | null = null) {
     try {
-      await this.processImageInner(data, fromLive);
+      await this.processImageInner(data, fromLive, qrHint);
     } catch (e: any) {
       this.processing.set(false);
       this.scanError.set('Could not read that sheet' + (e?.message ? ' — ' + e.message : '') + '. Try again, or use Check from photo.');
     }
   }
 
-  private async processImageInner(data: ImageData, fromLive = false) {
+  private logScanDiag(diag: any) {
+    try { console.info('QUIZARD_SCAN_DIAG', JSON.stringify(diag)); } catch { /* diagnostics must never block a scan */ }
+  }
+
+  private async processImageInner(data: ImageData, fromLive = false, qrHint: string | null = null) {
     this.processing.set(true);
     // A live retry keeps the previous message on screen until it succeeds or
     // fails again, so the viewfinder does not flicker while the teacher
@@ -632,9 +720,21 @@ export class CheckingPage {
     await new Promise(r => setTimeout(r, 60));
     this.scannedPin.set(null);
 
-    // the QR identifies the quiz — and, on roster-printed sheets, the student
-    // — before any geometry work: one CV pass total
-    const qrText = decodeQr(data.data, data.width, data.height);
+    // The QR identifies the quiz — and, on roster-printed sheets, the student —
+    // before any geometry work. Prefer the text the live scanner already read;
+    // the saved frame may be cropped, downscaled or motion-blurred compared
+    // with the frame that produced the live hit. If neither has it, find the
+    // corner squares and decode a rectified crop of the known QR rectangle.
+    let qrSource: 'live' | 'full' | 'crop' | 'none' = qrHint ? 'live' : 'none';
+    let qrText = qrHint;
+    if (!qrText) {
+      qrText = decodeQr(data.data, data.width, data.height);
+      if (qrText) qrSource = 'full';
+    }
+    if (!qrText) {
+      qrText = decodeQrFromSheet({ data: data.data, width: data.width, height: data.height });
+      if (qrText) qrSource = 'crop';
+    }
     const parsed = parseSheetQr(qrText);
     let quiz: any = null;
     let demoMatch: { cls: any; student: any } | null = null;
@@ -644,6 +744,7 @@ export class CheckingPage {
       const match = resolveDemoSheet(parsed, this.classes(), await listQuizzes());
       if (!match) {
         this.processing.set(false);
+        this.logScanDiag({ reason: 'demo', qr: qrText, qrSource, width: data.width, height: data.height });
         this.scanError.set('This is the built-in demo sheet. Open Settings → Demo data → Load demo data, then scan it again.');
         // the sheet is still in frame: do not fire on it again until the
         // teacher has fixed the data and deliberately moves away and back
@@ -660,6 +761,7 @@ export class CheckingPage {
     }
     if (!quiz) {
       this.processing.set(false);
+      this.logScanDiag({ reason: 'quiz', qr: qrText, qrSource, width: data.width, height: data.height });
       // two different failures wore one message before: a photo with no
       // readable QR at all, and a QR naming a quiz this device doesn't have
       // (sheets printed on another phone / browser, or a deleted quiz)
@@ -667,7 +769,7 @@ export class CheckingPage {
       // knows which paper this is even when the quiz isn't on this device
       this.scanError.set(parsed
         ? `This sheet’s quiz isn’t on this device${parsed.quizName ? ` — the QR says “${parsed.quizName}”` : parsed.studentName ? ` (the QR names ${parsed.studentName})` : ''} — it was printed somewhere else or deleted here. Pick the quiz manually on the setup screen and scan again.`
-        : 'No QR code found on that photo — fill the frame with the sheet, keep it flat and well-lit, then try again. Or pick the quiz manually on the setup screen to scan without one.');
+        : 'Captured the sheet, but could not read its QR code — move back so the whole QR block is inside and not glared out, then try again. Or use Check from photo, or pick the quiz manually on the setup screen.');
       if (fromLive && parsed) this.scannedQr = qrText;
       return;
     }
@@ -678,28 +780,34 @@ export class CheckingPage {
     // get scanned when the code won't decode.
     const pinSheet = parsed?.pinSheet === true;
     let result: any = pinSheet
-      ? readPinSheet({ data: data.data, width: data.width, height: data.height })
-      : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length);
+      ? readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource)
+      : readSheet({ data: data.data, width: data.width, height: data.height }, quiz.items.length, qrText, qrSource);
     if (!result.ok && !pinSheet && this.quizOverrideId()) {
-      result = readPinSheet({ data: data.data, width: data.width, height: data.height });
+      result = readPinSheet({ data: data.data, width: data.width, height: data.height }, qrText, qrSource);
     }
     if (!result.ok) {
       this.processing.set(false);
+      this.logScanDiag(result.diag || {
+        reason: result.reason, qr: qrText, qrSource, width: data.width, height: data.height,
+      });
       // the engine reports which step failed — name it, so the teacher can
       // act instead of re-framing blind (glare, moiré and a small sheet kill
       // the corner squares; a shadow, a fold or a glare streak breaks the
       // printed frame line)
       this.scanError.set(result.reason === 'frame'
-        ? 'Found the corner squares, but the black frame line is broken — even light works best: avoid glare and shadows across the page. It will retry automatically.'
-        : 'Could not align the sheet — the four corner squares are not reading. Fill more of the frame, keep the sheet flat and evenly lit. It will retry automatically.');
+        ? 'Found the corner squares, but the black frame line is broken — move back so the whole page is inside, avoid glare and shadows, and keep it flat. It will retry automatically.'
+        : 'Could not align the sheet — move back until the whole page and all four black corner squares are inside the frame. The sheet can be small; keep it flat and evenly lit. Or use Check from photo. It will retry automatically.');
       // a framing miss is worth another automatic try once the phone is moved
       if (fromLive) this.scannedQr = null;
       return;
     }
     const answers = result.answers, flags = result.flags;
+    this.logScanDiag(result.diag || {
+      reason: 'ok', qr: qrText, qrSource, width: data.width, height: data.height,
+    });
     this.zone.run(() => {
       this.scanError.set('');
-      this.qrHit.set(result.qr);
+      this.qrHit.set(result.qr || qrText);
       this.detectedQuiz.set(quiz);
       this.answers.set(answers);
       this.flags.set(flags);
@@ -849,17 +957,6 @@ export class CheckingPage {
     await deleteSheet(pop.id);
     await this.refreshSession();
     this.stage.set('result');
-  }
-
-  async undoLast() {
-    const last = this.session()[0];
-    if (!last) return;
-    await deleteSheet(last.id);
-    // The paper may still be in front of the camera: re-arm it so Undo can be
-    // followed by a rescan without moving away first.
-    this.scannedQr = null;
-    await this.refreshSession();
-    this.toast.toast('Last result removed');
   }
 
   endSession() {

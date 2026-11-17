@@ -3,7 +3,7 @@ import {
   PIN_SHEET, PIN_ITEMS, pinFrameRect, pinMarkerRects, pinMarkerCenters, pinItemCenter,
   pinDigitCenter, pinWriteBox, pinQrRect, pinSheetQrPayload, parseSheetQr, pinCutLineY,
 } from '../src/app/core/engine/sheet-spec.js'
-import { readPinSheet, scoreSheet } from '../src/app/core/engine/omr.js'
+import { readPinSheet, scoreSheet, decodeQrFromSheet, detectSheet } from '../src/app/core/engine/omr.js'
 import { renderPinHalf, OUT_W, OUT_H } from './helpers/pin-render.js'
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
@@ -136,6 +136,11 @@ describe('readPinSheet on synthetic photos', () => {
     expect(scored.percent).toBe(100)
   })
 
+  it('re-reads the QR from a rectified crop when the full frame decode is the weak path', () => {
+    const img = renderPinHalf({ answers: key, qrPayload: pinSheetQrPayload('quiz-crop') })
+    expect(decodeQrFromSheet({ data: img, width: OUT_W, height: OUT_H })).toBe('QZ3:quiz-crop')
+  })
+
   it('still reads a rotated, noisy photo (top half)', () => {
     const answers = Array.from({ length: 50 }, (_, i) => (i * 3) % 4)
     const img = renderPinHalf({ answers, pin: '90715', rotateDeg: 2.5, noise: 0.02 })
@@ -145,6 +150,68 @@ describe('readPinSheet on synthetic photos', () => {
     let right = 0
     for (let i = 0; i < 50; i++) if (res.answers[i] === answers[i]) right++
     expect(right).toBeGreaterThanOrEqual(48)
+  }, 10000)
+
+  it('reads a sheet photographed sideways (90°)', () => {
+    const scale = 2, pad = 260
+    const W = PIN_SHEET.W * scale + pad * 2
+    const H = (PIN_SHEET.H / 2) * scale + pad * 2
+    const answers = Array.from({ length: 50 }, (_, i) => (i + 1) % 4)
+    const payload = pinSheetQrPayload('quiz-rot90')
+    const img = renderPinHalf({ answers, pin: '04213', qrPayload: payload, rotateDeg: 90, scale, pad })
+    // the sheet is still found without any QR hint, and the QR crop rescues it
+    expect(detectSheet({ data: img, width: W, height: H })?.kind).toBe('pin')
+    expect(decodeQrFromSheet({ data: img, width: W, height: H })).toBe(payload)
+    const res = readPinSheet({ data: img, width: W, height: H }, payload)
+    expect(res.ok).toBe(true)
+    expect(res.pin).toBe('04213')
+    for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(answers[i])
+  })
+
+  it('reads a sheet photographed upside down (180°)', () => {
+    const scale = 2, pad = 260
+    const W = PIN_SHEET.W * scale + pad * 2
+    const H = (PIN_SHEET.H / 2) * scale + pad * 2
+    const answers = Array.from({ length: 50 }, (_, i) => (i + 2) % 4)
+    const payload = pinSheetQrPayload('quiz-rot180')
+    const img = renderPinHalf({ answers, pin: '24680', qrPayload: payload, rotateDeg: 180, scale, pad })
+    const res = readPinSheet({ data: img, width: W, height: H }, payload)
+    expect(res.ok).toBe(true)
+    expect(res.pin).toBe('24680')
+    for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(answers[i])
+  })
+
+  it('reads through a missing printed frame when the QR and markers are present', () => {
+    const answers = Array.from({ length: 50 }, (_, i) => i % 4)
+    const payload = pinSheetQrPayload('quiz-no-frame')
+    const img = renderPinHalf({ answers, pin: '13579', qrPayload: payload })
+    const S = 3, pad = 60
+    const f = pinFrameRect(0)
+    const x0 = Math.round(f.x * S) + pad
+    const x1 = Math.round((f.x + f.w) * S) + pad
+    const y0 = Math.round(f.y * S) + pad
+    const y1 = Math.round((f.y + f.h) * S) + pad
+    const white = (x, y) => {
+      const i = (y * OUT_W + x) * 4
+      img[i] = img[i + 1] = img[i + 2] = 255
+    }
+    // A real print's 1–2pt frame rule can wash out. Leave the markers and QR
+    // untouched, but erase the whole printed border.
+    for (let t = -2; t <= 2; t++) {
+      for (let x = x0; x <= x1; x++) { white(x, y0 + t); white(x, y1 + t) }
+      for (let y = y0; y <= y1; y++) { white(x0 + t, y); white(x1 + t, y) }
+    }
+    const res = readPinSheet({ data: img, width: OUT_W, height: OUT_H }, payload)
+    expect(res.ok).toBe(true)
+    expect(res.pin).toBe('13579')
+    for (let i = 0; i < 50; i++) expect(res.answers[i]).toBe(answers[i])
+  })
+
+  it('locks onto a clean sheet without needing its QR', () => {
+    const img = renderPinHalf({ answers: key })
+    const lock = detectSheet({ data: img, width: OUT_W, height: OUT_H })
+    expect(lock?.kind).toBe('pin')
+    expect(lock?.edge).toBe(false)
   })
 
   it('reads the bottom half through the same top-half geometry', () => {

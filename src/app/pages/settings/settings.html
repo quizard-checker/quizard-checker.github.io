@@ -20,6 +20,22 @@
           <button class="btn btn-secondary" (click)="switchAccount()" data-tooltip="Change profile"><span [innerHTML]="'refresh' | ico"></span> Switch</button>
         </div>
         <div class="row" style="border-bottom:none">
+          <div><div class="label">Profile name</div><div class="sub">The name shown on this device</div></div>
+          <button class="btn btn-secondary" (click)="openNameChange()" [disabled]="nameBusy()">Rename</button>
+        </div>
+        @if (namePanel()) {
+          <div class="row" style="border-bottom:none;flex-direction:column;align-items:stretch;gap:8px">
+            <input class="text-input" id="profile-name" maxlength="24" placeholder="Profile name" aria-label="Profile name" autocomplete="off" [(ngModel)]="nameDraft" (keydown.enter)="submitNameChange()" (keydown.escape)="closeNamePanel()" />
+            @if (nameMsg()) { <p class="faint" style="font-size:12px;margin:0;color:var(--warn,#f59e0b)">{{ nameMsg() }}</p> }
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" style="flex:1" [disabled]="nameBusy() || !nameDraft.trim() || nameDraft.trim() === acc.name" (click)="submitNameChange()">
+                {{ nameBusy() ? 'Saving…' : 'Save name' }}
+              </button>
+              <button class="btn btn-secondary" style="flex:1" (click)="closeNamePanel()">Cancel</button>
+            </div>
+          </div>
+        }
+        <div class="row" style="border-bottom:none">
           <div><div class="label">Change profile PIN</div><div class="sub">{{ acc.pinHash ? 'Verify the current PIN, then set a new one' : 'Add or set a PIN for this profile' }}</div></div>
           <button class="btn btn-secondary" (click)="openPinChange()" [disabled]="pinBusy()">Change</button>
         </div>

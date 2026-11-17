@@ -1,6 +1,6 @@
 import qrModule from 'qrcode-generator'
 import {
-  SHEET, PIN_SHEET, PIN_ITEMS, bubbleSheetLayout, frameRect, markerRects, columnX, rowLabelRight,
+  SHEET, PIN_SHEET, PIN_ITEMS, bubbleSheetLayout, markerRects, columnX, rowLabelRight,
   bubbleCenter, qrRect, rowPitch, sheetQrPayload, qrCaption,
   pinFrameRect, pinMarkerRects, pinItemCenter, pinRowLabelRight, pinItemColX, pinItemRowY, pinWriteBox, pinDigitCenter,
   pinQrRect, pinSheetQrPayload, pinCutLineY,
@@ -286,11 +286,11 @@ export async function buildBubbleSheetsPdf(quiz, students, size = 'letter') {
 
     sheetHeader(pdf, quiz, student)
 
-    const f = frameRect()
-    pdf.setDrawColor('#0b0820'); pdf.setLineWidth(1.8)
-    pdf.rect(f.x, f.y, f.w, f.h, 'S')
+    // No printed border: the corner squares and QR are the scanner anchors.
+    // A heavy border also prints faint or clipped on real paper and is no
+    // longer required for alignment.
 
-    // alignment squares, parked in the page margins so the box stays clean
+    // alignment squares, parked in the page margins so the sheet stays clean
     pdf.setFillColor('#0b0820')
     for (const m of markerRects(count)) pdf.rect(m.x, m.y, SHEET.marker, SHEET.marker, 'F')
 
@@ -355,9 +355,8 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   const f = pinFrameRect(half)
   const P = PIN_SHEET
 
-  // frame + corner alignment squares — the scanner's homography is built from these
-  pdf.setDrawColor('#0b0820'); pdf.setLineWidth(1.4)
-  pdf.rect(f.x, f.y, f.w, f.h, 'S')
+  // corner alignment squares — the scanner's homography is built from these.
+  // No printed border: it is optional with a QR and often prints faint/clipped.
   pdf.setFillColor('#0b0820')
   for (const m of pinMarkerRects(half)) pdf.rect(m.x, m.y, m.w, m.h, 'F')
 
@@ -435,7 +434,7 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   const qr = pinQrRect(half)
   bubbleQr(pdf, qrPayload || pinSheetQrPayload(quiz.id, quiz.subject + (quiz.title ? ' — ' + quiz.title : '')), qr.x, qr.y, qr.size, 'M')
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#374151')
-  pdf.text('Quizard PIN sheet', f.x + 6, f.y + f.h - 8)
+
 }
 
 export async function buildPinSheetsPdf(quiz, students, size = 'long', className = '', qrPayload = '') {

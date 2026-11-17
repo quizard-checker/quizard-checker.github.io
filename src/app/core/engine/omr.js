@@ -11,8 +11,8 @@
 import jsQR from 'jsqr'
 import {
   SHEET, PIN_SHEET, PIN_ITEMS,
-  frameRect, markerCenters, bubbleCenter,
-  pinFrameRect, pinMarkerCenters, pinItemCenter, pinDigitCenter,
+  frameRect, markerCenters, bubbleCenter, qrRect,
+  pinFrameRect, pinMarkerCenters, pinItemCenter, pinDigitCenter, pinQrRect,
 } from './sheet-spec.js'
 
 export function toGray(data, width, height) {
@@ -246,6 +246,145 @@ export function decodeQr(data, width, height, options) {
   } catch { return null }
 }
 
+// Rectify just the printed QR square, using the corner-marker homography.
+// The full-frame decode asks jsQR to find a 76–80pt code in a multi-megapixel
+// photo; once the markers are found we know exactly where the code is, so a
+// small warped crop gives jsQR a clean, module-sized image instead. Both sheet
+// geometries are tried because the QR rect is fixed per sheet type.
+function warpQr(data, width, height, H, rect, outSize = 480) {
+  const pad = rect.size * 0.16
+  const span = rect.size + pad * 2
+  const out = new Uint8ClampedArray(outSize * outSize * 4)
+  for (let y = 0; y < outSize; y++) {
+    for (let x = 0; x < outSize; x++) {
+      const o = (y * outSize + x) * 4
+      const p = applyH(H,
+        rect.x - pad + ((x + 0.5) / outSize) * span,
+        rect.y - pad + ((y + 0.5) / outSize) * span)
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)
+        || p.x < 0 || p.y < 0 || p.x >= width - 1 || p.y >= height - 1) {
+        out[o] = out[o + 1] = out[o + 2] = out[o + 3] = 255
+        continue
+      }
+      const sx = p.x - 0.5, sy = p.y - 0.5
+      const ix = Math.floor(sx), iy = Math.floor(sy)
+      const fx = sx - ix, fy = sy - iy
+      const i00 = (iy * width + ix) * 4
+      const i01 = i00 + 4
+      const i10 = i00 + width * 4
+      const i11 = i10 + 4
+      for (let c = 0; c < 4; c++) {
+        const top = data[i00 + c] * (1 - fx) + data[i01 + c] * fx
+        const bot = data[i10 + c] * (1 - fx) + data[i11 + c] * fx
+        out[o + c] = top * (1 - fy) + bot * fy
+      }
+    }
+  }
+  return { data: out, width: outSize, height: outSize }
+}
+
+// Dark fraction inside the known QR rectangle. The printed frame is a
+// rectangle, so a 180°-rotated marker mapping can pass the frame check too;
+// the QR is not symmetric, and the wrong mapping lands on the sparse opposite
+// corner. This is what tells a sideways/upside-down sheet which way is up.
+function qrInkScore(binary, width, height, H, qr) {
+  const N = 18
+  let dark = 0, total = 0
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const p = applyH(H, qr.x + ((x + 0.5) / N) * qr.size, qr.y + ((y + 0.5) / N) * qr.size)
+      const px = Math.round(p.x), py = Math.round(p.y)
+      if (px < 0 || py < 0 || px >= width || py >= height) continue
+      total++
+      if (binary[py * width + px]) dark++
+    }
+  }
+  return total ? dark / total : 0
+}
+
+// A sheet can be photographed sideways. findMarkerQuads returns the four
+// corners in clockwise image order starting at the top-left-most one, which is
+// not necessarily the sheet's own top-left when the paper is rotated. Try all
+// four cyclic assignments; keep the one matching the printed frame, then use
+// the dense QR rectangle to break the frame's 180° symmetry. When a QR was
+// already decoded, the frame line is only a bonus: real prints often render
+// its 1–2pt rule faint enough to fail thresholding, and the marker geometry
+// plus the QR identity are already enough to align the sheet.
+function alignWithFrame(binary, width, height, centers, frame, window = 3, qr = null, minFrame = 0.6) {
+  const quad = findMarkerQuads(binary, width, height, centers)
+  if (!quad) return null
+  let best = null
+  for (let r = 0; r < 4; r++) {
+    const q = r ? quad.map((_, i) => quad[(i + r) % 4]) : quad
+    const H = homography(centers, q)
+    if (!H) continue
+    const frameScore = frameInkScore(binary, width, height, H, frame, window)
+    if (frameScore < minFrame) continue
+    const qrScore = qr ? qrInkScore(binary, width, height, H, qr) : 0
+    const score = frameScore + qrScore
+    if (!best || score > best.score) best = { H, quad: q, score, frameScore, qrScore, rot: r }
+  }
+  return best || { H: null, quad, score: 0, frameScore: 0, qrScore: 0, rot: -1 }
+}
+
+/**
+ * Locate a sheet without needing its QR. Used by the live loop so a sheet with
+ * all four corners visible can trigger a capture even when the code is too
+ * small for the preview decoder. Returns null unless the printed frame also
+ * lines up, which rejects random square-ish blobs.
+ * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
+ * @returns {{ kind: 'letter'|'pin', quad: { x: number, y: number }[], edge: boolean } | null}
+ */
+export function detectSheet(image) {
+  const { data, width, height } = image
+  const binary = binarize(data, width, height)
+  const sheets = [
+    { kind: 'letter', centers: markerCenters(0), frame: frameRect(), qr: qrRect(0) },
+    { kind: 'pin', centers: pinMarkerCenters(0), frame: pinFrameRect(0), qr: pinQrRect(0) },
+  ]
+  const margin = Math.max(8, Math.round(Math.min(width, height) * 0.02))
+  let best = null
+  for (const sheet of sheets) {
+    const aligned = alignWithFrame(binary, width, height, sheet.centers, sheet.frame, 3, sheet.qr)
+    if (!aligned || !aligned.H) continue
+    if (!best || aligned.score > best.score) best = { ...sheet, ...aligned }
+  }
+  if (!best) return null
+  const edge = best.quad.some(p =>
+    p.x < margin || p.y < margin || p.x > width - margin || p.y > height - margin)
+  return { kind: best.kind, quad: best.quad, edge }
+}
+
+/**
+ * Second-chance QR read: find the corner squares, build the sheet homography,
+ * then decode a high-resolution crop of the known QR rectangle. Use only
+ * after a full-frame decode fails — it costs one extra marker pass. Tries all
+ * four corner assignments because the sheet may be sideways.
+ * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
+ * @returns {string | null}
+ */
+export function decodeQrFromSheet(image) {
+  const { data, width, height } = image
+  const binary = binarize(data, width, height)
+  const sheets = [
+    { centers: markerCenters(0), qr: qrRect(0) },
+    { centers: pinMarkerCenters(0), qr: pinQrRect(0) },
+  ]
+  for (const sheet of sheets) {
+    const quad = findMarkerQuads(binary, width, height, sheet.centers)
+    if (!quad) continue
+    for (let r = 0; r < 4; r++) {
+      const q = r ? quad.map((_, i) => quad[(i + r) % 4]) : quad
+      const H = homography(sheet.centers, q)
+      if (!H) continue
+      const crop = warpQr(data, width, height, H, sheet.qr)
+      const text = decodeQr(crop.data, crop.width, crop.height)
+      if (text) return text
+    }
+  }
+  return null
+}
+
 // Dark-pixel fraction inside a disk of radius r at PDF-space point (x, y).
 function inkFraction(binary, width, height, H, x, y, rPx) {
   const c = applyH(H, x, y)
@@ -277,24 +416,33 @@ export const FLAG = { OK: 'ok', BLANK: 'blank', MULTI: 'multi', FAINT: 'faint' }
  * Read a photographed bubble sheet.
  * @param {{ data: Uint8ClampedArray, width: number, height: number }} image RGBA
  * @param {number} itemCount items on the sheet (drives the expected geometry)
+ * @param {string | null} [qrText] QR already decoded from the frame / live view
+ * @param {string | null} [qrSource] diagnostic source label
  * @returns {SheetRead | SheetReadFail}
  */
-export function readSheet(image, itemCount) {
+export function readSheet(image, itemCount, qrText = null, qrSource = null) {
   const { data, width, height } = image
-  const qr = decodeQr(data, width, height)
+  const qr = qrText || decodeQr(data, width, height)
+  const diagBase = {
+    width, height, itemCount, qr,
+    qrSource: qrSource || (qrText ? 'provided' : qr ? 'frame' : 'none'),
+  }
   const binary = binarize(data, width, height)
-  const quad = findMarkerQuads(binary, width, height, markerCenters(itemCount))
-  if (!quad) return { ok: false, reason: 'markers', qr }
-
   const pdfMarkers = markerCenters(itemCount)
-  const H = homography(pdfMarkers, quad)
-  if (!H) return { ok: false, reason: 'markers', qr }
-
-  // the printed frame must land on ink — rejects rectangles fitted to
-  // bubble rings or other non-frame structures. Window 3 (same as the PIN
-  // sheet): wave-wobbled marker centroids tilt the homography 1–2px, and a
-  // defocused 3.5pt line binarizes ~2px wide, so ±2 missed real frames.
-  if (!frameInk(binary, width, height, H, frameRect(), 3)) return { ok: false, reason: 'frame', qr }
+  const aligned = alignWithFrame(binary, width, height, pdfMarkers, frameRect(), 3, qr ? qrRect(itemCount) : null, qr ? 0 : 0.6)
+  if (!aligned) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
+  if (!aligned.H) {
+    return {
+      ok: false, reason: 'frame', qr,
+      diag: {
+        ...diagBase, reason: 'frame', rot: aligned.rot,
+        frameScore: aligned.frameScore, qrScore: aligned.qrScore,
+        quad: aligned.quad,
+      },
+    }
+  }
+  const H = aligned.H
+  const quad = aligned.quad
 
   // pixels-per-point from the marker spread
   const pdfSpan = Math.hypot(pdfMarkers[1].x - pdfMarkers[0].x, pdfMarkers[1].y - pdfMarkers[0].y)
@@ -319,11 +467,21 @@ export function readSheet(image, itemCount) {
     if (top < 0.55) { answers.push(order[0]); flags.push(FLAG.FAINT); continue }
     answers.push(order[0]); flags.push(FLAG.OK)
   }
-  return { ok: true, answers, flags, fills, qr, markers: quad, scale }
+  return {
+    ok: true, answers, flags, fills, qr, markers: quad, scale,
+    diag: {
+      ...diagBase,
+      rot: aligned.rot,
+      frameScore: aligned.frameScore, qrScore: aligned.qrScore, score: aligned.score,
+      quad, scale, rPx,
+      thresholds: { blank: 0.30, multi: 0.12, faint: 0.55 },
+      answers, flags, fills,
+    },
+  }
 }
 
 // Ink fraction along the printed frame's four edges (sampled via H).
-function frameInk(binary, width, height, H, frame, window = 2) {
+function frameInkScore(binary, width, height, H, frame, window = 2) {
   const f = frame
   const pts = []
   const N = 24
@@ -345,9 +503,12 @@ function frameInk(binary, width, height, H, frame, window = 2) {
     total++
     if (hit) dark++
   }
-  return total ? dark / total >= 0.6 : false
+  return total ? dark / total : 0
 }
 
+// A frame counts as aligned when most of its perimeter lands on ink. The
+// ratio is exposed separately so detectSheet can prefer the sheet geometry
+// whose frame fits best instead of the first one that barely passes.
 /** Score detected answers against a saved quiz's items. */
 export function scoreSheet(answers, items) {
   let correct = 0, attempted = 0
@@ -370,20 +531,32 @@ export function scoreSheet(answers, items) {
  *   pin: string | null, pinDigits: number[], pinFlags: string[],
  *   qr: string | null, markers: { x: number, y: number }[], scale: number }
  *   | { ok: false, reason: 'markers'|'frame', qr: string | null }}
+ * @param {string | null} [qrText] QR already decoded from the frame / live view
+ * @param {string | null} [qrSource] diagnostic source label
  */
-export function readPinSheet(image) {
+export function readPinSheet(image, qrText = null, qrSource = null) {
   const { data, width, height } = image
-  const qr = decodeQr(data, width, height)
+  const qr = qrText || decodeQr(data, width, height)
+  const diagBase = {
+    width, height, itemCount: PIN_ITEMS, qr,
+    qrSource: qrSource || (qrText ? 'provided' : qr ? 'frame' : 'none'),
+  }
   const binary = binarize(data, width, height)
   const expected = pinMarkerCenters(0)
-  const quad = findMarkerQuads(binary, width, height, expected)
-  if (!quad) return { ok: false, reason: 'markers', qr }
-
-  const H = homography(expected, quad)
-  if (!H) return { ok: false, reason: 'markers', qr }
-  // both readers verify the frame with the same ±3px window — wave-wobbled
-  // marker centroids tilt the homography on any photo, not just PIN ones
-  if (!frameInk(binary, width, height, H, pinFrameRect(0), 3)) return { ok: false, reason: 'frame', qr }
+  const aligned = alignWithFrame(binary, width, height, expected, pinFrameRect(0), 3, qr ? pinQrRect(0) : null, qr ? 0 : 0.6)
+  if (!aligned) return { ok: false, reason: 'markers', qr, diag: { ...diagBase, reason: 'markers' } }
+  if (!aligned.H) {
+    return {
+      ok: false, reason: 'frame', qr,
+      diag: {
+        ...diagBase, reason: 'frame', rot: aligned.rot,
+        frameScore: aligned.frameScore, qrScore: aligned.qrScore,
+        quad: aligned.quad,
+      },
+    }
+  }
+  const H = aligned.H
+  const quad = aligned.quad
 
   const pdfSpan = Math.hypot(expected[1].x - expected[0].x, expected[1].y - expected[0].y)
   const pxSpan = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y)
@@ -430,5 +603,15 @@ export function readPinSheet(image) {
     ok: true, answers, flags, fills, qr, markers: quad, scale,
     pin: complete ? pinDigits.join('') : null,
     pinDigits, pinFlags,
+    diag: {
+      ...diagBase,
+      rot: aligned.rot,
+      frameScore: aligned.frameScore, qrScore: aligned.qrScore, score: aligned.score,
+      quad, scale, rPx, dPx,
+      thresholds: { blank: 0.30, multi: 0.12, faint: 0.55 },
+      pinThresholds: { blank: 0.30, multi: 0.10, faint: 0.50 },
+      answers, flags, fills,
+      pinDigits, pinFlags, pin: complete ? pinDigits.join('') : null,
+    },
   }
 }

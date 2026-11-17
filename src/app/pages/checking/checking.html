@@ -101,10 +101,6 @@
     <div class="screen lib-screen">
       <div class="session-bar">
         <span>{{ session().length }} saved for this class</span>
-        @if (session().length) {
-          <button class="btn btn-secondary" (click)="undoLast()">Undo last</button>
-        }
-        <button class="btn btn-secondary" (click)="endSession()">Finish</button>
       </div>
 
       @if (cameraActive()) {
@@ -138,15 +134,15 @@
                   aria-label="Wide scan — landscape viewfinder for wide sheets">
             <span [innerHTML]="'expand' | ico"></span>
           </button>
-          @if (scanError()) {
-            <div class="camera-error" role="alert">
-              <span class="camera-error-ico" [innerHTML]="'alert' | ico"></span>
-              <span>{{ scanError() }}</span>
-            </div>
-          }
           <div class="camera-status" role="status" aria-live="polite">{{ liveText() }}</div>
         </div>
-        <p class="faint center camera-hint">Hold the whole sheet in the frame — it scans by itself. Far away or small on screen? Tap 2×.</p>
+        @if (scanError()) {
+          <div class="camera-error" role="alert">
+            <span class="camera-error-ico" [innerHTML]="'alert' | ico"></span>
+            <span>{{ scanError() }}</span>
+          </div>
+        }
+        <p class="faint center camera-hint">Hold the whole page inside the frame — all four black corner squares must be visible. Move back until they fit; the sheet can be small.</p>
         <button class="btn btn-secondary gen-btn" (click)="captureFromCamera()"><span [innerHTML]="'camera' | ico"></span> Capture now</button>
         <button class="btn btn-secondary gen-btn" style="margin-top:0" (click)="closeCamera()">Close camera</button>
       } @else {
@@ -154,7 +150,7 @@
       }
       <label class="btn btn-secondary file-btn">
         <span [innerHTML]="'upload' | ico"></span> Check from photo
-        <input type="file" accept="image/*" capture="environment" (change)="onPhoto($event)" hidden />
+        <input type="file" accept="image/*" (change)="onPhoto($event)" hidden />
       </label>
 
       @if (scanError() && !cameraActive()) {
