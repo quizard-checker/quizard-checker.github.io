@@ -4,6 +4,7 @@ import { IonContent } from '@ionic/angular';
 import { listClasses, saveClass, deleteClass, getActiveAccountId, getAccount } from '../../core/engine/storage.js';
 import { parseRoster } from '../../core/engine/roster.js';
 import { readClassFile } from '../../core/engine/class-file.js';
+import { findDuplicateClass } from '../../core/engine/class-identity.js';
 import { bannerTheme, bannerAvatar, currentSchoolYearStart, normalizeGrade, parseSchoolYear, schoolYearLabel, schoolYearOptions } from '../../shared/helpers.js';
 import { icon } from '../../shared/icons.js';
 import { IcoPipe } from '../../shared/ico.pipe';
@@ -53,6 +54,12 @@ export class ClassesPage {
     const gradeSection = [this.grade().trim(), this.section().trim()].filter(Boolean).join('-');
     return [subject, gradeSection].filter(Boolean).join(' ') || 'Class';
   });
+  readonly duplicateClass = computed(() => findDuplicateClass({
+    subject: this.subject(),
+    grade: this.grade(),
+    section: this.section(),
+    schoolYear: parseSchoolYear(this.schoolYear()),
+  }, this.classes(), this.editingId()));
   readonly schoolYears = computed(() =>
     schoolYearOptions(this.yearAnchor(), this.schoolYear()));
   // The current school year's classes lead; archived ones keep their history
@@ -166,7 +173,12 @@ export class ClassesPage {
     }
     const name = this.className();
     if (!schoolYear) {
-      this.toast.toast('Choose a school year — e.g. 2026-2027', true);
+      this.toast.toast('Choose a school year - e.g. 2026-2027', true);
+      return;
+    }
+    const duplicate = this.duplicateClass();
+    if (duplicate) {
+      this.toast.toast(`${duplicate.name} already exists for ${duplicate.schoolYear}`, true);
       return;
     }
     const prev = this.classes().find(c => c.id === this.editingId());

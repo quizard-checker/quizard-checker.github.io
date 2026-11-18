@@ -147,6 +147,12 @@
             <input class="text-input" placeholder="Grade (e.g. 8)" [attr.aria-label]="'Grade'" aria-required="true" inputmode="numeric" pattern="[0-9]*" maxlength="2" [value]="grade()" (input)="setGrade($any($event.target).value)" />
             <input class="text-input" placeholder="Section (e.g. A)" [attr.aria-label]="'Section'" aria-required="true" maxlength="30" [value]="section()" (input)="section.set($any($event.target).value)" />
           </div>
+          @if (duplicateClass(); as dup) {
+            <p class="dup-class" role="alert">
+              {{ dup.name }} already exists for {{ dup.schoolYear }}.
+              @if (dup.archived) { Restore it from Archived classes instead. } @else { Use a different subject or section. }
+            </p>
+          }
           <p class="sheet-label">Students <span class="faint">· one name per line</span></p>
           <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Reyes, Miguel" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
           <div class="file-actions">
@@ -170,7 +176,7 @@
           }
           <div class="org-sheet-actions">
             <button class="btn btn-secondary" (click)="closeSheet()">Cancel</button>
-            <button class="btn btn-primary" [disabled]="!hasTitle() || !schoolYear().trim() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
+            <button class="btn btn-primary" [disabled]="!hasTitle() || !schoolYear().trim() || !!duplicateClass() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
           </div>
         </div>
       </div>
