@@ -60,6 +60,7 @@ window.renderSheet = async (profile) => {
 
   for (const half of [0, 1]) {
     const f = spec.pinFrameRect(half)
+    const itemCount = Math.min(50, profile.answers.length)
     ctx.fillStyle = INK
     for (const m of spec.pinMarkerRects(half)) ctx.fillRect(px(m.x), px(m.y), px(m.w), px(m.h))
 
@@ -86,6 +87,7 @@ window.renderSheet = async (profile) => {
 
     // column headers: 5pt black square + A B C D over every sub-column
     for (let c = 0; c < 5; c++) {
+      if (c * 10 >= itemCount) continue
       ctx.fillStyle = INK
       ctx.fillRect(px(spec.pinItemColX(half, c) - 1), px(f.y + P.rowY0 - 20), px(5), px(5))
       for (let b = 0; b < P.letters.length; b++) {
@@ -104,6 +106,7 @@ window.renderSheet = async (profile) => {
       }
       for (let c = 0; c < 5; c++) {
         const item = c * 10 + r
+        if (item >= itemCount) continue
         text(String(item + 1), spec.pinRowLabelRight(half, c), spec.pinItemRowY(half, r) + 2, 6, GRAY, 'right')
         for (let b = 0; b < P.letters.length; b++) {
           const bc = spec.pinItemCenter(item, b, half)
@@ -114,7 +117,7 @@ window.renderSheet = async (profile) => {
     }
 
     // shaded answers ('double' = two letters shaded -> MULTI flag)
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < itemCount; i++) {
       const a = profile.answers[i]
       if (a === 'double') {
         const c1 = spec.pinItemCenter(i, profile.key[i], half)
@@ -146,7 +149,6 @@ window.renderSheet = async (profile) => {
 
     rect(f.x + 266, footY, 204, footH, { stroke: '#9ca3af', lw: 0.6 })
     text('Score', f.x + 272, footY + 15, 10.5, DARK, 'left', false, true)
-    text('/50', f.x + 368, footY + 80, 36, DARK, 'center', false, true)
 
     // QR (stable QZD2 demo payload) + footer
     const qr = spec.pinQrRect(half)

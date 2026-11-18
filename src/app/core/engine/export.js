@@ -358,6 +358,10 @@ export async function exportBubbleSheets(quiz, students, size = 'letter') {
 function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   const f = pinFrameRect(half)
   const P = PIN_SHEET
+  // Keep the fixed 50-position form, but only print numbers and bubbles for
+  // the questions this quiz actually has. The scanner still samples all 50
+  // positions; unprinted rows simply read BLANK and scoring stops at items.length.
+  const itemCount = Math.max(0, Math.min(PIN_ITEMS, Array.isArray(quiz?.items) ? quiz.items.length : PIN_ITEMS))
 
   // corner alignment squares — the scanner's homography is built from these.
   // No printed border: it is optional with a QR and often prints faint/clipped.
@@ -400,6 +404,7 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
     pdf.rect(box.x, box.y, box.w, box.h, 'S')
   }
   for (let c = 0; c < 5; c++) {
+    if (c * 10 >= itemCount) continue
     const sq = 5
     pdf.setFillColor('#0b0820')
     pdf.rect(pinItemColX(half, c) - 1, f.y + P.rowY0 - 20, sq, sq, 'F')
@@ -424,6 +429,7 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
     }
     for (let c = 0; c < 5; c++) {
       const item = c * 10 + r
+      if (item >= itemCount) continue
       pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.setTextColor('#6b7280')
       pdf.text(String(item + 1), pinRowLabelRight(half, c), pinItemRowY(half, r) + 2, { align: 'right' })
       for (let b = 0; b < P.letters.length; b++) {
@@ -457,8 +463,6 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   pdf.rect(f.x + 266, footY, 204, footH, 'S')
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor('#1c2438')
   pdf.text('Score', f.x + 272, footY + 15)
-  pdf.setFontSize(36)
-  pdf.text('/50', f.x + 368, footY + 80, { align: 'center' })
 
   // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
   const qr = pinQrRect(half)
@@ -499,6 +503,7 @@ function drawPinHalfV3(pdf, quiz, half, className, qrPayload) {
   const contentW = P.content.w
   const rowH = 18
   const labelW = 36
+  const itemCount = Math.max(0, Math.min(PIN_ITEMS, Array.isArray(quiz?.items) ? quiz.items.length : PIN_ITEMS))
 
   // 10 mm anchors, no printed border.
   pdf.setFillColor('#0b0820')
@@ -552,6 +557,7 @@ function drawPinHalfV3(pdf, quiz, half, className, qrPayload) {
   // Distinct horizontal bars above item columns; no extra square anchors.
   pdf.setFillColor('#0b0820')
   for (let c = 0; c < 5; c++) {
+    if (c * 10 >= itemCount) continue
     pdf.rect(P.itemX0 + c * P.itemDx + 6, y(P.itemRowY0 - 12), 18, 4, 'F')
     pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
     for (let b = 0; b < 4; b++) {
@@ -563,6 +569,7 @@ function drawPinHalfV3(pdf, quiz, half, className, qrPayload) {
   for (let r = 0; r < 10; r++) {
     for (let c = 0; c < 5; c++) {
       const item = c * 10 + r
+      if (item >= itemCount) continue
       pdf.setFont('helvetica', 'normal'); pdf.setFontSize(5.5); pdf.setTextColor('#6b7280')
       pdf.text(String(item + 1), P.itemX0 + c * P.itemDx - 2, y(P.itemRowY0 + r * P.itemPitch - 5), { align: 'right' })
       for (let b = 0; b < 4; b++) {
