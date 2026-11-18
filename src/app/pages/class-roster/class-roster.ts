@@ -251,8 +251,14 @@ export class ClassRosterPage {
   async printPinList() {
     const cls = this.cls();
     if (!cls) return;
-    await exportPinListPdf(cls);
-    this.toast.toast('PIN list saved — hand each student their PIN');
+    try {
+      await exportPinListPdf(cls);
+      this.toast.toast('PIN list exported — hand each student their PIN');
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (/cancel/i.test(msg)) return;
+      this.toast.toast('Could not export the PIN list' + (msg ? ' — ' + msg : ''), true);
+    }
   }
 
   openQuiz(id: string) {

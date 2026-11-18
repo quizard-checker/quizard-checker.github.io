@@ -614,23 +614,70 @@ export async function exportPinSheets(quiz, students, size = 'long', version = '
   pdf.save(`quizard-pin-sheets-${slug(quiz.subject || quiz.title)}-${version}.pdf`)
 }
 
-/**
- * The PIN list as CSV data — one row per student (No, Name, PIN). Teachers
- * open it in Excel or share it straight to a group chat; the sheet PDFs stay
- * the printed artifact, the list is the record.
- * @param {{ name?: string, schoolYear?: string, students?: Array<{ no?: number, name?: string, pin?: string }> }} cls
- * @returns {{ filename: string, csv: string }}
- */
-export function pinListCsv(cls) {
+export async function buildPinListPdf(cls) {
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ unit: 'pt', format: PAPER.letter })
   const students = [...(cls?.students || [])].sort((a, b) => (a.no || 0) - (b.no || 0))
-  const cell = (v) => {
-    const t = String(v ?? '')
-    return /[",\n]/.test(t) ? '"' + t.split('"').join('""') + '"' : t
+
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.setTextColor('#1c2438')
+  pdf.text('Student PIN list', 48, 56)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor('#6b7280')
+  const meta = [cls?.name, cls?.schoolYear].filter(Boolean).join(' · ')
+  pdf.text(pdfSafe(meta), 48, 74)
+  pdf.setFontSize(8); pdf.setTextColor('#9ca3af')
+  pdf.text('Students write this PIN (and shade its digits) on every PIN answer sheet.', 48, 90)
+
+  const y0 = 116
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor('#1c2438')
+  pdf.text('No', 48, y0); pdf.text('Student name', 88, y0); pdf.text('PIN', 420, y0)
+  pdf.setDrawColor('#d1d5db'); pdf.setLineWidth(0.7)
+  pdf.line(48, y0 + 5, 480, y0 + 5)
+
+  let y = y0 + 20
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10)
+  for (const st of students) {
+    pdf.setTextColor('#1c2438')
+    pdf.text(String(st.no ?? ''), 48, y)
+    const name = pdfSafe(st.name)
+    pdf.text(name, 88, y)
+    pdf.setFont('courier', 'bold')
+    pdf.text(st.pin || '—', 420, y)
+    pdf.setFont('helvetica', 'normal')
+    y += 22
+    if (y > 760) { pdf.addPage(); y = 60 }
   }
-  const rows = ['No,Name,PIN']
-  students.forEach((st, i) => rows.push([`=${st.no ?? i + 1}`, cell(st.name), cell(st.pin || '')].join(',')))
-  return {
-    filename: `quizard-pin-list-${slug(cls?.name || '')}.csv`,
-    csv: rows.join('\n') + '\n',
+  if (!students.length) {
+    pdf.setFontSize(10); pdf.setTextColor('#6b7280')
+    pdf.text('No students on this roster yet.', 48, y)
   }
+  return pdf
+}
+
+export async function exportPinListPdf(cls) {
+  const pdf = await buildPinListPdf(cls)
+  const filename = `quizard-pin-list-${slug(cls?.name || '')}.pdf`
+  const { Capacitor } = await import('@capacitor/core')
+  if (!Capacitor.isNativePlatform()) {
+    pdf.save(filename)
+    return
+  }
+  // The Android WebView cannot download a blob: write the PDF to the app
+  // cache and open the system share sheet — save to Files, send to a
+  // printer, or forward it to the class group chat.
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+  const { Share } = await import('@capacitor/share')
+  const dataUri = pdf.output('datauristring')
+  const data = dataUri.slice(dataUri.indexOf(',') + 1)
+  const file = await Filesystem.writeFile({
+    path: filename,
+    data,
+    directory: Directory.Cache,
+    recursive: true,
+  })
+  await Share.share({
+    title: 'PIN list',
+    text: filename,
+    files: [file.uri],
+    dialogTitle: 'Save or print the PIN list',
+  })
 }

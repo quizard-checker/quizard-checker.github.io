@@ -1,11 +1,11 @@
-import { Component, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { IonContent } from '@ionic/angular';
 import {
-  exportAll, importAll, clearAllData, storageUsage, saveSettings, loadSettings,
-  listDocs, listAccounts, getAccount, deleteAccount, setActiveAccount,
+  clearAllData, saveSettings, loadSettings,
+  listAccounts, getAccount, deleteAccount, setActiveAccount,
   getActiveAccountId, accountHasData
 } from '../../core/engine/storage.js';
 import { IcoPipe } from '../../shared/ico.pipe';
@@ -15,20 +15,8 @@ import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { GuideService } from '../../core/services/guide.service';
-import { encryptBackup, decryptBackup } from '../../core/engine/crypto-backup.js';
 import { hashPin, verifyPin, updateAccount, deleteDemoData } from '../../core/engine/storage.js';
 import { seedDemoData, demoSummary } from '../../core/engine/demo.js';
-
-const BACKUP_NUDGE_MS = 30 * 24 * 60 * 60 * 1000;
-
-function formatBytes(n: number): string {
-  if (!Number.isFinite(n) || n < 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let v = n;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return `${i === 0 || v >= 10 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
-}
 
 @Component({
   selector: 'app-settings',
@@ -56,22 +44,15 @@ export class SettingsPage implements OnInit {
   switchSwitching = signal<any | null>(null);
   switchPin = '';
 
-  @ViewChild('importInput') importInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('encImportInput') encImportInput?: ElementRef<HTMLInputElement>;
-
   // reactive settings state: the switches bind through this signal so every
   // toggle visibly flips (plain-object mutation doesn't re-render zoneless)
   private sSig = signal<any>(loadSettings());
   get s(): any { return this.sSig(); }
   private refreshSettings() { this.sSig.set(loadSettings()); }
-  lastBackup = this.s.lastBackupAt || null;
-  docCount = 0;
   accounts: any[] = [];
   account: any = null;
-  usageLine = signal('');
 
-  get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
-  get version() { return '2.5.4'; }
+  get version() { return '2.5.5'; }
   get theme() { return this.ui.theme; }
 
   // ── Rename profile ──
@@ -164,17 +145,7 @@ export class SettingsPage implements OnInit {
   }
 
   async ngOnInit() {
-    this.docCount = (await listDocs()).length;
     await this.renderAccountSection();
-    try {
-      const usage = await storageUsage();
-      const when = this.lastBackup
-        ? new Date(this.lastBackup).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-        : 'never';
-      const bytes = usage?.usage;
-      const used = typeof bytes === 'number' ? ' · ' + formatBytes(bytes) + ' used on this device' : '';
-      this.usageLine.set(`Last backup: ${when}${used}`);
-    } catch { /* usage optional */ }
   }
 
   private async renderAccountSection() {
@@ -317,80 +288,10 @@ export class SettingsPage implements OnInit {
     }
   }
 
-  private downloadJson(data: any, suffix: string) {
-    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const d = new Date();
-    a.href = url;
-    a.download = `quizard-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}${suffix}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  }
-
-  async exportBackup() {
-    try {
-      this.downloadJson(await exportAll(), '');
-      this.toast.toast('Backup downloaded ✓');
-      this.lastBackup = Date.now();
-      saveSettings({ lastBackupAt: this.lastBackup }); this.refreshSettings();
-      try { this.usageLine.set(`Last backup: ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`); } catch {}
-    } catch (err: any) { this.toast.toast('Export failed: ' + err.message, true); }
-  }
-
-  onImportPicked(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    const fr = new FileReader();
-    fr.onload = async () => {
-      try {
-        await importAll(JSON.parse(fr.result as string));
-        this.toast.toast('Backup restored ✓');
-      } catch (err: any) { this.toast.toast('Import failed: ' + (err?.message || 'invalid file'), true); }
-    };
-    fr.readAsText(file);
-  }
-
-  async exportEncrypted() {
-    const passphrase = window.prompt('Choose a passphrase for this backup (required):');
-    if (!passphrase) return;
-    try {
-      const data = await exportAll();
-      const encrypted = await encryptBackup(data, passphrase);
-      this.downloadJson(encrypted, '.encrypted');
-      this.toast.toast('Encrypted backup downloaded ✓');
-      this.lastBackup = Date.now();
-      saveSettings({ lastBackupAt: this.lastBackup }); this.refreshSettings();
-    } catch (err: any) { this.toast.toast('Encryption failed: ' + (err?.message || ''), true); }
-  }
-
-  onEncImportPicked(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    const passphrase = window.prompt('Passphrase for this backup:');
-    if (!passphrase) return;
-    const fr = new FileReader();
-    fr.onload = async () => {
-      try {
-        const data = await decryptBackup(JSON.parse(fr.result as string), passphrase);
-        await importAll(data);
-        this.toast.toast('Encrypted backup restored ✓');
-      } catch { this.toast.toast('Wrong passphrase or corrupted file', true); }
-    };
-    fr.readAsText(file);
-  }
-
   async eraseAll() {
     if (!await this.confirm.confirm('Erase everything?', 'All documents, quizzes, history and mistakes will be permanently deleted.', 'Erase')) return;
     await clearAllData();
     this.toast.toast('All data erased');
-    this.docCount = 0;
     // the accounts store is gone too — drop the stale profile from the UI
     this.ui.account.set(null);
     this.account = null;
