@@ -31,17 +31,27 @@ export class WelcomePage implements OnInit, OnDestroy {
   // picker — PIN enforcement lives there.
   private launchTo: '/accounts' | '/tabs/classes' = '/accounts';
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private safety: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private router: Router) {}
 
   ngOnInit() {
+    // A slow IndexedDB read or a failed route load must never strand the
+    // splash. After six seconds, fall through to the profile picker.
+    this.safety = setTimeout(() => {
+      if (this.exiting) return;
+      this.launchTo = '/accounts';
+      this.advance();
+    }, 6000);
     this.decideLaunch().then(({ splash, to }) => {
+      if (this.exiting) return;
       this.launchTo = to;
       if (!splash) {
         // straight-into-the-app (skip intro) or straight-to-the-gate (PIN):
         // no splash
         this.exiting = true;
-        this.router.navigateByUrl(to);
+        this.clearSafety();
+        this.goToLaunch();
         return;
       }
       this.timer = setTimeout(() => this.advance(), 2050);
@@ -73,13 +83,34 @@ export class WelcomePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.timer) clearTimeout(this.timer);
+    this.clearSafety();
   }
 
   advance() {
     if (this.exiting) return;
     this.exiting = true;
     if (this.timer) clearTimeout(this.timer);
+    this.clearSafety();
     // play the "poof" exit before handing over
-    setTimeout(() => this.router.navigateByUrl(this.launchTo), 430);
+    setTimeout(() => this.goToLaunch(), 430);
+  }
+
+  private clearSafety() {
+    if (this.safety) clearTimeout(this.safety);
+    this.safety = null;
+  }
+
+  private goToLaunch(attempt = 0) {
+    this.router.navigateByUrl(this.launchTo).then(ok => {
+      if (!ok) this.retryLaunch(attempt);
+    }).catch(() => this.retryLaunch(attempt));
+  }
+
+  private retryLaunch(attempt: number) {
+    if (attempt >= 2) {
+      window.location.assign(this.launchTo);
+      return;
+    }
+    setTimeout(() => this.goToLaunch(attempt + 1), 800);
   }
 }

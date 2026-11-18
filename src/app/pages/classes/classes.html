@@ -89,7 +89,7 @@
       <div class="org-overlay" (click)="closeSheet()">
         <div class="org-sheet" (click)="$event.stopPropagation()">
           <h3>{{ editingId() ? 'Edit class' : 'Add class' }}</h3>
-          <input class="text-input" placeholder="Subject (optional — e.g. Science)" [attr.aria-label]="'Class subject'" maxlength="40" [value]="subject()" (input)="subject.set($any($event.target).value)" />
+          <input class="text-input" placeholder="Subject (e.g. Science)" [attr.aria-label]="'Class subject'" aria-required="true" maxlength="40" [value]="subject()" (input)="subject.set($any($event.target).value)" />
           <p class="sheet-label">School year</p>
           <div class="year-row">
             <select class="text-input year-select" [attr.aria-label]="'School year'" [value]="schoolYear()" (change)="setSchoolYear($any($event.target).value)">
@@ -108,21 +108,18 @@
             </div>
           }
           <div class="form-row">
-            <input class="text-input" placeholder="Grade (optional)" [attr.aria-label]="'Grade'" inputmode="numeric" pattern="[0-9]*" maxlength="2" [value]="grade()" (input)="setGrade($any($event.target).value)" />
-            <input class="text-input" placeholder="Section (optional)" [attr.aria-label]="'Section'" maxlength="30" [value]="section()" (input)="section.set($any($event.target).value)" />
+            <input class="text-input" placeholder="Grade (e.g. 8)" [attr.aria-label]="'Grade'" aria-required="true" inputmode="numeric" pattern="[0-9]*" maxlength="2" [value]="grade()" (input)="setGrade($any($event.target).value)" />
+            <input class="text-input" placeholder="Section (e.g. A)" [attr.aria-label]="'Section'" aria-required="true" maxlength="30" [value]="section()" (input)="section.set($any($event.target).value)" />
           </div>
           <p class="sheet-label">Students <span class="faint">· one name per line</span></p>
           <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Reyes, Miguel" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
           <div class="file-actions">
-            <button class="btn btn-secondary file-btn" type="button" (click)="downloadTemplate()">
-              <span [innerHTML]="'download' | ico"></span> Download template
-            </button>
             <label class="btn btn-secondary file-btn">
               <span [innerHTML]="'upload' | ico"></span> Upload Excel / CSV
               <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" (change)="onFile($event)" hidden />
             </label>
           </div>
-          <p class="file-hint">The Excel template fills in the class details and student names.</p>
+          <p class="file-hint">Upload an Excel/CSV file with student names — one per row.</p>
           @if (paste().trim()) {
             <p class="parse-note">
               {{ previewCount() }} student{{ previewCount() === 1 ? '' : 's' }} detected

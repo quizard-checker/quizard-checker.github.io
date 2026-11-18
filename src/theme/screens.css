@@ -155,6 +155,12 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .cls-sub { font-size: 12.5px; font-weight: 500; margin-top: 4px; opacity: 0.9; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.cls-meta {
+  display: flex; align-items: center; gap: 6px; margin-top: 4px;
+  font-size: 11.5px; font-weight: 700; color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.cls-meta .dot { opacity: 0.45; }
 .cls-avatar {
   /* fully inside the banner band — straddling the edge left the bottom half
      hidden under the card body, reading as a cut-off circle */
@@ -191,9 +197,10 @@
 }
 /* Compact class tile: name, school year, students, quizzes. */
 .cls-card.compact .cls-banner {
-  height: auto; min-height: 68px; padding: 18px;
-  display: flex; align-items: center;
+  height: auto; min-height: 78px; padding: 18px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
 }
+.cls-card.compact .cls-title { max-width: 100%; }
 .cls-card.compact .cls-body { padding: 14px 18px 12px; gap: 8px; }
 .class-grid .cls-card.compact { contain-intrinsic-size: auto 190px; }
 .cls-stat { display: inline-flex; align-items: baseline; gap: 5px; }
@@ -2048,9 +2055,8 @@ html[data-theme='dark'] .srs-good { color: var(--accent); }
 .sheet-label .faint { text-transform: none; letter-spacing: 0; font-weight: 600; }
 textarea.roster-paste { height: auto; min-height: 150px; resize: vertical; line-height: 1.5; font-size: 13px; }
 .file-btn { position: relative; overflow: hidden; justify-content: center; margin-top: 10px; margin-bottom: 10px; }
-/* Class sheet: template download and upload sit side by side, with a short
-   line underneath explaining why the template exists. */
-.file-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 0; }
+/* Class sheet: upload is the only file action, so it spans the full row. */
+.file-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 10px 0 0; }
 .file-actions .file-btn { margin: 0; padding-left: 8px; padding-right: 8px; font-size: 12px; }
 .file-hint { font-size: 11px; line-height: 1.4; color: var(--text-dim); margin: 7px 2px 0; text-align: center; }
 @media (max-width: 360px) {
@@ -2060,6 +2066,17 @@ textarea.roster-paste { height: auto; min-height: 150px; resize: vertical; line-
 /* The saved-key picker sits directly above the paste box in key mode; without
    this the select and textarea touch. */
 .key-select { margin-bottom: 10px; }
+.class-subject-note { margin: 6px 2px 10px; font-size: 11.5px; color: var(--text-dim); }
+.class-subject-note b { color: var(--text); font-weight: 700; }
+.key-mode { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+.key-mode button {
+  flex: 1 1 0; min-height: 34px; padding: 0 10px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--surface); color: var(--text-dim);
+  font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.key-mode button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.key-mode button:active { transform: scale(0.98); }
+.key-error { margin-top: 8px; text-align: left; }
 /* Demo controls: side by side on wide screens, stacked on phones so
    "Load demo data" is never clipped by its own button. */
 .demo-actions { display: flex; gap: 10px; }
@@ -2350,7 +2367,17 @@ html[data-theme='dark'] .cq-body .key-chip.graded {
   background: var(--surface-2); border: 1px solid var(--border);
   padding: 3px 9px; border-radius: 999px;
 }
-.akey-chev { margin-left: auto; display: inline-flex; color: var(--text-faint); transition: transform .18s ease; }
+.akey-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.akey-edit {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border-strong); background: var(--surface-2);
+  color: var(--accent-strong); border-radius: 999px;
+  padding: 4px 9px; font: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
+}
+.akey-edit svg { width: 13px; height: 13px; }
+.akey-edit:active { transform: scale(0.97); }
+.akey-chev { margin-left: 0; display: inline-flex; color: var(--text-faint); transition: transform .18s ease; }
 .akey-chev svg { width: 16px; height: 16px; }
 .akey-collapse[open] .akey-chev svg { transform: rotate(180deg); }
 .akey-body { padding: 12px 16px 14px; border-top: 1px solid var(--border); }
@@ -2812,6 +2839,15 @@ button.quiz-avg-row.on { border-color: var(--accent); background: var(--accent-s
 }
 .acc-create:hover { background: var(--accent-soft); border-color: var(--accent); }
 .acc-create svg { width: 16px; height: 16px; }
+.acc-remove {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 40px; margin-top: 2px; padding: 8px 14px;
+  background: transparent; border: 1px solid transparent; border-radius: 999px;
+  color: var(--bad); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+.acc-remove:hover { background: var(--bad-bg); border-color: var(--bad-border); }
+.acc-remove svg { width: 15px; height: 15px; }
 @keyframes accRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .acc-row { animation: none; } }
 .acc-foot { font-size: 12px; color: var(--text-faint); }
@@ -3400,6 +3436,32 @@ button.roster-row.on { background: var(--accent-soft); }
 .switch-pin { border-top: 1px solid var(--border); padding-top: 14px; }
 .switch-hint { margin: 0 0 8px; font-size: 12.5px; color: var(--text-dim); }
 .switch-msg { margin: 7px 2px 0; font-size: 12px; color: var(--bad); }
+
+/* Remove-account sheet: choose a profile, then confirm inside the sheet. */
+.remove-sheet .remove-lead { margin: 6px 0 12px; font-size: 12px; line-height: 1.5; }
+.remove-warn-head { display: flex; align-items: center; gap: 10px; }
+.remove-warn-head h3 { margin: 0; }
+.remove-ico {
+  width: 36px; height: 36px; flex: none; display: grid; place-items: center;
+  border-radius: 50%; background: var(--bad-bg); color: var(--bad);
+}
+.remove-ico svg { width: 19px; height: 19px; }
+.remove-confirm { margin: 12px 0 0; font-size: 15px; line-height: 1.45; color: var(--text); }
+.remove-confirm b { font-weight: 800; }
+.remove-empty { margin: 4px 0 0; font-size: 12px; }
+.remove-sheet .switch-list { margin-top: 2px; }
+.remove-sheet .switch-lock { color: var(--bad); }
+.remove-sheet .org-sheet-actions { flex-direction: column; }
+.remove-switching { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 8px 10px; text-align: center; }
+.remove-switching b { font-size: 14px; }
+.remove-switching .faint { font-size: 11.5px; }
+.remove-spin { position: relative; width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 4px; }
+.remove-spin .acc-avatar { animation: switchPop 0.45s ease-out both; }
+.remove-spin-ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--bad); border-right-color: var(--bad); animation: switchSpin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .remove-spin .acc-avatar { animation: none; }
+  .remove-spin-ring { animation: none; border-color: var(--border-strong); border-top-color: var(--bad); }
+}
 .switch-switching { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 8px 10px; text-align: center; }
 .switch-switching b { font-size: 14px; }
 .switch-switching .faint { font-size: 11.5px; }

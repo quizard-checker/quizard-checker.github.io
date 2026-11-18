@@ -7,8 +7,10 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { parseKeyText } from '../../core/engine/answerkey.js';
+import { validateKey } from '../../core/engine/key-validate.js';
 import { xlsxToRows, parseCsv, rowsToKeyText } from '../../core/engine/keysheet.js';
 import { generateTeacherQuiz, MAX_ITEMS } from '../../core/engine/teacher-quiz.js';
+import { normalizeQuizItems } from '../../core/engine/quiz-items.js';
 import { listClasses, listKeys, listQuizzes, listSheets, saveQuiz, getQuiz, duplicateQuiz, saveClass } from '../../core/engine/storage.js';
 import { bannerTheme } from '../../shared/helpers.js';
 import { buildPinSheetsPdf } from '../../core/engine/export.js';
@@ -66,6 +68,7 @@ export class CreatePage {
   subject = signal('');
   title = signal('');
   keyPaste = signal('');
+  keyMode = signal<'mcq' | 'letters' | 'answers'>('mcq');
   pickedKeyId = signal<string | null>(null);
   keyPickOpen = signal(false);
   savedKeys = signal<any[]>([]);
@@ -86,6 +89,15 @@ export class CreatePage {
       complete: p.items.filter((i: any) => i.answerIndex >= 0).length,
     };
   });
+  readonly keyCheck = computed(() =>
+    validateKey(this.keyPreview(), this.keyMode(), this.keyPaste()));
+  readonly keyPlaceholder = computed(() => {
+    if (this.keyMode() === 'letters') return 'Paste the answer letters only — for example 1.B 2.C 3.A.';
+    if (this.keyMode() === 'answers') {
+      return 'Paste numbered answers, one per line:\n1. Photosynthesis\n2. Water and air\n\nOr: 1. What do plants use for food? → Photosynthesis';
+    }
+    return '1. What do plants use for food?\nA. Sunlight\nB. Water and air\nC. Soil\nD. Rocks\nAnswer: B';
+  });
   readonly pickedKey = computed(() => this.savedKeys().find(k => k.id === this.pickedKeyId()) || null);
   readonly keySource = computed(() => this.pickedKey() ?? (this.keyPaste().trim() ? this.keyPreview() : null));
   // A key saved before the "Answer: A. <text>" parser fix carries questions
@@ -98,7 +110,7 @@ export class CreatePage {
   readonly canGenerate = computed(() => {
     if (this.generating()) return false;
     if (!this.quizClassId()) return false;
-    if (!this.subject().trim()) return false;
+    if (!this.pickedKeyId() && this.keyPaste().trim() && !this.keyCheck().ok) return false;
     return !!this.keySource() && !!this.keySource().items.length;
   });
   // The disabled Generate button used to be a dead end. Spell out what is
@@ -106,8 +118,8 @@ export class CreatePage {
   readonly generateNeeds = computed(() => {
     const needs: string[] = [];
     if (!this.quizClassId()) needs.push('a class');
-    if (!this.subject().trim()) needs.push('a subject');
     if (!this.keySource()?.items?.length) needs.push('an answer key or a saved key');
+    else if (!this.pickedKeyId() && this.keyPaste().trim() && !this.keyCheck().ok) needs.push('a valid answer key');
     return needs;
   });
   readonly generateNeedText = computed(() => {
@@ -164,20 +176,15 @@ export class CreatePage {
 
   pickClass(c: any) {
     if (!c) return;
-    const prevSubject = String(this.quizClass()?.subject || '').trim();
-    const currentSubject = this.subject().trim();
-    const nextSubject = String(c.subject || '').trim();
-    // Fill the subject from the class unless the teacher typed something of
-    // their own (or it still matches the previous class).
-    if (!currentSubject || currentSubject === prevSubject) this.subject.set(nextSubject);
+    // The class already owns its subject, so the quiz inherits it instead of
+    // asking the teacher to pick the same thing twice.
+    const subject = String(c.subject || '').trim();
+    this.subject.set(subject);
+    if (!this.title().trim()) this.title.set(`${subject || c.name || 'Quiz'} quiz`);
     this.quizClassId.set(c.id);
     this.quizClassNameSnap.set(c.name || '');
     this.classPickOpen.set(false);
   }
-
-  // subjects the teacher actually uses on classes — quick-fill chips in setup
-  readonly knownSubjects = computed(() =>
-    [...new Set(this.classList().map(c => c.subject).filter(Boolean))]);
 
   // Setup section numbering is static now: the key step is 1, details 2.
   // 1..5 numbers kept dead steps between live ones — the main reason the form
@@ -235,6 +242,7 @@ export class CreatePage {
       this.pickClass(this.assignableClasses()[0]);
     }
     if (!this.subject().trim() && this.quizClass()?.subject) this.subject.set(this.quizClass()?.subject || '');
+    if (!this.title().trim() && this.subject().trim()) this.title.set(`${this.subject().trim()} quiz`);
   }
 
   // Arriving from the Keys tab's "Build a quiz" button: open the setup form in
@@ -251,8 +259,13 @@ export class CreatePage {
   }
 
   pickKey(id: string | null) {
+    const key = id ? this.savedKeys().find(k => k.id === id) : null;
     this.pickedKeyId.set(id);
     this.keyPaste.set('');
+    if (key && !this.title().trim()) {
+      const title = String(key.subject || key.title || '').trim();
+      if (title) this.title.set(title);
+    }
     this.keyPickOpen.set(false);
   }
   // Excel/CSV answer-key import. The sheet layout teachers hand over is one
@@ -274,8 +287,17 @@ export class CreatePage {
         if (!out.count) {
           this.toast.toast('No question rows found — each row needs: question, choices A–D, answer', true);
         } else {
-          this.keyPaste.set(this.keyPaste().trim() ? this.keyPaste().trimEnd() + '\n\n' + out.text : out.text);
-          this.toast.toast(`${out.count} question${out.count === 1 ? '' : 's'} imported from ${file.name}${out.skipped ? ` · ${out.skipped} skipped` : ''}`);
+          const next = this.keyPaste().trim()
+            ? this.keyPaste().trimEnd() + '\n\n' + out.text
+            : out.text;
+          const check = validateKey(parseKeyText(next), 'mcq', next);
+          if (!check.ok) {
+            this.toast.toast(`${file.name} was not imported — ${check.message}`, true);
+          } else {
+            this.keyMode.set('mcq');
+            this.keyPaste.set(next);
+            this.toast.toast(`${out.count} question${out.count === 1 ? '' : 's'} imported from ${file.name}${out.skipped ? ` · ${out.skipped} skipped` : ''}`);
+          }
         }
       } catch (e: any) {
         this.toast.toast(e?.message || 'Could not read that file', true);
@@ -293,11 +315,11 @@ export class CreatePage {
       // need question text or options land as placeholders the teacher
       // completes by hand in the review editor.
       const keyItems = this.keySource()?.items || [];
-      const items = await generateTeacherQuiz({
+      const items = normalizeQuizItems(await generateTeacherQuiz({
         mode: 'key', keyItems,
         count: keyItems.length || MAX_ITEMS,
-        subject: this.subject().trim(),
-      });
+        subject: String(this.quizClass()?.subject || this.subject() || '').trim(),
+      }));
       this.items.set(items.map((it: any, i: number) => ({ ...it, n: i + 1 })));
       this.stage.set('review');
     } catch (e: any) {
@@ -341,10 +363,12 @@ export class CreatePage {
     // An id means we're editing a saved quiz (from its detail page) — update
     // that same record instead of stacking a duplicate.
     const editing = !!this.quizId();
+    const subject = String(qc.subject || '').trim();
+    const title = this.title().trim() || `${subject || qc.name || 'Quiz'} quiz`;
     const quiz = await saveQuiz({
       id: this.quizId() || undefined,
-      subject: this.subject().trim(),
-      title: this.title().trim(),
+      subject,
+      title,
       classId: qc.id,
       className: qc.name,
       source: this.editingSource || 'key',

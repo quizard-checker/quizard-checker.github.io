@@ -166,23 +166,11 @@
   </div>
 
   @if (removePickerOpen()) {
-    <div class="org-overlay" (click)="removePickerOpen.set(false)">
-      <div class="org-sheet" (click)="$event.stopPropagation()">
-        <h3>Remove a profile</h3>
-        <p class="faint" style="font-size:12px;margin:4px 0 10px">Only the other profiles on this device can be removed. Their data is deleted permanently.</p>
-        <div class="picker-list">
-          @for (a of otherAccounts(); track a.id) {
-            <button type="button" class="roster-row" (click)="confirmRemoveAccount(a)">
-              <span class="roster-name">{{ a.name }}</span>
-              <span class="roster-cls">Remove</span>
-            </button>
-          }
-        </div>
-        <div class="org-sheet-actions">
-          <button type="button" class="btn btn-secondary" (click)="removePickerOpen.set(false)">Cancel</button>
-        </div>
-      </div>
-    </div>
+    <app-remove-account-sheet
+      [accounts]="otherAccounts()"
+      (closed)="removePickerOpen.set(false)"
+      (removed)="removeAccount($event)"
+    />
   }
 
   @if (switchOpen()) {

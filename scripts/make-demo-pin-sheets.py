@@ -69,7 +69,7 @@ window.renderSheet = async (profile) => {
     const blankCell = (x, y, w, printed) => { rect(x, y, w, rowH, { stroke: EDGE, lw: 0.7 }); if (printed) text(printed, x + 4, y + rowH / 2 + 2.6, 7, DARK) }
     const r1 = hy, r2 = hy + rowH
     labelCell(hx, r1, 'Name'); blankCell(hx + lw, r1, 300); labelCell(hx + lw + 300, r1, 'Date'); blankCell(hx + lw + 300 + lw, r1, hw - lw * 3 - 300 - 6)
-    labelCell(hx, r2, 'Class'); blankCell(hx + lw, r2, 300, profile.className); labelCell(hx + lw + 300, r2, 'Quiz'); blankCell(hx + lw + 300 + lw, r2, hw - lw * 3 - 300 - 6, profile.quizLabel)
+    labelCell(hx, r2, 'Subject'); blankCell(hx + lw, r2, 300, profile.subject); labelCell(hx + lw + 300, r2, 'Quiz'); blankCell(hx + lw + 300 + lw, r2, hw - lw * 3 - 300 - 6, profile.quizLabel)
     text('Form 50-P', hx, r2 + rowH + 10, 6.5, DARK, 'left', false, true)
     text('Write each PIN digit in its box, then shade the same number below it.', hx + 40, r2 + rowH + 10, 6, GRAY)
 
@@ -131,6 +131,27 @@ window.renderSheet = async (profile) => {
       disk(c.x, c.y, P.pinR * 0.85, INK)
     }
 
+    // footer band: non-scanned helper + teacher score box. Keep it below the
+    // last bubble row (y=312) and left of the QR (x=500), so the OMR geometry
+    // and the code's quiet zone are untouched.
+    const footY = f.y + 322, footH = 116
+    rect(f.x + 8, footY, 250, footH, { stroke: '#9ca3af', lw: 0.6 })
+    text('How to shade', f.x + 14, footY + 12, 6.5, DARK, 'left', false, true)
+    ring(f.x + 20, footY + 27, 4.6, INK)
+    disk(f.x + 20, footY + 27, 4.1, INK)
+    text('Shade one letter per item.', f.x + 30, footY + 30, 6.5, DARK)
+    text('Erase changes completely.', f.x + 14, footY + 48, 6.5, GRAY)
+    text('Keep the QR and corner marks clear.', f.x + 14, footY + 64, 6, GRAY)
+    text('One answer per item.', f.x + 14, footY + 80, 6.5, GRAY)
+
+    rect(f.x + 266, footY, 204, footH, { stroke: '#9ca3af', lw: 0.6 })
+    text('For teacher use', f.x + 272, footY + 12, 6.5, DARK, 'left', false, true)
+    text('Score: ______ / 50', f.x + 272, footY + 30, 6.5, DARK)
+    text('Percentage: ______ %%', f.x + 272, footY + 46, 6.5, DARK)
+    text('Checked by: __________', f.x + 272, footY + 62, 6.5, DARK)
+    text('Remarks: _____________', f.x + 272, footY + 78, 6.5, GRAY)
+    text('Date: ________________', f.x + 272, footY + 94, 6.5, GRAY)
+
     // QR (stable QZD2 demo payload) + footer
     const qr = spec.pinQrRect(half)
     const q = window.qrcode(0, 'M'); q.addData(profile.payload); q.make()
@@ -168,8 +189,8 @@ PROFILES = [
     dict(file='pin-sheet-leo.png', student='Leo Mendoza', pin='91537', half=1,
          wrong=[14, 21, 45], blank=[7, 28], double=[40]),
 ]
-CLASS_NAME = 'English 8-B — Molave'
-QUIZ_LABEL = 'English — Verb Tenses'
+SUBJECT = 'English'
+QUIZ_LABEL = 'Verb Tenses'
 
 # ── read the answer key straight out of demo-data.js ─────────────────────────
 snap = json.loads(DATA.read_text(encoding='utf8').split('export const DEMO_SNAPSHOT = ', 1)[1])
@@ -187,7 +208,7 @@ for prof in PROFILES:
         answers[i] = 'double'  # two shaded letters -> scanner MULTI flag -> wrong
     prof['answers'] = answers
     prof['key'] = key
-    prof['className'] = CLASS_NAME
+    prof['subject'] = SUBJECT
     prof['quizLabel'] = QUIZ_LABEL
     prof['payload'] = 'QZD2:demo-cls-eng:demo-quiz-2'
     correct = sum(1 for i in range(50) if answers[i] == key[i])

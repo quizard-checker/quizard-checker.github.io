@@ -5,11 +5,12 @@ import { IonContent } from '@ionic/angular';
 import {
   listAccounts, createAccount, hashPin, verifyPin, setActiveAccount,
   getAccount, deleteAccount, accountHasData, updateAccount,
-  saveSettings, loadSettings
+  getActiveAccountId, saveSettings, loadSettings
 } from '../../core/engine/storage.js';
 import type { Account } from '../../core/engine/db-types.js';
 import { icon } from '../../shared/icons.js';
 import { IcoPipe } from '../../shared/ico.pipe';
+import { RemoveAccountSheet } from '../../shared/remove-account-sheet';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 
@@ -19,7 +20,7 @@ type Mode = 'picker' | 'create' | 'lock';
 
 @Component({
   selector: 'app-accounts',
-  imports: [IonContent, FormsModule, IcoPipe],
+  imports: [IonContent, FormsModule, IcoPipe, RemoveAccountSheet],
   templateUrl: './accounts.html',
 })
 export class AccountsPage implements OnInit {
@@ -34,6 +35,7 @@ export class AccountsPage implements OnInit {
   readonly colors = COLORS;
   mode = signal<Mode>('picker');
   accounts = signal<Account[]>([]);
+  removeOpen = signal(false);
   lockAccount = signal<Account | null>(null);
   cameFromPicker = false;
 
@@ -77,6 +79,25 @@ export class AccountsPage implements OnInit {
     this.ui.account.set(acc);
     this.toast.toast(`Welcome back, ${acc.name}`);
     this.router.navigateByUrl('/tabs/classes');
+  }
+
+  async removeAccount(acc: Account) {
+    this.removeOpen.set(false);
+    if (this.accounts().length <= 1) {
+      this.toast.toast('Create another profile before removing this one', true);
+      return;
+    }
+    try {
+      await deleteAccount(acc.id);
+      if (getActiveAccountId() === acc.id) {
+        setActiveAccount(null);
+        this.ui.account.set(null);
+      }
+      this.accounts.set(await listAccounts());
+      this.toast.toast(`Removed ${acc.name}`);
+    } catch (err: any) {
+      this.toast.toast(err?.message || 'Could not remove that account', true);
+    }
   }
 
   validatePin(): boolean {

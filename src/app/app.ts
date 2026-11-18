@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { IonApp, IonRouterOutlet } from '@ionic/angular';
 import { SwUpdate } from '@angular/service-worker';
 import { filter } from 'rxjs';
@@ -46,6 +46,24 @@ export class App {
   // The templates have always carried `data-tooltip`, but nothing rendered it.
   // Mirror it to the native title attribute so icon-only controls at least get
   // a desktop hover hint; the important actions also have visible labels now.
+  // Do not warm lazy chunks while the welcome splash owns the main thread.
+  // The splash's 2s hand-off timer must stay responsive on slower phones, so
+  // preloading starts only after the first real navigation away from /welcome.
+  private startPreloadAfterWelcome() {
+    const ready = () => this.router.url !== '/' && !this.router.url.startsWith('/welcome');
+    if (ready()) {
+      this.preload.start();
+      return;
+    }
+    const sub = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        if (!ready()) return;
+        sub.unsubscribe();
+        this.preload.start();
+      });
+  }
+
   private startTooltipFallback() {
     const apply = () => {
       document.querySelectorAll<HTMLElement>('[data-tooltip]').forEach(el => {
@@ -135,6 +153,14 @@ export class App {
       return;
     }
 
+    // On the splash, Android back skips the intro instead of arming the
+    // "press again to exit" prompt. The user should never be trapped on it.
+    if (this.router.url.startsWith('/welcome')) {
+      this.lastBackAt = 0;
+      void this.router.navigateByUrl('/accounts');
+      return;
+    }
+
     const target = backDestination(this.router.url);
     if (target === 'exit') {
       const now = Date.now();
@@ -153,7 +179,7 @@ export class App {
 
   constructor() {
     afterNextRender(() => {
-      this.preload.start();
+      this.startPreloadAfterWelcome();
       this.startTooltipFallback();
     });
     effect(() => {

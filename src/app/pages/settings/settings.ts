@@ -9,6 +9,7 @@ import {
   getActiveAccountId, accountHasData
 } from '../../core/engine/storage.js';
 import { IcoPipe } from '../../shared/ico.pipe';
+import { RemoveAccountSheet } from '../../shared/remove-account-sheet';
 import { assetUrl } from '../../shared/assets.js';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -31,7 +32,7 @@ function formatBytes(n: number): string {
 
 @Component({
   selector: 'app-settings',
-  imports: [IonContent, FormsModule, IcoPipe],
+  imports: [IonContent, FormsModule, IcoPipe, RemoveAccountSheet],
   templateUrl: './settings.html',
 })
 export class SettingsPage implements OnInit {
@@ -305,12 +306,15 @@ export class SettingsPage implements OnInit {
     if (this.otherAccounts().length) this.removePickerOpen.set(true);
   }
 
-  async confirmRemoveAccount(target: any) {
+  async removeAccount(target: any) {
     this.removePickerOpen.set(false);
-    if (!await this.confirm.confirm('Delete profile?', 'All documents, quizzes, history, and mistakes for this profile will be permanently removed.', 'Delete', target.name)) return;
-    await deleteAccount(target.id);
-    this.toast.toast(`Removed ${target.name}`);
-    await this.renderAccountSection();
+    try {
+      await deleteAccount(target.id);
+      this.toast.toast(`Removed ${target.name}`);
+      await this.renderAccountSection();
+    } catch (err: any) {
+      this.toast.toast(err?.message || 'Could not remove that account', true);
+    }
   }
 
   private downloadJson(data: any, suffix: string) {

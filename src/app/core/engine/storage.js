@@ -1,5 +1,6 @@
 import { openDB } from 'idb'
 import { nextState, GRADES } from './srs.js'
+import { normalizeQuizItems } from './quiz-items.js'
 
 /** @typedef {import('./db-types.js').Doc} Doc */
 /** @typedef {import('./db-types.js').DocMeta} DocMeta */
@@ -504,6 +505,7 @@ export async function saveQuiz(data) {
     ...data, accountId
   }
   if (!record.id) record.id = uid()
+  record.items = normalizeQuizItems(record.items)
   await db.put('quizzes', record)
   return record
 }

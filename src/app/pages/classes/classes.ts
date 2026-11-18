@@ -10,7 +10,6 @@ import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { saveClassTemplate } from '../../shared/class-template';
 
 @Component({
   selector: 'app-classes',
@@ -48,7 +47,7 @@ export class ClassesPage {
   // The class title is built from the fields instead of asking for a duplicate
   // name: "English 8-B", "Science 7-A", and so on.
   readonly hasTitle = computed(() =>
-    !!(this.subject().trim() || this.grade().trim() || this.section().trim()));
+    !!(this.subject().trim() && this.grade().trim() && this.section().trim()));
   readonly className = computed(() => {
     const subject = this.subject().trim();
     const gradeSection = [this.grade().trim(), this.section().trim()].filter(Boolean).join('-');
@@ -149,24 +148,9 @@ export class ClassesPage {
     if (!file) return;
     try {
       const result = await readClassFile(file);
-      let yearWarning = false;
-      if (result.meta.schoolYear) {
-        const year = parseSchoolYear(result.meta.schoolYear);
-        if (year) this.schoolYear.set(year);
-        else yearWarning = true;
-      }
-      if (result.meta.grade) this.grade.set(normalizeGrade(result.meta.grade));
-      if (result.meta.section) this.section.set(result.meta.section);
-      if (result.meta.subject) this.subject.set(result.meta.subject);
       this.paste.set(this.paste() ? this.paste() + '\n' + result.studentsText : result.studentsText);
-      const filled = result.meta.subject || result.meta.schoolYear;
-      if (yearWarning) {
-        this.toast.toast(`Class details loaded, but the school year “${result.meta.schoolYear}” is invalid — pick one from the list`, true);
-      } else {
-        this.toast.toast(filled
-          ? `Class details and ${result.studentCount} students loaded`
-          : `Loaded ${file.name}`);
-      }
+      const count = result.studentCount;
+      this.toast.toast(`Loaded ${count} student${count === 1 ? '' : 's'} from ${file.name}`);
     } catch (err) {
       this.toast.toast(err instanceof Error ? err.message : 'Could not read that file', true);
     } finally {
@@ -174,19 +158,10 @@ export class ClassesPage {
     }
   }
 
-  async downloadTemplate() {
-    try {
-      await saveClassTemplate();
-      this.toast.toast('Excel template ready — fill it in, then upload it here');
-    } catch (err) {
-      this.toast.toast(err instanceof Error ? err.message : 'Could not create the template', true);
-    }
-  }
-
   async saveSheet() {
     const schoolYear = parseSchoolYear(this.schoolYear());
     if (!this.hasTitle()) {
-      this.toast.toast('Add a subject, grade, or section so the class has a title', true);
+      this.toast.toast('Subject, grade, and section are required', true);
       return;
     }
     const name = this.className();

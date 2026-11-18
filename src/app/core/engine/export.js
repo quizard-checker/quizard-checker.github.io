@@ -384,7 +384,7 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
   }
   const r1 = hy, r2 = hy + rowH
   labelCell(hx, r1, 'Name'); blankCell(hx + lw, r1, 300); labelCell(hx + lw + 300, r1, 'Date'); blankCell(hx + lw + 300 + lw, r1, hw - lw * 3 - 300 - 6)
-  labelCell(hx, r2, 'Class'); blankCell(hx + lw, r2, 300, className); labelCell(hx + lw + 300, r2, 'Quiz'); blankCell(hx + lw + 300 + lw, r2, hw - lw * 3 - 300 - 6, quiz.subject + (quiz.title ? ' — ' + quiz.title : ''))
+  labelCell(hx, r2, 'Subject'); blankCell(hx + lw, r2, 300, quiz.subject); labelCell(hx + lw + 300, r2, 'Quiz'); blankCell(hx + lw + 300 + lw, r2, hw - lw * 3 - 300 - 6, quiz.title)
 
   // form label + the pin instruction
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
@@ -433,6 +433,39 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
       }
     }
   }
+
+  // Footer band below the grid: non-scanned helper + teacher score box. It
+  // stays below the last bubble row (y=312) and left of the QR (x=500), so the
+  // printed OMR geometry and the code's quiet zone are untouched.
+  const footY = f.y + 322, footH = 116
+  pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.6)
+  pdf.rect(f.x + 8, footY, 250, footH, 'S')
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+  pdf.text('How to shade', f.x + 14, footY + 12)
+  pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.9)
+  pdf.circle(f.x + 20, footY + 27, 4.6, 'S')
+  pdf.setFillColor('#0b0820')
+  pdf.circle(f.x + 20, footY + 27, 4.1, 'F')
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+  pdf.text('Shade one letter per item.', f.x + 30, footY + 30)
+  pdf.setTextColor('#6b7280')
+  pdf.text('Erase changes completely.', f.x + 14, footY + 48)
+  pdf.setFontSize(6)
+  pdf.text('Keep the QR and corner marks clear.', f.x + 14, footY + 64)
+  pdf.setFontSize(6.5)
+  pdf.text('One answer per item.', f.x + 14, footY + 80)
+
+  pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.6)
+  pdf.rect(f.x + 266, footY, 204, footH, 'S')
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
+  pdf.text('For teacher use', f.x + 272, footY + 12)
+  pdf.setFont('helvetica', 'normal')
+  pdf.text('Score: ______ / 50', f.x + 272, footY + 30)
+  pdf.text('Percentage: ______ %', f.x + 272, footY + 46)
+  pdf.text('Checked by: __________', f.x + 272, footY + 62)
+  pdf.setTextColor('#6b7280')
+  pdf.text('Remarks: _____________', f.x + 272, footY + 78)
+  pdf.text('Date: ________________', f.x + 272, footY + 94)
 
   // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
   const qr = pinQrRect(half)
@@ -497,8 +530,8 @@ function drawPinHalfV3(pdf, quiz, half, className, qrPayload) {
 
   const hx = contentX, hy = P.content.y
   labelCell(hx, hy, 'Name'); blankCell(hx + labelW, hy, contentW - labelW, '')
-  labelCell(hx, hy + rowH, 'Class'); blankCell(hx + labelW, hy + rowH, 128, className)
-  labelCell(hx + labelW + 128, hy + rowH, 'Quiz'); blankCell(hx + labelW + 164, hy + rowH, contentW - labelW - 164, quiz.subject + (quiz.title ? ' — ' + quiz.title : ''))
+  labelCell(hx, hy + rowH, 'Subject'); blankCell(hx + labelW, hy + rowH, 128, quiz.subject)
+  labelCell(hx + labelW + 128, hy + rowH, 'Quiz'); blankCell(hx + labelW + 164, hy + rowH, contentW - labelW - 164, quiz.title)
 
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor('#1c2438')
   pdf.text('Form 50-P v3', hx, y(hy + 44))
@@ -581,48 +614,23 @@ export async function exportPinSheets(quiz, students, size = 'long', version = '
   pdf.save(`quizard-pin-sheets-${slug(quiz.subject || quiz.title)}-${version}.pdf`)
 }
 
-// One-page roster handout: who has which PIN, so the teacher can hand the
-// codes out (or post them) before the first PIN-sheet quiz.
-export async function buildPinListPdf(cls) {
-  const { jsPDF } = await import('jspdf')
-  const pdf = new jsPDF({ unit: 'pt', format: PAPER.letter })
+/**
+ * The PIN list as CSV data — one row per student (No, Name, PIN). Teachers
+ * open it in Excel or share it straight to a group chat; the sheet PDFs stay
+ * the printed artifact, the list is the record.
+ * @param {{ name?: string, schoolYear?: string, students?: Array<{ no?: number, name?: string, pin?: string }> }} cls
+ * @returns {{ filename: string, csv: string }}
+ */
+export function pinListCsv(cls) {
   const students = [...(cls?.students || [])].sort((a, b) => (a.no || 0) - (b.no || 0))
-
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.setTextColor('#1c2438')
-  pdf.text('Student PIN list', 48, 56)
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor('#6b7280')
-  const meta = [cls?.name, cls?.schoolYear].filter(Boolean).join(' · ')
-  pdf.text(pdfSafe(meta), 48, 74)
-  pdf.setFontSize(8); pdf.setTextColor('#9ca3af')
-  pdf.text('Students write this PIN (and shade its digits) on every PIN answer sheet.', 48, 90)
-
-  const y0 = 116
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor('#1c2438')
-  pdf.text('No', 48, y0); pdf.text('Student name', 88, y0); pdf.text('PIN', 420, y0)
-  pdf.setDrawColor('#d1d5db'); pdf.setLineWidth(0.7)
-  pdf.line(48, y0 + 5, 480, y0 + 5)
-
-  let y = y0 + 20
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10)
-  for (const st of students) {
-    pdf.setTextColor('#1c2438')
-    pdf.text(String(st.no ?? ''), 48, y)
-    const name = pdfSafe(st.name)
-    pdf.text(name, 88, y)
-    pdf.setFont('courier', 'bold')
-    pdf.text(st.pin || '—', 420, y)
-    pdf.setFont('helvetica', 'normal')
-    y += 22
-    if (y > 760) { pdf.addPage(); y = 60 }
+  const cell = (v) => {
+    const t = String(v ?? '')
+    return /[",\n]/.test(t) ? '"' + t.split('"').join('""') + '"' : t
   }
-  if (!students.length) {
-    pdf.setFontSize(10); pdf.setTextColor('#6b7280')
-    pdf.text('No students on this roster yet.', 48, y)
+  const rows = ['No,Name,PIN']
+  students.forEach((st, i) => rows.push([`=${st.no ?? i + 1}`, cell(st.name), cell(st.pin || '')].join(',')))
+  return {
+    filename: `quizard-pin-list-${slug(cls?.name || '')}.csv`,
+    csv: rows.join('\n') + '\n',
   }
-  return pdf
-}
-
-export async function exportPinListPdf(cls) {
-  const pdf = await buildPinListPdf(cls)
-  pdf.save(`quizard-pin-list-${slug(cls?.name || '')}.pdf`)
 }

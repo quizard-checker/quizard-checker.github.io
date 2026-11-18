@@ -25,8 +25,20 @@
     <button class="acc-create" (click)="go({ mode: 'create' })">
       <span [innerHTML]="'plus' | ico"></span> Create new account
     </button>
+    @if (accounts().length > 1) {
+      <button class="acc-remove" type="button" (click)="removeOpen.set(true)">
+        <span [innerHTML]="'trash' | ico"></span> Remove an account
+      </button>
+    }
     <p class="acc-foot">Accounts live only on this device.</p>
   </div>
+  @if (removeOpen()) {
+    <app-remove-account-sheet
+      [accounts]="accounts()"
+      (closed)="removeOpen.set(false)"
+      (removed)="removeAccount($event)"
+    />
+  }
 }
 
 @if (mode() === 'create') {

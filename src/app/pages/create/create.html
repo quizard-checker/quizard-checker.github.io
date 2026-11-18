@@ -92,7 +92,12 @@
             }
           }
           @if (!pickedKeyId()) {
-            <textarea class="text-input roster-paste" rows="7" placeholder="Paste your answer key. All of these work:&#10;&#10;1. Photosynthesis&#10;2. What do plants use for food? → Photosynthesis&#10;B, C, A, D, …" [attr.aria-label]="'Answer key'" [value]="keyPaste()" (input)="keyPaste.set($any($event.target).value)"></textarea>
+            <div class="key-mode" role="group" aria-label="Answer key type">
+            <button type="button" [class.on]="keyMode() === 'mcq'" (click)="keyMode.set('mcq')">Multiple choice</button>
+            <button type="button" [class.on]="keyMode() === 'letters'" (click)="keyMode.set('letters')">Letters only</button>
+            <button type="button" [class.on]="keyMode() === 'answers'" (click)="keyMode.set('answers')">Answers only</button>
+          </div>
+          <textarea class="text-input roster-paste" rows="7" [placeholder]="keyPlaceholder()" [attr.aria-label]="'Answer key'" [value]="keyPaste()" (input)="keyPaste.set($any($event.target).value)"></textarea>
             <label class="btn btn-secondary file-btn" data-tooltip="Excel columns: question, choice A, choice B, choice C, choice D, answer">
               <span [innerHTML]="'upload' | ico"></span> Import Excel / CSV
               <input type="file" accept=".xlsx,.csv,.txt" (change)="onKeyFile($event)" hidden />
@@ -105,6 +110,9 @@
                 @if (ks.format === 'mcq') { · with choices }
                 @if (ks.notes) { · {{ ks.notes }} skipped }
               </p>
+            }
+            @if (keyPaste().trim() && !keyCheck().ok) {
+              <div class="gen-error key-error" role="alert">{{ keyCheck().message }}</div>
             }
           } @else if (pickedKey()) {
             <p class="parse-note">Using saved key “{{ pickedKey().subject }}” — {{ pickedKey().items.length }} items</p>
@@ -128,17 +136,10 @@
         <button class="btn btn-secondary" style="margin-top:8px" (click)="router.navigateByUrl('/tabs/classes')"><span [innerHTML]="'plus' | ico"></span> Add a class</button>
       }
 
-      @if (knownSubjects().length) {
-        <div class="count-row" style="margin-bottom:8px">
-          @for (sub of knownSubjects(); track sub) {
-            <button class="count-chip" [class.on]="subject() === sub" [attr.aria-pressed]="subject() === sub" (click)="subject.set(sub)">{{ sub }}</button>
-          }
-        </div>
+      @if (quizClass(); as c) {
+        <p class="class-subject-note">Subject: <b>{{ c.subject || 'Not set' }}</b> · taken from the class</p>
       }
-      <div class="form-row">
-        <input class="text-input" placeholder="Subject (e.g. Science)" [attr.aria-label]="'Subject'" maxlength="40" [value]="subject()" (input)="subject.set($any($event.target).value)" />
-        <input class="text-input" placeholder="Quiz title (optional)" [attr.aria-label]="'Title'" maxlength="60" [value]="title()" (input)="title.set($any($event.target).value)" />
-      </div>
+      <input class="text-input" [placeholder]="'Quiz title (defaults to ' + (quizClass()?.subject || 'class') + ' quiz)'" [attr.aria-label]="'Title'" maxlength="60" [value]="title()" (input)="title.set($any($event.target).value)" />
 
       @if (error()) {
         <div class="gen-error"><span class="gen-error-ico" [innerHTML]="'alert' | ico"></span> {{ error() }}</div>
@@ -318,7 +319,12 @@
         <summary>
           <span class="akey-sum-title">Answer key</span>
           <span class="akey-sum-count">{{ (selectedQuiz()?.items?.length || 0) }} {{ hasQuestionsIn(selectedQuiz()) ? 'questions' : 'letters' }}</span>
-          <span class="akey-chev" [innerHTML]="'chevronDown' | ico"></span>
+          <span class="akey-actions">
+            <button type="button" class="akey-edit" (click)="$event.preventDefault(); $event.stopPropagation(); editSaved()" (keydown)="$event.stopPropagation()" [attr.aria-label]="!hasQuestionsIn(selectedQuiz()) ? 'Edit key' : 'Edit questions and key'" data-tooltip="Edit questions & key">
+              <span [innerHTML]="'pencil' | ico"></span> Edit
+            </button>
+            <span class="akey-chev" [innerHTML]="'chevronDown' | ico"></span>
+          </span>
         </summary>
         <div class="akey-body">
           @if (!hasQuestionsIn(selectedQuiz())) {
@@ -344,9 +350,6 @@
               }
             </div>
           }
-          <div class="export-grid">
-            <button class="btn btn-secondary" (click)="editSaved()" data-tooltip="Change what the scanner marks as correct"><span [innerHTML]="'pencil' | ico"></span> {{ !hasQuestionsIn(selectedQuiz()) ? 'Edit key' : 'Edit questions & key' }}</button>
-          </div>
         </div>
       </details>
     </div>
