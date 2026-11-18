@@ -2201,6 +2201,14 @@ html[data-theme='dark'] .cq-body .key-chip.graded {
 .cq-date { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); margin-left: 2px; }
 .cq-body .chev { margin-left: auto; color: var(--text-faint); display: inline-flex; }
 .cq-body .chev svg { width: 16px; height: 16px; }
+.cq-del {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin-left: 2px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent;
+  color: var(--bad); cursor: pointer;
+}
+.cq-del svg { width: 16px; height: 16px; }
+.cq-del:active { background: rgba(239, 68, 68, 0.12); transform: scale(0.95); }
 
 /* Results overview: each class card lists its average on every checked quiz —
    no blended average across different tests. */

@@ -55,6 +55,14 @@
                   @if (cw.avg != null) { <span class="key-chip graded" [title]="'Average score for this quiz'">avg {{ cw.avg }}%</span> }
                   <span class="key-chip date" [title]="'Created ' + dateOf(cw.q.createdAt)">{{ dateOf(cw.q.createdAt) }}</span>
                   <span class="chev" [innerHTML]="'chevronRight' | ico"></span>
+                  <button
+                    class="cq-del"
+                    type="button"
+                    (click)="removeQuiz(cw, $event)"
+                    [attr.aria-label]="'Delete ' + cw.title"
+                    data-tooltip="Delete quiz"
+                    [innerHTML]="'trash' | ico"
+                  ></button>
                 </div>
               </div>
             }

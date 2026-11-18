@@ -1,13 +1,14 @@
 ﻿import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
-import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
+import { deleteQuiz, getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
 import { diffRoster, parseRoster, generatePins, isValidPin } from '../../core/engine/roster.js';
 import { readClassFile } from '../../core/engine/class-file.js';
 import { bannerTheme, bannerAvatar, fmtDateLong } from '../../shared/helpers.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { IcoPipe } from '../../shared/ico.pipe';
 
 // One scanned sheet, resolved to the roster student it belongs to.
@@ -36,6 +37,7 @@ export class ClassRosterPage {
   router = inject(Router);
   private route = inject(ActivatedRoute);
   private toast = inject(ToastService);
+  private confirm = inject(ConfirmService);
 
   cls = signal<any>(null);
   bannerTheme = bannerTheme;
@@ -239,6 +241,22 @@ export class ClassRosterPage {
 
   openQuiz(id: string) {
     this.router.navigateByUrl('/quiz?quiz=' + id);
+  }
+
+  async removeQuiz(cw: any, ev: Event) {
+    ev.stopPropagation();
+    const q = cw?.q || cw;
+    if (!q?.id) return;
+    const ok = await this.confirm.confirm(
+      'Delete quiz?',
+      `Delete “${q.title}”? The quiz and its questions will be removed.`,
+      'Delete quiz',
+      q.title,
+    );
+    if (!ok) return;
+    await deleteQuiz(q.id);
+    this.quizzes.set(await listQuizzes());
+    this.toast.toast(`Deleted ${q.title}`);
   }
 
   // Row avatars: initials + a stable colour per student, so the roster reads
