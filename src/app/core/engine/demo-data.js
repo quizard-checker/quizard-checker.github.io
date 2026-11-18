@@ -5,14 +5,17 @@
 // Tenses quiz. Records are tagged demo: true and re-keyed per account by
 // demo.js, which pours this snapshot through the real storage layer
 // idempotently.
+//
+// Class names follow the Add class rule: Subject + Grade + Section, so the
+// demo titles stay stable if a teacher opens and saves one of these classes.
 export const DEMO_SNAPSHOT = {
-  "capturedAt": "2026-10-22",
+  "capturedAt": "2026-11-18",
   "classes": [
     {
       "id": "demo-cls-eng",
       "name": "English 8-B",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "subject": "English",
       "schoolYear": "2026-2027",
       "students": [
@@ -83,7 +86,7 @@ export const DEMO_SNAPSHOT = {
       "id": "demo-cls-sci",
       "name": "Science 7-A",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "subject": "Science",
       "schoolYear": "2026-2027",
       "students": [
@@ -134,8 +137,8 @@ export const DEMO_SNAPSHOT = {
       "id": "demo-cls-ict",
       "name": "ICT 9-A",
       "grade": "9",
-      "section": "Narra",
-      "subject": "Computer",
+      "section": "A",
+      "subject": "ICT",
       "schoolYear": "2026-2027",
       "students": [
         {
@@ -1610,7 +1613,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 6,
       "studentName": "Fina Mercado",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         2,
@@ -1647,7 +1650,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 5,
       "studentName": "Elias Cruz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         3,
         1,
@@ -1674,7 +1677,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 4,
       "studentName": "Darna Villanueva",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         0,
         1,
@@ -1701,7 +1704,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 3,
       "studentName": "Cara Diaz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         2,
@@ -1728,7 +1731,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 2,
       "studentName": "Ben Cruz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         2,
@@ -1755,7 +1758,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 1,
       "studentName": "Ana Reyes",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         2,
@@ -1782,7 +1785,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 8,
       "studentName": "Hana Lopez",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         -1,
@@ -1809,7 +1812,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 7,
       "studentName": "Gab Torres",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         0,
         0,
@@ -1836,7 +1839,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 6,
       "studentName": "Fina Mercado",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         3,
@@ -1863,7 +1866,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 5,
       "studentName": "Elias Cruz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         3,
@@ -1890,7 +1893,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 4,
       "studentName": "Darna Villanueva",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         3,
@@ -1917,7 +1920,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 3,
       "studentName": "Cara Diaz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         3,
@@ -1944,7 +1947,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 2,
       "studentName": "Ben Cruz",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         -1,
@@ -1971,7 +1974,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 1,
       "studentName": "Ana Reyes",
       "grade": "7",
-      "section": "Sampaguita",
+      "section": "A",
       "answers": [
         1,
         3,
@@ -1998,7 +2001,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 5,
       "studentName": "Mike Garcia",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         1,
         2,
@@ -2116,7 +2119,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 6,
       "studentName": "Nina Flores",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         3,
         2,
@@ -2234,7 +2237,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 7,
       "studentName": "Omar Reyes",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         1,
         3,
@@ -2352,7 +2355,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 8,
       "studentName": "Pia Navarro",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         1,
         2,
@@ -2470,7 +2473,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 9,
       "studentName": "Ria Santos",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         1,
         -1,
@@ -2588,7 +2591,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 10,
       "studentName": "Sam Ocampo",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         1,
         3,
@@ -2706,7 +2709,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 11,
       "studentName": "Tina Delgado",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         2,
         0,
@@ -2824,7 +2827,7 @@ export const DEMO_SNAPSHOT = {
       "studentNo": 12,
       "studentName": "Vina Castro",
       "grade": "8",
-      "section": "Molave",
+      "section": "B",
       "answers": [
         -1,
         0,

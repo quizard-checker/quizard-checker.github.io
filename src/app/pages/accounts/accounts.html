@@ -1,26 +1,31 @@
 <ion-content [fullscreen]="true" class="acc-content">
 @if (mode() === 'picker') {
-  <div class="acc-screen">
+  <div class="acc-screen acc-picker">
     <div class="acc-brand"><span class="mark" [innerHTML]="icons.logo"></span>Quizard</div>
-    <h1 class="acc-title">Who's studying?</h1>
-    <p class="acc-sub">Pick a profile to continue — progress is tracked separately for each.</p>
-    <div class="acc-grid">
+    <h1 class="acc-title">Choose a profile</h1>
+    <p class="acc-sub">Pick a profile to continue. Each one keeps its own classes, quizzes, and progress.</p>
+    <div class="acc-list">
       @for (a of accounts(); track a.id) {
-        <button class="acc-card" (click)="openAccount(a)" [attr.data-tooltip]="a.pinHash ? 'PIN-protected' : 'Open without PIN'">
-          <span class="acc-avatar lg" [style.background]="a.color">{{ a.name.charAt(0).toUpperCase() }}</span>
-          <span class="acc-name">{{ a.name }}</span>
-          @if (a.pinHash) { <span class="acc-lock" [innerHTML]="icons.lock"></span> }
+        <button class="acc-row" (click)="openAccount(a)" [attr.data-tooltip]="a.pinHash ? 'PIN-protected' : 'Open without PIN'">
+          <span class="acc-avatar" [style.background]="a.color">{{ a.name.charAt(0).toUpperCase() }}</span>
+          <span class="acc-row-copy">
+            <span class="acc-name">{{ a.name }}</span>
+            <span class="acc-meta">
+              @if (a.pinHash) {
+                <span class="acc-mini-lock" [innerHTML]="icons.lock"></span> PIN-protected
+              } @else {
+                Tap to continue
+              }
+            </span>
+          </span>
+          <span class="acc-chevron" [innerHTML]="'chevronRight' | ico"></span>
         </button>
       }
-      <button class="acc-card acc-add" (click)="go({ mode: 'create' })" data-tooltip="Create a new profile">
-        <span class="acc-avatar lg ghost" [innerHTML]="'plus' | ico"></span>
-        <span class="acc-name">Add account</span>
-      </button>
     </div>
-    <p class="acc-foot">Accounts live only on this device.</p>
-    <button class="acc-sync-link" (click)="restoreWithCode()">
-      Have a library on another device? <b>Use your sync code</b>
+    <button class="acc-create" (click)="go({ mode: 'create' })">
+      <span [innerHTML]="'plus' | ico"></span> Create new account
     </button>
+    <p class="acc-foot">Accounts live only on this device.</p>
   </div>
 }
 
@@ -50,25 +55,6 @@
 
       <button class="btn btn-primary acc-create" (click)="create()"><span [innerHTML]="icons.check"></span> Create account</button>
       <button class="btn btn-secondary acc-back" (click)="back()">Back</button>
-    </div>
-  </div>
-}
-
-@if (mode() === 'restore') {
-  <div class="acc-screen">
-    <div class="acc-brand"><span class="mark" [innerHTML]="icons.logo"></span>Quizard</div>
-    <h1 class="acc-title">Restore your library</h1>
-    <p class="acc-sub">Enter the sync code and password from your other device — your documents, scores and mistakes are merged in.</p>
-    <div class="acc-form">
-      <label class="section-title" for="rst-code">Sync code</label>
-      <input class="text-input" id="rst-code" placeholder="ABCD-2345" autocomplete="off" spellcheck="false" [(ngModel)]="restoreCode" />
-      <label class="section-title" for="rst-pass" style="margin-top:16px">Password</label>
-      <input class="text-input" id="rst-pass" type="password" autocomplete="off" placeholder="The password that locks that library" [(ngModel)]="restorePass" (keyup.enter)="restoreNow()" />
-      @if (restoreMsg()) { <p class="faint" style="color:var(--warn,#f59e0b);font-size:12.5px;margin:10px 2px 0">{{ restoreMsg() }}</p> }
-      <button class="btn btn-primary acc-create" [disabled]="restoreBusy() || !restoreCode.trim() || !restorePass.trim()" (click)="restoreNow()">
-        {{ restoreBusy() ? 'Restoring…' : 'Restore' }}
-      </button>
-      <button class="btn btn-secondary acc-back" (click)="go({ mode: 'picker' })">Back</button>
     </div>
   </div>
 }

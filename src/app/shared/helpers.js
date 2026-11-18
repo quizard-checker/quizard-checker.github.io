@@ -14,6 +14,11 @@ export function scorePill(percent) {
   return 'low'
 }
 
+// Grade is a number, not free text: keep digits only and cap at two (1–12).
+export function normalizeGrade(value) {
+  return String(value ?? '').replace(/\D/g, '').slice(0, 2)
+}
+
 export function fmtDate(ts) {
   const d = new Date(ts)
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -138,4 +143,47 @@ export function btn(label, { icon: iconName = null, cls = 'btn-primary', style =
   const sty = style ? ` style="${style}"` : ''
   const idAttr = id ? ` id="${id}"` : ''
   return `<button class="btn ${cls}"${idAttr}${tip}${sty}${attrs ? ' ' + attrs : ''}>${ico}${label}</button>`
+}
+
+// Android back: never let a subpage or a class sheet close the app. The shell
+// walks toward Home; "exit" means the double-press guard on the root screens.
+export function backDestination(url) {
+  const path = String(url || '').split('?')[0].split('#')[0].replace(/\/+$/, '') || '/'
+  if (path === '/tabs/home' || path === '/welcome' || path === '/accounts') return 'exit'
+  const parts = path.split('/').filter(Boolean)
+  if (parts[0] === 'tabs' && parts[1] === 'classes' && parts[2] && parts[3] === 'students' && parts[4]) {
+    return `/tabs/classes/${parts[2]}`
+  }
+  return '/tabs/home'
+}
+
+// School years are generated around today, so the list never expires.
+export function currentSchoolYearStart(now = new Date()) {
+  const year = now.getFullYear()
+  return now.getMonth() + 1 >= 6 ? year : year - 1
+}
+
+export function schoolYearLabel(startYear) {
+  return `${startYear}-${startYear + 1}`
+}
+
+// Accept the formats a teacher might paste from Excel ("2026–2027",
+// "2026 - 2027") but store one canonical YYYY-YYYY label.
+export function parseSchoolYear(value) {
+  const text = String(value ?? '').trim().replace(/[–—]/g, '-').replace(/\s+/g, '')
+  const match = text.match(/^(\d{4})-(\d{4})$/)
+  if (!match) return ''
+  const start = Number(match[1])
+  const end = Number(match[2])
+  return end === start + 1 ? `${start}-${end}` : ''
+}
+
+// A rolling window around the current school year; an existing class's year
+// is always added, even when it falls outside the window.
+export function schoolYearOptions(currentStart, selected = '', span = 3) {
+  const starts = new Set()
+  for (let start = currentStart - span; start <= currentStart + span; start++) starts.add(start)
+  const picked = parseSchoolYear(selected)
+  if (picked) starts.add(Number(picked.slice(0, 4)))
+  return [...starts].sort((a, b) => a - b).map(schoolYearLabel)
 }

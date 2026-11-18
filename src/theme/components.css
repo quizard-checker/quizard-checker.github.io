@@ -149,6 +149,7 @@ html[data-theme='dark'] .nav-item.active { color: var(--text); }
   touch-action: manipulation;
 }
 .btn svg { width: 17px; height: 17px; stroke-width: 2.2; }
+.switch-account-btn svg { width: 20px; height: 20px; }
 .btn:active { transform: scale(0.96); }
 .btn[disabled] { opacity: 0.45; pointer-events: none; }
 
@@ -650,23 +651,6 @@ svg { max-width: 100%; }
 .field-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-dim); margin: 16px 0 8px; }
 .field-label svg { width: 15px; height: 15px; }
 
-/* ── Sync code display (settings → cloud sync) ── */
-.sync-code {
-  font-size: 24px; font-weight: 800; letter-spacing: 0.14em; text-align: center;
-  font-variant-numeric: tabular-nums; color: var(--accent-strong);
-  background: var(--accent-soft); border: 1.5px dashed var(--accent-border);
-  border-radius: var(--radius-md); padding: 12px 14px; margin: 4px 0 10px;
-  user-select: all; cursor: text;
-}
-
-/* ── Sync-code restore link (account picker) ── */
-.acc-sync-link {
-  margin-top: 14px; padding: 8px 16px; font-size: 12.5px; color: var(--text-dim);
-  background: transparent; border: none; text-decoration: none;
-  transition: color 0.16s ease;
-}
-.acc-sync-link b { color: var(--accent-strong); font-weight: 700; }
-.acc-sync-link:hover b { text-decoration: underline; }
 .icon-btn.on { color: var(--accent-strong); background: var(--accent-soft); }
 
 /* pull-to-refresh spinner tinted to the app accent */

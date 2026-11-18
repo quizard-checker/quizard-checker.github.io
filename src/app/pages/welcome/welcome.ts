@@ -28,7 +28,7 @@ export class WelcomePage implements OnInit, OnDestroy {
   exiting = false;
   // Where the splash hands over (only used when the splash actually plays):
   // fresh devices go to profile creation, returning users to the profile
-  // picker — PIN enforcement + sync-code restore live there.
+  // picker — PIN enforcement lives there.
   private launchTo: '/accounts' | '/tabs/classes' = '/accounts';
   private timer: ReturnType<typeof setTimeout> | null = null;
 

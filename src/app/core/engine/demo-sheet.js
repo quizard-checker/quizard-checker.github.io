@@ -37,11 +37,18 @@ export function resolveDemoSheet(claim, classes = [], quizzes = []) {
     c.demoKey === demo.classKey ||
     (!c.demoKey && c.name === CLASS_FALLBACK[demo.classKey])
   ))
-  const quiz = quizzes.find(q => q?.demo && (
-    q.demoKey === demo.quizKey ||
-    (!q.demoKey && matches(q, QUIZ_FALLBACK[demo.quizKey]))
-  ))
-  if (!cls || !quiz) return null
+  // Editing a demo quiz can drop its `demo` marker while the class and the
+  // stable `demoKey` stay intact, so fall back to the known signature inside
+  // that demo class. Scope the lookup to the class so a same-titled quiz on
+  // another class can never satisfy the sheet.
+  if (!cls) return null
+  const quiz = quizzes.find(q => {
+    if (!q) return false
+    if (q.classId && q.classId !== cls.id) return false
+    if (q.demoKey === demo.quizKey) return true
+    return matches(q, QUIZ_FALLBACK[demo.quizKey])
+  })
+  if (!quiz) return null
 
   // QZD2 demo PIN half-sheets carry no roster number: the shaded 5-digit PIN
   // names the student, and the scanner's PIN match attaches them later.

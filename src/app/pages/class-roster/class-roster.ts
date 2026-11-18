@@ -4,6 +4,7 @@ import { IonContent } from '@ionic/angular';
 import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
 import { diffRoster, parseRoster, generatePins, isValidPin } from '../../core/engine/roster.js';
+import { readClassFile } from '../../core/engine/class-file.js';
 import { exportPinListPdf } from '../../core/engine/export.js';
 import { bannerTheme, bannerAvatar, fmtDateLong } from '../../shared/helpers.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
@@ -366,14 +367,21 @@ export class ClassRosterPage {
     ? diffRoster(parseRoster(this.paste()).students, (this.cls()?.students || []).map((s: any) => s.name))
     : { fresh: [], dupes: 0 });
 
+  // Roster files: .xlsx, .csv, or .txt. Rows are appended as text, so an
+  // upload can drop into either Replace list or Add names.
   async onFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    this.paste.set(this.paste() ? this.paste() + '\n' + text : text);
-    input.value = '';
-    this.toast.toast(`Loaded ${file.name}`);
+    try {
+      const result = await readClassFile(file);
+      this.paste.set(this.paste() ? this.paste() + '\n' + result.studentsText : result.studentsText);
+      this.toast.toast(`Loaded ${result.studentCount} student${result.studentCount === 1 ? '' : 's'} from ${file.name}`);
+    } catch (err) {
+      this.toast.toast(err instanceof Error ? err.message : 'Could not read that file', true);
+    } finally {
+      input.value = '';
+    }
   }
 
   async saveRoster() {

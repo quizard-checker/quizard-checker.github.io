@@ -1,15 +1,20 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { IonApp, IonRouterOutlet } from '@ionic/angular';
 import { SwUpdate } from '@angular/service-worker';
 import { filter } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { IdlePreloadService } from './core/services/idle-preload.service';
 import { ConfirmService } from './core/services/confirm.service';
 import { UiStateService } from './core/services/ui-state.service';
-import { maybeAutoPush } from './core/engine/sync.js';
+import { BackService } from './core/services/back.service';
+import { GuideService } from './core/services/guide.service';
+import { ToastService } from './core/services/toast.service';
 import { IcoPipe } from './shared/ico.pipe';
 import { GuideSheet } from './shared/guide-sheet';
+import { backDestination } from './shared/helpers.js';
 import { afterNextRender, effect } from '@angular/core';
 
 // Eager shell: under zoneless CD (Angular 22 makes OnPush the default) an
@@ -29,9 +34,14 @@ export class App {
   private swUpdate = inject(SwUpdate, { optional: true });
   readonly confirm = inject(ConfirmService);
   private ui = inject(UiStateService);
+  private router = inject(Router);
+  private back = inject(BackService);
+  private guide = inject(GuideService);
+  private toast = inject(ToastService);
   private tooltipRaf = 0;
   private confirmWasOpen = false;
   private returnFocus: HTMLElement | null = null;
+  private lastBackAt = 0;
 
   // The templates have always carried `data-tooltip`, but nothing rendered it.
   // Mirror it to the native title attribute so icon-only controls at least get
@@ -94,6 +104,53 @@ export class App {
     }
   }
 
+  // Android's back button is a navigation button, not an exit button. Close
+  // the top dialog/sheet, let the active page handle its own back, then walk
+  // back to Home. Only a second press on a root screen exits.
+  private async handleBack() {
+    if (this.confirm.visible()) {
+      this.lastBackAt = 0;
+      this.confirm.cancel();
+      return;
+    }
+    if (this.guide.open()) {
+      this.lastBackAt = 0;
+      this.guide.close();
+      return;
+    }
+    // Ionic keeps previous tabs in the DOM; only the visible overlay counts.
+    const overlay = [...document.querySelectorAll<HTMLElement>('.org-overlay')]
+      .filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })
+      .pop();
+    if (overlay) {
+      this.lastBackAt = 0;
+      overlay.click();
+      return;
+    }
+    if (this.back.handle()) {
+      this.lastBackAt = 0;
+      return;
+    }
+
+    const target = backDestination(this.router.url);
+    if (target === 'exit') {
+      const now = Date.now();
+      if (now - this.lastBackAt < 2000) {
+        this.lastBackAt = 0;
+        await CapacitorApp.exitApp();
+        return;
+      }
+      this.lastBackAt = now;
+      this.toast.toast('Press back again to exit');
+      return;
+    }
+    this.lastBackAt = 0;
+    await this.router.navigateByUrl(target);
+  }
+
   constructor() {
     afterNextRender(() => {
       this.preload.start();
@@ -107,6 +164,7 @@ export class App {
       else this.restoreDialogFocus();
     });
     if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('backButton', () => { void this.handleBack(); }).catch(() => {});
       // An APK upgrade must never run the previous build out of a service
       // worker cache: the bundled assets are the truth on the device. Older
       // installs may still have a registration — drop it and its caches.
@@ -124,14 +182,6 @@ export class App {
         const style = this.ui.theme() === 'dark' ? Style.Dark : Style.Light;
         StatusBar.setStyle({ style }).catch(() => {});
       });
-    }
-    // Quiet cloud sync: when sync is on, push an encrypted snapshot when the
-    // student leaves the tab/app (throttled inside maybeAutoPush). Never throws.
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') void maybeAutoPush();
-      });
-      window.addEventListener('pagehide', () => { void maybeAutoPush(); });
     }
     // Apply app updates on the FIRST reload: when the service worker detects a
     // new version it downloads it, we activate immediately and reload once.

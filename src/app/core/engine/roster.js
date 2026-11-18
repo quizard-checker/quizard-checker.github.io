@@ -13,7 +13,9 @@ export function parseRoster(text) {
   for (const [i, line] of lines.entries()) {
     // a first line that names the columns is a header, not a student
     if (i === 0 && /^(student\s*)?name\b/i.test(line) && /(grade|section|,|\t|;)/i.test(line)) continue
-    const parts = line.split(/[\t,;]+/).map(p => p.trim())
+    // Tabs win when present: Excel cells can hold commas ("Reyes, Juan") and a
+    // tab-separated row must not be split inside a cell.
+    const parts = (line.includes('\t') ? line.split('\t') : line.split(/[,;]+/)).map(p => p.trim())
     const name = (parts.shift() || '').replace(/\s+/g, ' ').trim()
     if (!name) { skipped++; continue }
     const rest = parts.filter(Boolean).map(p => p.replace(/\s+/g, ' ').trim())

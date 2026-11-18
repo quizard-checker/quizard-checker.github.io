@@ -41,6 +41,20 @@ describe('demo data: 50-item Verb Tenses world', () => {
     expect(eng.students.length).toBe(12)
   })
 
+  it('keeps every class title aligned with Subject + Grade + Section', () => {
+    for (const cls of DEMO_SNAPSHOT.classes) {
+      const gradeSection = [cls.grade, cls.section].filter(Boolean).join('-')
+      const expected = [cls.subject, gradeSection].filter(Boolean).join(' ')
+      expect(cls.name, cls.id).toBe(expected)
+    }
+    const byId = new Map(DEMO_SNAPSHOT.classes.map(c => [c.id, c]))
+    for (const sheet of DEMO_SNAPSHOT.sheets) {
+      const cls = byId.get(sheet.classId)
+      expect(sheet.className, sheet.id).toBe(cls.name)
+      expect(sheet.section, sheet.id).toBe(cls.section)
+    }
+  })
+
   it('keeps the four demo-sheet students unchecked so scanning moves the card', () => {
     for (const no of [1, 2, 3, 4]) {
       expect(engSheets.find(s => s.studentNo === no)).toBeUndefined()

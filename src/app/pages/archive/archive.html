@@ -1,0 +1,38 @@
+<ion-content [fullscreen]="true">
+  <header class="back-header">
+    <button class="icon-btn" (click)="goBack()" aria-label="Back" [innerHTML]="'chevronLeft' | ico"></button>
+    <h2>Archived classes</h2>
+    <div class="spacer"></div>
+  </header>
+
+  <div class="screen set-screen">
+    @if (classes().length) {
+      <p class="faint" style="font-size:12.5px;margin:0 2px 12px">
+        Archived classes keep their rosters and quiz results. Restore one to show it on Home again.
+      </p>
+      <div class="settings-group">
+        @for (cls of classes(); track cls.id) {
+          <div class="row" [style.border-top]="$index === 0 ? 'none' : null">
+            <div>
+              <div class="label">{{ cls.name }}</div>
+              <div class="sub">
+                {{ cls.schoolYear || 'No school year' }} · {{ cls.students.length }} student{{ cls.students.length === 1 ? '' : 's' }}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn btn-secondary" (click)="restore(cls)">Restore</button>
+              <button class="icon-btn" (click)="remove(cls)" [attr.aria-label]="'Delete ' + cls.name" data-tooltip="Delete class" style="color:var(--bad)" [innerHTML]="'trash' | ico"></button>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="empty-state">
+        <div class="empty-ico" [innerHTML]="'archive' | ico"></div>
+        <h3>No archived classes</h3>
+        <p>Archive a class from Home to hide it here with all its results.</p>
+        <button class="btn btn-secondary" style="max-width:230px;margin:0 auto" (click)="goBack()">Back to Home</button>
+      </div>
+    }
+  </div>
+</ion-content>

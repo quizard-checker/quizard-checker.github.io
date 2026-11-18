@@ -15,8 +15,6 @@ import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { GuideService } from '../../core/services/guide.service';
 import { encryptBackup, decryptBackup } from '../../core/engine/crypto-backup.js';
-import { generateSyncCode, getSyncInfo, turnOffSync, activateSync, pushSync, pullSync, changeSyncPassword } from '../../core/engine/sync.js';
-import { normalizeSyncCode } from '../../core/engine/sync.js';
 import { hashPin, verifyPin, updateAccount, deleteDemoData } from '../../core/engine/storage.js';
 import { seedDemoData, demoSummary } from '../../core/engine/demo.js';
 
@@ -50,6 +48,12 @@ export class SettingsPage implements OnInit {
     { file: 'demo/pin-sheet-leo.png', label: 'Messy — Leo (44/50)', url: assetUrl('demo/pin-sheet-leo.png') },
   ];
   removePickerOpen = signal(false);
+  switchOpen = signal(false);
+  switchTarget = signal<any | null>(null);
+  switchBusy = signal(false);
+  switchMsg = signal('');
+  switchSwitching = signal<any | null>(null);
+  switchPin = '';
 
   @ViewChild('importInput') importInput?: ElementRef<HTMLInputElement>;
   @ViewChild('encImportInput') encImportInput?: ElementRef<HTMLInputElement>;
@@ -68,137 +72,6 @@ export class SettingsPage implements OnInit {
   get showNudge() { return (!this.lastBackup || Date.now() - this.lastBackup > BACKUP_NUDGE_MS) && this.docCount > 0; }
   get version() { return '2.5.4'; }
   get theme() { return this.ui.theme; }
-
-  // ── Cloud sync (sync-code locker) ──
-  syncInfo = signal<{ code: string; lastPush: number; on: boolean }>({ code: '', lastPush: 0, on: false });
-  syncPanel = signal<'' | 'new' | 'restore'>('');
-  newCode = signal(generateSyncCode());
-  syncPass = '';
-  restoreCode = '';
-  restorePass = '';
-  syncBusy = signal(false);
-  syncMsg = signal('');
-
-  private refreshSyncInfo() {
-    this.syncInfo.set(getSyncInfo());
-  }
-
-  syncLastPush() {
-    const t = this.syncInfo().lastPush;
-    return t ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never';
-  }
-
-  ngOnInitSyncRestore() {
-    // deep link: /tabs/settings?sync=restore (profile picker → "Use your sync
-    // code") — send them to the dedicated restore screen.
-    try {
-      const q = new URLSearchParams(this.router.url.split('?')[1] || '');
-      if (q.get('sync') === 'restore') this.router.navigateByUrl('/accounts?mode=restore');
-    } catch { /* ignore */ }
-  }
-
-  openSyncPanel(mode: 'new' | 'restore') {
-    this.syncMsg.set('');
-    if (mode === 'new') this.newCode.set(generateSyncCode());
-    this.syncPanel.set(mode);
-  }
-  closeSyncPanel() { this.syncPanel.set(''); this.syncMsg.set(''); this.syncPass = ''; this.restoreCode = ''; this.restorePass = ''; }
-  regenCode() { this.newCode.set(generateSyncCode()); }
-
-  async activateSyncNow() {
-    this.syncBusy.set(true);
-    this.syncMsg.set('');
-    try {
-      await activateSync(this.newCode(), this.syncPass);
-      this.refreshSyncInfo();
-      this.closeSyncPanel();
-      this.toast.toast('Sync is on — your library is on the cloud locker ✓');
-    } catch (err: any) {
-      this.syncMsg.set(String(err?.message || 'Sync failed'));
-    } finally {
-      this.syncBusy.set(false);
-    }
-  }
-
-  async syncNow() {
-    const info = this.syncInfo();
-    this.syncBusy.set(true);
-    this.syncMsg.set('');
-    try {
-      await pushSync({ code: info.code, passphrase: getSyncInfo().passphrase });
-      this.refreshSyncInfo();
-      this.toast.toast('Library pushed to the cloud locker ✓');
-    } catch (err: any) {
-      this.syncMsg.set(String(err?.message || 'Sync failed'));
-    } finally {
-      this.syncBusy.set(false);
-    }
-  }
-
-  async restoreFromSync() {
-    // The restore panel supplies code + password; the "Restore from cloud"
-    // button in the sync-on state falls back to this device's saved pair.
-    const stored = getSyncInfo();
-    const code = normalizeSyncCode(this.restoreCode) || stored.code;
-    const pass = this.restorePass || stored.passphrase;
-    this.syncBusy.set(true);
-    this.syncMsg.set('');
-    try {
-      const out = await pullSync(code, pass);
-      this.refreshSyncInfo();
-      this.closeSyncPanel();
-      this.docCount = (await listDocs()).length;
-      this.toast.toast(`Restored — ${out.docs ?? '?'} documents merged ✓`);
-    } catch (err: any) {
-      const msg = String(err?.message || 'Restore failed');
-      this.syncMsg.set(msg);
-      // syncMsg isn't rendered while sync is on — make the failure visible
-      this.toast.toast(msg, true);
-    } finally {
-      this.syncBusy.set(false);
-    }
-  }
-
-  async turnOffSyncAsk() {
-    if (!await this.confirm.confirm('Turn off sync on this device?', 'The cloud locker keeps its last snapshot until it expires — this only stops this device from pushing.', 'Turn off')) return;
-    turnOffSync();
-    this.refreshSyncInfo();
-    this.toast.toast('Sync turned off on this device');
-  }
-
-  // ── Change sync password (kill switch: old password stops working) ──
-  syncPassPanel = signal(false);
-  syncOldPass = '';
-  syncNewPass = '';
-  syncNewPass2 = '';
-
-  openSyncPassPanel() {
-    this.syncOldPass = '';
-    this.syncNewPass = '';
-    this.syncNewPass2 = '';
-    this.syncMsg.set('');
-    this.syncPassPanel.set(true);
-  }
-  closeSyncPassPanel() {
-    this.syncPassPanel.set(false);
-    this.syncOldPass = '';
-    this.syncNewPass = '';
-    this.syncNewPass2 = '';
-  }
-
-  async submitSyncPassword() {
-    this.syncBusy.set(true);
-    this.syncMsg.set('');
-    try {
-      await changeSyncPassword(this.syncOldPass, this.syncNewPass);
-      this.closeSyncPassPanel();
-      this.toast.toast('Password changed — the old one no longer opens the cloud copy ✓');
-    } catch (err: any) {
-      this.syncMsg.set(String(err?.message || 'Password change failed'));
-    } finally {
-      this.syncBusy.set(false);
-    }
-  }
 
   // ── Rename profile ──
   namePanel = signal(false);
@@ -292,8 +165,6 @@ export class SettingsPage implements OnInit {
   async ngOnInit() {
     this.docCount = (await listDocs()).length;
     await this.renderAccountSection();
-    this.refreshSyncInfo();
-    this.ngOnInitSyncRestore();
     try {
       const usage = await storageUsage();
       const when = this.lastBackup
@@ -319,10 +190,6 @@ export class SettingsPage implements OnInit {
   setSkipIntro(on: boolean) { saveSettings({ skipIntro: on }); this.refreshSettings(); this.toast.toast(on ? 'Intro will be skipped' : 'Intro plays on launch'); }
 
 
-  // Library entries — reached from Settings now that Home keeps only classes.
-  openKeys() { this.router.navigateByUrl('/tabs/keys'); }
-  openReports() { this.router.navigateByUrl('/tabs/reports'); }
-
   goBack() {
     // Settings can be opened from any screen's header, so return to where the
     // teacher came from instead of always dumping them on Classes.
@@ -330,12 +197,105 @@ export class SettingsPage implements OnInit {
     else this.router.navigateByUrl('/tabs/classes');
   }
 
-  switchAccount() {
+  async openSwitch() {
+    this.switchOpen.set(true);
+    this.switchTarget.set(null);
+    this.switchSwitching.set(null);
+    this.switchPin = '';
+    this.switchMsg.set('');
+    // Refresh the list and toggle a signal so the sheet paints the fresh
+    // accounts even under zoneless change detection.
+    this.switchBusy.set(true);
+    try {
+      await this.renderAccountSection();
+    } finally {
+      this.switchBusy.set(false);
+    }
+  }
+
+  closeSwitch() {
+    this.switchOpen.set(false);
+    this.switchTarget.set(null);
+    this.switchSwitching.set(null);
+    this.switchPin = '';
+    this.switchMsg.set('');
+  }
+
+  pickAccount(target: any) {
+    if (!target) return;
+    if (target.id === this.account?.id) { this.closeSwitch(); return; }
+    if (target.pinHash) {
+      this.switchTarget.set(target);
+      this.switchPin = '';
+      this.switchMsg.set('');
+      return;
+    }
+    this.switchPin = '';
+    void this.switchTo(target);
+  }
+
+  setSwitchPin(value: string) {
+    this.switchPin = String(value ?? '').replace(/\D/g, '').slice(0, 4);
+  }
+
+  cancelSwitchPin() {
+    this.switchTarget.set(null);
+    this.switchPin = '';
+    this.switchMsg.set('');
+  }
+
+  async submitSwitchPin() {
+    const target = this.switchTarget();
+    if (!target || this.switchPin.length !== 4 || this.switchBusy()) return;
+    this.switchBusy.set(true);
+    this.switchMsg.set('');
+    try {
+      const res = await verifyPin(this.switchPin, target.pinHash);
+      if (!res.ok) { this.switchMsg.set('Wrong PIN'); return; }
+      if (res.upgrade) updateAccount(target.id, { pinHash: res.upgrade }).catch(() => {});
+      await this.switchTo(target);
+    } catch (err: any) {
+      this.switchMsg.set(String(err?.message || 'Could not switch account'));
+    } finally {
+      this.switchBusy.set(false);
+    }
+  }
+
+  private async switchTo(target: any) {
+    this.switchBusy.set(true);
+    this.switchSwitching.set(target);
+    this.switchTarget.set(null);
+    this.switchPin = '';
+    this.switchMsg.set('');
+    try {
+      setActiveAccount(target.id);
+      this.ui.account.set(target);
+      this.account = target;
+      // Let the switch animation play before Home loads under the new profile.
+      await new Promise(resolve => setTimeout(resolve, 700));
+      this.switchOpen.set(false);
+      this.switchSwitching.set(null);
+      await this.router.navigateByUrl('/tabs/home');
+      this.toast.toast(`Switched to ${target.name}`);
+    } catch (err: any) {
+      this.switchSwitching.set(null);
+      this.toast.toast(String(err?.message || 'Could not switch account'), true);
+    } finally {
+      this.switchBusy.set(false);
+    }
+  }
+
+  addAccount() {
+    this.closeSwitch();
+    this.router.navigate(['/accounts'], { queryParams: { mode: 'create', from: 'picker' } });
+  }
+
+  logout() {
+    this.closeSwitch();
     setActiveAccount(null);
     this.ui.account.set(null);
-    this.router.navigate(['/accounts', { mode: 'picker' }]);
+    this.router.navigate(['/accounts'], { queryParams: { mode: 'picker' } });
   }
-  addAccount() { this.router.navigate(['/accounts'], { queryParams: { mode: 'create', from: 'picker' } }); }
 
   otherAccounts() {
     return this.accounts.filter(a => a.id !== this.account?.id);

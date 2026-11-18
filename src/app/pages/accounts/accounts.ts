@@ -10,13 +10,12 @@ import {
 import type { Account } from '../../core/engine/db-types.js';
 import { icon } from '../../shared/icons.js';
 import { IcoPipe } from '../../shared/ico.pipe';
-import { pullSync, normalizeSyncCode } from '../../core/engine/sync.js';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 
 const COLORS = ['#C4713B', '#1A7F37', '#0A66C2', '#7C5CBF', '#B54708', '#475569'];
 
-type Mode = 'picker' | 'create' | 'lock' | 'restore';
+type Mode = 'picker' | 'create' | 'lock';
 
 @Component({
   selector: 'app-accounts',
@@ -50,7 +49,8 @@ export class AccountsPage implements OnInit {
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(async q => {
-      this.mode.set((q.get('mode') as Mode) || 'picker');
+      const requested = q.get('mode');
+      this.mode.set(requested === 'create' || requested === 'lock' ? requested : 'picker');
       this.cameFromPicker = q.get('from') === 'picker';
       if (this.mode() === 'picker') this.accounts.set(await listAccounts());
       if (this.mode() === 'lock') {
@@ -67,33 +67,6 @@ export class AccountsPage implements OnInit {
     if (params.id) qp['id'] = params.id;
     if (params.mode === 'create' && this.cameFromPicker) qp['from'] = 'picker';
     this.router.navigate(tree, { queryParams: qp });
-  }
-
-  // Returning student on a new device: their library lives behind a sync code.
-  restoreWithCode() {
-    this.go({ mode: 'restore' });
-  }
-
-  // restore form state
-  restoreCode = '';
-  restorePass = '';
-  restoreBusy = signal(false);
-  restoreMsg = signal('');
-
-  async restoreNow() {
-    const code = normalizeSyncCode(this.restoreCode);
-    if (!code) return;
-    this.restoreBusy.set(true);
-    this.restoreMsg.set('');
-    try {
-      const out = await pullSync(code, this.restorePass);
-      this.toast.toast(`Restored — ${out.docs ?? '?'} documents merged ✓`);
-      this.router.navigateByUrl('/tabs/classes');
-    } catch (err: any) {
-      this.restoreMsg.set(String(err?.message || 'Restore failed'));
-    } finally {
-      this.restoreBusy.set(false);
-    }
   }
 
   avatarStyle(color: string) { return { background: color }; }

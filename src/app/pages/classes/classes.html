@@ -80,7 +80,7 @@
       <div class="empty-state">
         <div class="empty-ico" [innerHTML]="'users' | ico"></div>
         <h3>No classes yet</h3>
-        <p>Upload your student roster — paste names or a .txt/.csv file, one student per line. Everything stays on this device.</p>
+        <p>Upload your student roster - paste names or an Excel/CSV file, one student per row. Everything stays on this device.</p>
         <button class="btn btn-primary" style="max-width:230px;margin:0 auto" (click)="openSheet()"><span [innerHTML]="'plus' | ico"></span> Add class</button>
       </div>
     }
@@ -89,19 +89,40 @@
       <div class="org-overlay" (click)="closeSheet()">
         <div class="org-sheet" (click)="$event.stopPropagation()">
           <h3>{{ editingId() ? 'Edit class' : 'Add class' }}</h3>
-          <input class="text-input" placeholder="Class name (e.g. 8 — Sampaguita)" [attr.aria-label]="'Class name'" maxlength="60" autocomplete="off" [value]="name()" (input)="name.set($any($event.target).value)" />
-          <input class="text-input" placeholder="School year (required — e.g. 2026-2027)" [attr.aria-label]="'School year'" maxlength="20" autocomplete="off" [value]="schoolYear()" (input)="schoolYear.set($any($event.target).value)" />
+          <input class="text-input" placeholder="Subject (optional — e.g. Science)" [attr.aria-label]="'Class subject'" maxlength="40" [value]="subject()" (input)="subject.set($any($event.target).value)" />
+          <p class="sheet-label">School year</p>
+          <div class="year-row">
+            <select class="text-input year-select" [attr.aria-label]="'School year'" [value]="schoolYear()" (change)="setSchoolYear($any($event.target).value)">
+              @for (year of schoolYears(); track year) {
+                <option [value]="year" [selected]="year === schoolYear()">{{ year }}</option>
+              }
+            </select>
+            <button class="btn btn-secondary year-more" type="button" (click)="yearPickerOpen.set(!yearPickerOpen())">More years</button>
+          </div>
+          @if (yearPickerOpen()) {
+            <div class="year-picker">
+              <button class="year-step" type="button" (click)="stepYear(-1)" aria-label="Previous school year">−</button>
+              <b class="year-value">{{ schoolYear() }}</b>
+              <button class="year-step" type="button" (click)="stepYear(1)" aria-label="Next school year">+</button>
+              <button class="year-done" type="button" (click)="yearPickerOpen.set(false)">Done</button>
+            </div>
+          }
           <div class="form-row">
-            <input class="text-input" placeholder="Grade (optional)" [attr.aria-label]="'Grade'" maxlength="20" [value]="grade()" (input)="grade.set($any($event.target).value)" />
+            <input class="text-input" placeholder="Grade (optional)" [attr.aria-label]="'Grade'" inputmode="numeric" pattern="[0-9]*" maxlength="2" [value]="grade()" (input)="setGrade($any($event.target).value)" />
             <input class="text-input" placeholder="Section (optional)" [attr.aria-label]="'Section'" maxlength="30" [value]="section()" (input)="section.set($any($event.target).value)" />
           </div>
-          <input class="text-input" placeholder="Subject (optional — e.g. Science)" [attr.aria-label]="'Class subject'" maxlength="40" [value]="subject()" (input)="subject.set($any($event.target).value)" />
           <p class="sheet-label">Students <span class="faint">· one name per line</span></p>
-          <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos, Grade 8, Sampaguita" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
-          <label class="btn btn-secondary file-btn">
-            <span [innerHTML]="'upload' | ico"></span> Upload .txt / .csv
-            <input type="file" accept=".txt,.csv,text/plain,text/csv" (change)="onFile($event)" hidden />
-          </label>
+          <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Reyes, Miguel" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
+          <div class="file-actions">
+            <button class="btn btn-secondary file-btn" type="button" (click)="downloadTemplate()">
+              <span [innerHTML]="'download' | ico"></span> Download template
+            </button>
+            <label class="btn btn-secondary file-btn">
+              <span [innerHTML]="'upload' | ico"></span> Upload Excel / CSV
+              <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" (change)="onFile($event)" hidden />
+            </label>
+          </div>
+          <p class="file-hint">The Excel template fills in the class details and student names.</p>
           @if (paste().trim()) {
             <p class="parse-note">
               {{ previewCount() }} student{{ previewCount() === 1 ? '' : 's' }} detected
@@ -116,7 +137,7 @@
           }
           <div class="org-sheet-actions">
             <button class="btn btn-secondary" (click)="closeSheet()">Cancel</button>
-            <button class="btn btn-primary" [disabled]="!name().trim() || !schoolYear().trim() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
+            <button class="btn btn-primary" [disabled]="!hasTitle() || !schoolYear().trim() || (!editingId() && !previewCount())" (click)="saveSheet()">Save class</button>
           </div>
         </div>
       </div>

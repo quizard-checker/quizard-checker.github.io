@@ -20,6 +20,7 @@ const demoQuiz = {
   id: 'demo-abc-quiz-2',
   demoKey: 'demo-quiz-2',
   demo: true,
+  classId: demoClass.id,
   subject: 'English',
   title: 'Verb Tenses',
   items: [],
@@ -38,6 +39,20 @@ describe('resolveDemoSheet', () => {
     const oldQuiz = { ...demoQuiz, demoKey: undefined }
     const match = resolveDemoSheet(claim, [oldClass], [oldQuiz])
     expect(match?.student.no).toBe(1)
+  })
+
+  it('falls back to a demo class quiz whose demo marker was lost on edit', () => {
+    const edited = { ...demoQuiz, demo: false, demoKey: undefined }
+    const match = resolveDemoSheet(claim, [demoClass], [edited])
+    expect(match?.quiz.id).toBe(demoQuiz.id)
+    expect(match?.student.no).toBe(1)
+  })
+
+  it('never borrows a same-titled quiz from another class', () => {
+    const wrong = { ...demoQuiz, classId: 'science-class', demo: false, demoKey: undefined }
+    const wrongKey = { ...demoQuiz, classId: 'science-class' }
+    expect(resolveDemoSheet(claim, [demoClass], [wrong])).toBeNull()
+    expect(resolveDemoSheet(claim, [demoClass], [wrongKey])).toBeNull()
   })
 
   it('never resolves against a real class or quiz with the same name', () => {

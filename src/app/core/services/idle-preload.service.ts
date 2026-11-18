@@ -17,7 +17,6 @@ export class IdlePreloadService {
       const targets = [
         () => import('../../pages/home/home'),
         () => import('../engine/storage.js'),
-        () => import('../../pages/keys/keys'),
         () => import('../../pages/create/create'),
         () => import('../../pages/checking/checking'),
         () => import('../../pages/reports/reports'),

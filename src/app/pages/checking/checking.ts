@@ -2,7 +2,6 @@ import { Component, computed, inject, signal, NgZone, HostListener } from '@angu
 import { Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
-import { App } from '@capacitor/app';
 import { IonContent } from '@ionic/angular';
 import { listClasses, listQuizzes, saveSheet, listSheets, deleteSheet, getQuiz, saveClass } from '../../core/engine/storage.js';
 import { readSheet, readPinSheet, readPinSheetV3, scoreSheet, decodeQr, decodeQrAnywhere, decodeQrFromSheet, detectSheet, FLAG } from '../../core/engine/omr.js';
@@ -15,6 +14,7 @@ import { liveScanStep, LIVE_SCAN } from '../../core/engine/live-scan.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
+import { BackService } from '../../core/services/back.service';
 import { bannerTheme } from '../../shared/helpers.js';
 
 /**
@@ -45,6 +45,7 @@ export class CheckingPage {
   ui = inject(UiStateService);
   private toast = inject(ToastService);
   private zone = inject(NgZone);
+  private back = inject(BackService);
 
   stage = signal<'setup' | 'scan' | 'result'>('setup');
   classes = signal<any[]>([]);
@@ -135,7 +136,7 @@ export class CheckingPage {
     return Math.max(10, Math.round(this.videoW() * 0.012));
   }
   private stream: MediaStream | null = null;
-  private backListener: { remove: () => Promise<void> } | null = null;
+  private unregisterBack: (() => void) | null = null;
   private cameraStarting = false;
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private liveCanvas: HTMLCanvasElement | null = null;
@@ -243,14 +244,14 @@ export class CheckingPage {
     // target before any scanning starts.
     const qm = /[?&]quiz=([A-Za-z0-9-]+)/.exec(this.router.url || '');
     if (qm) this.quizOverrideId.set(qm[1]);
-    void this.installBackHandler();
+    this.installBackHandler();
   }
 
   // Leaving the tab mid-scan must release the camera and stop the live loop;
   // Ionic caches the page, so nothing else would switch it off.
   ionViewWillLeave() {
     this.closeCamera();
-    void this.removeBackHandler();
+    this.removeBackHandler();
   }
 
   // Android's hardware back must never close the app on a pending result.
@@ -258,30 +259,26 @@ export class CheckingPage {
   // activity, which used to throw away the scanned sheet. Stay on the result
   // screen until the teacher saves or deliberately backs out with the header
   // arrow; on the scanner, back ends the session safely.
-  private async installBackHandler() {
-    if (this.backListener) return;
-    try {
-      this.backListener = await App.addListener('backButton', () => {
-        if (this.stage() === 'result') {
-          this.toast.toast('Save this sheet or use the back arrow to return to scanning.');
-          return;
-        }
-        if (this.stage() === 'scan') {
-          this.closeCamera();
-          this.endSession();
-          return;
-        }
-        this.toast.toast('Tap Home to leave the scanner.');
-      });
-    } catch {
-      this.backListener = null;
-    }
+  private installBackHandler() {
+    if (this.unregisterBack) return;
+    this.unregisterBack = this.back.register(() => {
+      if (this.stage() === 'result') {
+        this.toast.toast('Save this sheet or use the back arrow to return to scanning.');
+        return true;
+      }
+      if (this.stage() === 'scan') {
+        this.closeCamera();
+        this.endSession();
+        return true;
+      }
+      void this.router.navigateByUrl('/tabs/home');
+      return true;
+    });
   }
 
-  private async removeBackHandler() {
-    const handle = this.backListener;
-    this.backListener = null;
-    try { await handle?.remove(); } catch { /* plugin already gone */ }
+  private removeBackHandler() {
+    this.unregisterBack?.();
+    this.unregisterBack = null;
   }
 
   // Browsers freeze or suspend camera tracks when the tab/app is hidden; a
@@ -831,6 +828,7 @@ export class CheckingPage {
     const parsed = parseSheetQr(qrText);
     let quiz: any = null;
     let demoMatch: { cls: any; student: any } | null = null;
+    let demoClass: any = null;
     if (parsed?.demo) {
       // The bundled demo sheet points at stable demo keys, not this profile's
       // storage ids. Resolve it against the demo records loaded here.
@@ -845,6 +843,7 @@ export class CheckingPage {
         return;
       }
       quiz = match.quiz;
+      demoClass = match.cls;
       // QZD2 demo PIN sheets resolve to the class + quiz only: the shaded
       // 5-digit PIN names the student through the normal PIN path below.
       demoMatch = match.student ? { cls: match.cls, student: match.student } : null;
@@ -863,6 +862,22 @@ export class CheckingPage {
       this.scanError.set(parsed
         ? `This sheet’s quiz isn’t on this device${parsed.quizName ? ` — the QR says “${parsed.quizName}”` : parsed.studentName ? ` (the QR names ${parsed.studentName})` : ''} — it was printed somewhere else or deleted here. Pick the quiz manually on the setup screen and scan again.`
         : 'Captured the sheet, but could not read its QR code — move back so the whole QR block is inside and not glared out, then try again. Or use Check from photo, or pick the quiz manually on the setup screen.');
+      if (fromLive && parsed) this.scannedQr = qrText;
+      return;
+    }
+
+    // A scan session is for one class. The sheet's own QR names its class
+    // (through the demo keys or the quiz record), so a paper from another
+    // class must not silently score — even if its subject happens to match.
+    const sessionClass = this.pickedClass();
+    const sheetClass = demoClass
+      || (quiz.classId ? this.classes().find(c => c.id === quiz.classId) : null);
+    if (sessionClass && sheetClass && sheetClass.id !== sessionClass.id) {
+      this.processing.set(false);
+      this.logScanDiag({ reason: 'class-mismatch', qr: qrText, qrSource, width: data.width, height: data.height });
+      this.scanError.set(`This sheet belongs to ${sheetClass.name}, not ${sessionClass.name}. Switch to ${sheetClass.name} on the setup screen, or scan a sheet for ${sessionClass.name}.`);
+      // Keep the same paper from re-firing while it stays in frame; move it
+      // away and back (or switch class) to try again.
       if (fromLive && parsed) this.scannedQr = qrText;
       return;
     }
@@ -1055,17 +1070,43 @@ export class CheckingPage {
     }
   }
 
-  // A misread must not be permanent: drop the row that was just written and
-  // reopen the result screen, where the answer chips and the student can be
-  // corrected before saving again.
-  async fixScore() {
+  // Redo the same paper: drop the saved row, clear the duplicate guard, and
+  // re-arm the live scanner so the teacher can correct a misread by scanning
+  // again instead of editing the answer chips.
+  async redoSheet() {
     const pop = this.scorePop();
     this.scorePop.set(null);
     if (!pop) return;
-    this.closeCamera();
     await deleteSheet(pop.id);
     await this.refreshSession();
-    this.stage.set('result');
+    this.stage.set('scan');
+    this.resetLiveScan();
+    if (!this.cameraActive()) void this.openCamera();
+    this.toast.toast('Rescan the same paper to correct it.');
+  }
+
+  // The teacher has replaced the sheet. Clear the duplicate guard and re-arm
+  // the live loop immediately: every PIN half-sheet shares the same quiz QR,
+  // so waiting for the 2-second absent-tick re-arm made the next paper look
+  // like a rescan of the previous one.
+  nextSheet() {
+    this.scorePop.set(null);
+    this.resetLiveScan();
+  }
+
+  private resetLiveScan() {
+    this.scannedQr = null;
+    this.liveCandidate = null;
+    this.liveHits = 0;
+    this.liveAbsent = 0;
+    this.sheetHits = 0;
+    this.sheetArmed = true;
+    this.sheetQuad.set(null);
+    this.sheetHint.set('');
+    this.searchHint.set(false);
+    this.cooldownUntil = 0;
+    this.scanError.set('');
+    this.livePhase.set(this.autoScan() ? 'looking' : 'off');
   }
 
   endSession() {

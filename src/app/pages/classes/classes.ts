@@ -3,12 +3,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { listClasses, saveClass, deleteClass, getActiveAccountId, getAccount } from '../../core/engine/storage.js';
 import { parseRoster } from '../../core/engine/roster.js';
-import { bannerTheme, bannerAvatar } from '../../shared/helpers.js';
+import { readClassFile } from '../../core/engine/class-file.js';
+import { bannerTheme, bannerAvatar, currentSchoolYearStart, normalizeGrade, parseSchoolYear, schoolYearLabel, schoolYearOptions } from '../../shared/helpers.js';
 import { icon } from '../../shared/icons.js';
 import { IcoPipe } from '../../shared/ico.pipe';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { saveClassTemplate } from '../../shared/class-template';
 
 @Component({
   selector: 'app-classes',
@@ -27,11 +29,12 @@ export class ClassesPage {
   sheetOpen = signal(false);
   editingId = signal<string | null>(null);
 
-  name = signal('');
   grade = signal('');
   section = signal('');
   subject = signal('');
   schoolYear = signal('');
+  yearAnchor = signal(currentSchoolYearStart());
+  yearPickerOpen = signal(false);
   paste = signal('');
 
   readonly previewCount = computed(() => parseRoster(this.paste()).students.length);
@@ -42,6 +45,17 @@ export class ClassesPage {
     return (cls?.students || []).slice().sort((a: any, b: any) => (a.no || 0) - (b.no || 0));
   });
   readonly previewSkipped = computed(() => parseRoster(this.paste()).skipped);
+  // The class title is built from the fields instead of asking for a duplicate
+  // name: "English 8-B", "Science 7-A", and so on.
+  readonly hasTitle = computed(() =>
+    !!(this.subject().trim() || this.grade().trim() || this.section().trim()));
+  readonly className = computed(() => {
+    const subject = this.subject().trim();
+    const gradeSection = [this.grade().trim(), this.section().trim()].filter(Boolean).join('-');
+    return [subject, gradeSection].filter(Boolean).join(' ') || 'Class';
+  });
+  readonly schoolYears = computed(() =>
+    schoolYearOptions(this.yearAnchor(), this.schoolYear()));
   // The current school year's classes lead; archived ones keep their history
   // in a separate section instead of cluttering the main grid.
   readonly activeClasses = computed(() => this.classes().filter(c => !c.archived));
@@ -96,11 +110,13 @@ export class ClassesPage {
 
   openSheet(cls: any = null) {
     this.editingId.set(cls?.id || null);
-    this.name.set(cls?.name || '');
-    this.grade.set(cls?.grade || '');
+    this.grade.set(normalizeGrade(cls?.grade || ''));
     this.section.set(cls?.section || '');
     this.subject.set(cls?.subject || '');
-    this.schoolYear.set(cls?.schoolYear || '');
+    const anchor = currentSchoolYearStart();
+    this.yearAnchor.set(anchor);
+    this.schoolYear.set(parseSchoolYear(cls?.schoolYear) || schoolYearLabel(anchor));
+    this.yearPickerOpen.set(false);
     this.paste.set('');
     this.sheetOpen.set(true);
   }
@@ -113,22 +129,69 @@ export class ClassesPage {
 
   setPaste(value: string) { this.paste.set(value); }
 
+  setGrade(value: string) {
+    this.grade.set(normalizeGrade(value));
+  }
+
+  setSchoolYear(value: string) {
+    this.schoolYear.set(parseSchoolYear(value));
+    this.yearPickerOpen.set(false);
+  }
+
+  stepYear(delta: number) {
+    const current = parseSchoolYear(this.schoolYear()) || schoolYearLabel(this.yearAnchor());
+    this.schoolYear.set(schoolYearLabel(Number(current.slice(0, 4)) + delta));
+  }
+
   async onFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    this.paste.set(this.paste() ? this.paste() + '\n' + text : text);
-    input.value = '';
-    this.toast.toast(`Loaded ${file.name}`);
+    try {
+      const result = await readClassFile(file);
+      let yearWarning = false;
+      if (result.meta.schoolYear) {
+        const year = parseSchoolYear(result.meta.schoolYear);
+        if (year) this.schoolYear.set(year);
+        else yearWarning = true;
+      }
+      if (result.meta.grade) this.grade.set(normalizeGrade(result.meta.grade));
+      if (result.meta.section) this.section.set(result.meta.section);
+      if (result.meta.subject) this.subject.set(result.meta.subject);
+      this.paste.set(this.paste() ? this.paste() + '\n' + result.studentsText : result.studentsText);
+      const filled = result.meta.subject || result.meta.schoolYear;
+      if (yearWarning) {
+        this.toast.toast(`Class details loaded, but the school year “${result.meta.schoolYear}” is invalid — pick one from the list`, true);
+      } else {
+        this.toast.toast(filled
+          ? `Class details and ${result.studentCount} students loaded`
+          : `Loaded ${file.name}`);
+      }
+    } catch (err) {
+      this.toast.toast(err instanceof Error ? err.message : 'Could not read that file', true);
+    } finally {
+      input.value = '';
+    }
+  }
+
+  async downloadTemplate() {
+    try {
+      await saveClassTemplate();
+      this.toast.toast('Excel template ready — fill it in, then upload it here');
+    } catch (err) {
+      this.toast.toast(err instanceof Error ? err.message : 'Could not create the template', true);
+    }
   }
 
   async saveSheet() {
-    const name = this.name().trim();
-    const schoolYear = this.schoolYear().trim();
-    if (!name) return;
+    const schoolYear = parseSchoolYear(this.schoolYear());
+    if (!this.hasTitle()) {
+      this.toast.toast('Add a subject, grade, or section so the class has a title', true);
+      return;
+    }
+    const name = this.className();
     if (!schoolYear) {
-      this.toast.toast('School year is required — e.g. 2026-2027', true);
+      this.toast.toast('Choose a school year — e.g. 2026-2027', true);
       return;
     }
     const prev = this.classes().find(c => c.id === this.editingId());

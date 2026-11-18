@@ -17,7 +17,7 @@
               <div class="sub">{{ acc.pinHash ? 'PIN-protected' : 'No PIN' }} · {{ (accounts.length - 1) ? (accounts.length - 1) + ' other account' + ((accounts.length - 1) === 1 ? '' : 's') : 'only account' }}</div>
             </div>
           </div>
-          <button class="btn btn-secondary" (click)="switchAccount()" data-tooltip="Change profile"><span [innerHTML]="'refresh' | ico"></span> Switch</button>
+          <button class="btn btn-secondary switch-account-btn" (click)="openSwitch()" [disabled]="switchBusy()" data-tooltip="Switch profile"><span [innerHTML]="'refresh' | ico"></span> Switch</button>
         </div>
         <div class="row" style="border-bottom:none">
           <div><div class="label">Profile name</div><div class="sub">The name shown on this device</div></div>
@@ -67,7 +67,7 @@
         }
         <div class="row" style="border-bottom:none">
           <div><div class="label">Log out</div><div class="sub">Back to the profile picker</div></div>
-          <button class="btn btn-secondary" (click)="switchAccount()">Log out</button>
+          <button class="btn btn-secondary" (click)="logout()">Log out</button>
         </div>
       } @else {
         <div class="row"><span class="sub">No active account</span></div>
@@ -91,94 +91,13 @@
 
     <div class="section-title"><span class="set-sec-ico" [innerHTML]="'book' | ico"></span>Help</div>
     <div class="settings-group">
-      <div class="row" style="border-top:none;border-bottom:none">
+      <div class="row" data-tour="settings-help" style="border-top:none;border-bottom:none">
         <div>
           <div class="label">How to use Quizard</div>
-          <div class="sub">A quick in-app preview of the basics</div>
+          <div class="sub">Step-by-step tutorial for classes, printing, and scanning</div>
         </div>
-        <button class="btn btn-secondary" (click)="guide.show()">Preview guide</button>
+        <button class="btn btn-secondary" (click)="guide.show()">Start tutorial</button>
       </div>
-    </div>
-
-    <div class="section-title"><span class="set-sec-ico" [innerHTML]="'listChecks' | ico"></span>Library</div>
-    <div class="settings-group">
-      <div class="row" style="border-top:none">
-        <div><div class="label">Saved answer keys</div><div class="sub">Reuse prompt-format keys or start a quiz from one</div></div>
-        <button class="btn btn-secondary" (click)="openKeys()">Open</button>
-      </div>
-      <div class="row" style="border-bottom:none">
-        <div><div class="label">Quiz reports</div><div class="sub">Per-quiz scores, averages and answer review</div></div>
-        <button class="btn btn-secondary" (click)="openReports()">Open</button>
-      </div>
-    </div>
-
-    <div class="section-title"><span class="set-sec-ico" [innerHTML]="'refresh' | ico"></span>Cloud sync — your library on every device</div>
-    <div class="card" style="padding:16px">
-      @if (syncInfo().on) {
-        <div class="label" style="margin-bottom:6px">Sync is on</div>
-        <div class="sync-code">{{ syncInfo().code }}</div>
-        <p class="faint" style="font-size:11.5px;margin:6px 0 12px;line-height:1.5">
-          This code + your password opens your library on any device. Write them down —
-          losing both means losing the cloud copy.
-          @if (syncInfo().lastPush) { Last pushed: {{ syncLastPush() }}. }
-        </p>
-        <button class="btn btn-primary" id="sync-now" style="width:100%" [disabled]="syncBusy()" (click)="syncNow()">
-          <span [innerHTML]="(syncBusy() ? 'refresh' : 'refresh') | ico"></span> {{ syncBusy() ? 'Syncing…' : 'Sync now (push this device)' }}
-        </button>
-        <button class="btn btn-secondary" style="margin-top:10px;width:100%" [disabled]="syncBusy()" (click)="restoreFromSync()">
-          <span [innerHTML]="'database' | ico"></span> Restore from cloud (merge)
-        </button>
-        @if (!syncPassPanel()) {
-          <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="openSyncPassPanel()">Change password</button>
-        } @else {
-          <div class="label" style="margin:14px 0 4px">Change sync password</div>
-          <input class="text-input" id="sync-old-pass" type="password" autocomplete="off" placeholder="Current password" [(ngModel)]="syncOldPass" />
-          <input class="text-input" id="sync-new-pass" type="password" autocomplete="new-password" placeholder="New password (min 6 characters)" style="margin-top:8px" [(ngModel)]="syncNewPass" />
-          <input class="text-input" id="sync-new-pass2" type="password" autocomplete="new-password" placeholder="Repeat new password" style="margin-top:8px" [(ngModel)]="syncNewPass2" />
-          <button class="btn btn-primary" style="width:100%;margin-top:10px" [disabled]="syncBusy() || !syncOldPass || syncNewPass.length < 6 || syncNewPass !== syncNewPass2" (click)="submitSyncPassword()">
-            {{ syncBusy() ? 'Re-sealing…' : 'Set new password (old one stops working)' }}
-          </button>
-          <button class="btn btn-secondary" style="margin-top:8px;width:100%" (click)="closeSyncPassPanel()">Cancel</button>
-        }
-        <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="turnOffSyncAsk()">Turn off sync on this device</button>
-      } @else {
-        @if (!syncPanel()) {
-          <p class="muted" style="font-size:13px;line-height:1.55;margin-bottom:14px">
-            Keep an encrypted copy of your library on the Quizard relay, addressed by a secret
-            code. Sign in on a new device with that code + password — your data stays sealed
-            (even we can't read it).
-          </p>
-          <button class="btn btn-primary" id="sync-open-new" style="width:100%" (click)="openSyncPanel('new')">Turn on sync — get my code</button>
-          <button class="btn btn-secondary" id="sync-open-restore" style="margin-top:10px;width:100%" (click)="openSyncPanel('restore')">I have a sync code</button>
-        }
-        @if (syncPanel() === 'new') {
-          <div class="label" style="margin-bottom:6px">Your sync code</div>
-          <div class="sync-code">{{ newCode() }}</div>
-          <button class="btn btn-ghost" style="margin:4px 0 10px" (click)="regenCode()">Generate a different code</button>
-          <label class="label" for="sync-pass">Choose a password (min 6 characters)</label>
-          <input class="text-input" id="sync-pass" type="password" autocomplete="new-password" placeholder="Unlock password for the cloud copy" [(ngModel)]="syncPass" />
-          <p class="faint" style="font-size:11.5px;margin:8px 0 12px;line-height:1.5">
-            The password never leaves this device (the cloud copy is sealed with it).
-            <b>No email, no reset:</b> write down the code and password — losing both means losing the cloud copy.
-          </p>
-          <button class="btn btn-primary" style="width:100%" [disabled]="syncBusy() || syncPass.length < 6" (click)="activateSyncNow()">
-            {{ syncBusy() ? 'Uploading…' : 'Turn on sync' }}
-          </button>
-          <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="closeSyncPanel()">Cancel</button>
-        }
-        @if (syncPanel() === 'restore') {
-          <label class="label" for="sync-code-in">Sync code</label>
-          <input class="text-input" id="sync-code-in" placeholder="ABCD-2345" autocomplete="off" [(ngModel)]="restoreCode" />
-          <label class="label" for="sync-pass-in" style="margin-top:12px">Password</label>
-          <input class="text-input" id="sync-pass-in" type="password" autocomplete="off" placeholder="The password that locks that library" [(ngModel)]="restorePass" />
-          <p class="faint" style="font-size:11.5px;margin:8px 0 12px">Restoring merges the cloud library into this device — nothing here is erased.</p>
-          <button class="btn btn-primary" id="sync-restore" style="width:100%" [disabled]="syncBusy() || !restoreCode.trim() || !restorePass.trim()" (click)="restoreFromSync()">
-            {{ syncBusy() ? 'Restoring…' : 'Restore this library' }}
-          </button>
-          <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="closeSyncPanel()">Cancel</button>
-        }
-        @if (syncMsg()) { <p class="faint" style="font-size:12px;margin:10px 2px 0;color:var(--warn,#f59e0b)">{{ syncMsg() }}</p> }
-      }
     </div>
 
     <div class="section-title"><span class="set-sec-ico" [innerHTML]="'download' | ico"></span>Backup &amp; restore</div>
@@ -262,6 +181,62 @@
         <div class="org-sheet-actions">
           <button type="button" class="btn btn-secondary" (click)="removePickerOpen.set(false)">Cancel</button>
         </div>
+      </div>
+    </div>
+  }
+
+  @if (switchOpen()) {
+    <div class="org-overlay" (click)="closeSwitch()">
+      <div class="org-sheet switch-sheet" (click)="$event.stopPropagation()">
+        <h3>Switch accounts</h3>
+        <p class="faint" style="font-size:12px;margin:4px 0 12px">Pick a profile to use. PIN-protected profiles ask for their PIN.</p>
+
+        @if (switchSwitching(); as target) {
+          <div class="switch-switching" role="status" aria-live="polite">
+            <span class="switch-spin">
+              <span class="acc-avatar sm" [style.background]="target.color || 'var(--accent)'">{{ (target.name || '?').charAt(0).toUpperCase() }}</span>
+              <span class="switch-spin-ring" aria-hidden="true"></span>
+            </span>
+            <b>Switching to {{ target.name }}…</b>
+            <span class="faint">Loading that profile’s classes and quizzes</span>
+          </div>
+        } @else {
+          <div class="switch-list">
+            @for (a of accounts; track a.id) {
+              <button type="button" class="switch-row" [class.current]="a.id === account?.id" (click)="pickAccount(a)">
+                <span class="acc-avatar sm" [style.background]="a.color || 'var(--accent)'">{{ (a.name || '?').charAt(0).toUpperCase() }}</span>
+                <span class="switch-name">{{ a.name }}</span>
+                @if (a.id === account?.id) {
+                  <span class="switch-check" [innerHTML]="'check' | ico"></span>
+                } @else if (a.pinHash) {
+                  <span class="switch-lock" [innerHTML]="'lock' | ico"></span>
+                } @else {
+                  <span class="switch-lock" [innerHTML]="'chevronRight' | ico"></span>
+                }
+              </button>
+            }
+            <button type="button" class="switch-row switch-add" (click)="addAccount()">
+              <span class="switch-add-ico" [innerHTML]="'plus' | ico"></span>
+              <span class="switch-name">Add account</span>
+            </button>
+          </div>
+
+          @if (switchTarget(); as target) {
+            <div class="switch-pin">
+              <p class="switch-hint">Enter the PIN for <b>{{ target.name }}</b></p>
+              <input class="text-input" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" [value]="switchPin" (input)="setSwitchPin($any($event.target).value)" (keydown.enter)="submitSwitchPin()" />
+              @if (switchMsg()) { <p class="switch-msg">{{ switchMsg() }}</p> }
+              <div class="org-sheet-actions">
+                <button type="button" class="btn btn-secondary" (click)="cancelSwitchPin()">Back</button>
+                <button type="button" class="btn btn-primary" [disabled]="switchBusy() || switchPin.length !== 4" (click)="submitSwitchPin()">{{ switchBusy() ? 'Checking…' : 'Switch' }}</button>
+              </div>
+            </div>
+          } @else {
+            <div class="org-sheet-actions">
+              <button type="button" class="btn btn-secondary" (click)="closeSwitch()">Cancel</button>
+            </div>
+          }
+        }
       </div>
     </div>
   }

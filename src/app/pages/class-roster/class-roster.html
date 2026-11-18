@@ -206,10 +206,10 @@
               <button type="button" [class.on]="rosterMode() === 'replace'" (click)="setMode('replace')" role="tab" [attr.aria-selected]="rosterMode() === 'replace'">Replace list</button>
               <button type="button" [class.on]="rosterMode() === 'add'" (click)="setMode('add')" role="tab" [attr.aria-selected]="rosterMode() === 'add'">Add names</button>
             </div>
-            <textarea class="text-input roster-paste" rows="7" [placeholder]="rosterMode() === 'add' ? 'One name per line — only new names are added.&#10;Juan Dela Cruz&#10;Maria Santos' : 'Paste student names — one per line.&#10;Juan Dela Cruz&#10;Maria Santos, Grade 8, Sampaguita'" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
+            <textarea class="text-input roster-paste" rows="7" [placeholder]="rosterMode() === 'add' ? 'One name per line — only new names are added.&#10;Juan Dela Cruz&#10;Maria Santos' : 'Paste student names — one per line.&#10;Juan Dela Cruz&#10;Maria Santos'" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
             <label class="btn btn-secondary file-btn">
-              <span [innerHTML]="'upload' | ico"></span> Upload .txt / .csv
-              <input type="file" accept=".txt,.csv,text/plain,text/csv" (change)="onFile($event)" hidden />
+              <span [innerHTML]="'upload' | ico"></span> Upload Excel / CSV
+              <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" (change)="onFile($event)" hidden />
             </label>
             @if (rosterMode() === 'replace') {
               @if (paste().trim()) {

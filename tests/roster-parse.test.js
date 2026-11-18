@@ -38,6 +38,11 @@ describe('parseRoster', () => {
     expect(students[1].section).toBe('Molave')
   })
 
+  it('keeps commas inside tab-separated cells (Excel names)', () => {
+    const { students } = parseRoster('Reyes, Juan\t8\tSampaguita')
+    expect(students[0]).toEqual({ name: 'Reyes, Juan', grade: 'Grade 8', section: 'Sampaguita' })
+  })
+
   it('counts lines without a name as skipped', () => {
     const { students, skipped } = parseRoster('Juan\n, 8, Sampaguita')
     expect(students).toHaveLength(1)
