@@ -434,38 +434,31 @@ function drawPinHalf(pdf, quiz, half, className, qrPayload) {
     }
   }
 
-  // Footer band below the grid: non-scanned helper + teacher score box. It
+  // Footer band below the grid: non-scanned helper + blank score box. It
   // stays below the last bubble row (y=312) and left of the QR (x=500), so the
   // printed OMR geometry and the code's quiet zone are untouched.
   const footY = f.y + 322, footH = 116
   pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.6)
   pdf.rect(f.x + 8, footY, 250, footH, 'S')
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
-  pdf.text('How to shade', f.x + 14, footY + 12)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor('#1c2438')
+  pdf.text('How to shade', f.x + 14, footY + 15)
   pdf.setDrawColor('#0b0820'); pdf.setLineWidth(0.9)
-  pdf.circle(f.x + 20, footY + 27, 4.6, 'S')
+  pdf.circle(f.x + 20, footY + 34, 5, 'S')
   pdf.setFillColor('#0b0820')
-  pdf.circle(f.x + 20, footY + 27, 4.1, 'F')
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
-  pdf.text('Shade one letter per item.', f.x + 30, footY + 30)
-  pdf.setTextColor('#6b7280')
-  pdf.text('Erase changes completely.', f.x + 14, footY + 48)
-  pdf.setFontSize(6)
-  pdf.text('Keep the QR and corner marks clear.', f.x + 14, footY + 64)
-  pdf.setFontSize(6.5)
-  pdf.text('One answer per item.', f.x + 14, footY + 80)
+  pdf.circle(f.x + 20, footY + 34, 4.4, 'F')
+  pdf.setFontSize(9); pdf.setTextColor('#1c2438')
+  pdf.text('Shade one letter per item.', f.x + 30, footY + 37)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.8)
+  pdf.text('Erase changes completely.', f.x + 14, footY + 59)
+  pdf.text('Keep the QR and corner marks clear.', f.x + 14, footY + 79)
+  pdf.text('One answer per item.', f.x + 14, footY + 99)
 
   pdf.setDrawColor('#9ca3af'); pdf.setLineWidth(0.6)
   pdf.rect(f.x + 266, footY, 204, footH, 'S')
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.5); pdf.setTextColor('#1c2438')
-  pdf.text('For teacher use', f.x + 272, footY + 12)
-  pdf.setFont('helvetica', 'normal')
-  pdf.text('Score: ______ / 50', f.x + 272, footY + 30)
-  pdf.text('Percentage: ______ %', f.x + 272, footY + 46)
-  pdf.text('Checked by: __________', f.x + 272, footY + 62)
-  pdf.setTextColor('#6b7280')
-  pdf.text('Remarks: _____________', f.x + 272, footY + 78)
-  pdf.text('Date: ________________', f.x + 272, footY + 94)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor('#1c2438')
+  pdf.text('Score', f.x + 272, footY + 15)
+  pdf.setFontSize(36)
+  pdf.text('/50', f.x + 368, footY + 80, { align: 'center' })
 
   // QR bottom-right: quiz identity only (QZ3) — the PIN names the student
   const qr = pinQrRect(half)

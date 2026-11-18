@@ -154,7 +154,7 @@
       </button>
     </div>
   } @else if (stage() === 'review') {
-    <div class="screen lib-screen">
+    <div class="screen lib-screen review-screen">
       <div class="hero lib-hero">
         <div class="hero-ico" [innerHTML]="'edit' | ico"></div>
         <div>
@@ -169,6 +169,10 @@
           {{ quizClass()?.name || 'Pick a class' }}
         </button>
       </div>
+
+      @if (!quizClassId()) {
+        <p class="gen-needs" style="margin:0 0 12px"><span class="gen-needs-ico" [innerHTML]="'info' | ico"></span> Pick a class for this quiz before saving.</p>
+      }
 
       @if (keyOnly()) {
         <p class="parse-note" style="margin-bottom:10px">
@@ -215,16 +219,19 @@
             </div>
           }
         </div>
-        <button class="btn btn-secondary" style="max-width:200px;margin:6px auto 12px;display:flex" (click)="addItem()"><span [innerHTML]="'plus' | ico"></span> Add question</button>
       }
 
-      @if (!quizClassId()) {
-        <p class="gen-needs"><span class="gen-needs-ico" [innerHTML]="'info' | ico"></span> Pick a class for this quiz before saving.</p>
-      }
-      <button class="btn btn-primary gen-btn" [disabled]="!itemsValid() || !quizClassId()" (click)="save()">
-        <span [innerHTML]="'check' | ico"></span>
-        {{ quizId() ? 'Save changes' : 'Save quiz' }}
-      </button>
+      <div class="review-actions">
+        @if (!keyOnly()) {
+          <button class="btn btn-secondary review-add" [disabled]="items().length >= maxItems" [attr.aria-label]="items().length >= maxItems ? 'Add question — 50 maximum' : 'Add question'" (click)="addItem()">
+            <span [innerHTML]="'plus' | ico"></span> Add question
+          </button>
+        }
+        <button class="btn btn-primary review-save" [disabled]="!itemsValid() || !quizClassId()" (click)="save()">
+          <span [innerHTML]="'check' | ico"></span>
+          {{ quizId() ? 'Save changes' : 'Save quiz' }}
+        </button>
+      </div>
     </div>
   }
 

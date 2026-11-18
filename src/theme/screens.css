@@ -629,16 +629,6 @@ html[data-theme='dark'] .type-card.on .t-head { color: var(--accent); }
 .rename-row .text-input { flex: 1; }
 .rename-row .btn { flex-shrink: 0; }
 
-.backup-nudge {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: var(--radius-md);
-  padding: 14px 16px; margin-bottom: 18px;
-}
-.bn-icon { display: flex; color: var(--warn); flex-shrink: 0; }
-.bn-icon svg { width: 20px; height: 20px; }
-.bn-title { font-size: 13.5px; font-weight: 700; color: var(--warn); }
-.bn-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-
 /* ── Reviewer (reading mode) ── */
 .reader {
   max-width: 640px;
@@ -2292,6 +2282,20 @@ html[data-theme='dark'] .cq-body .key-chip.graded {
 .file-clear { display: block; margin: 4px auto 8px; font-size: 11.5px; color: var(--text-faint); background: none; border: none; cursor: pointer; text-decoration: underline; }
 .gen-btn { width: 100%; justify-content: center; margin: 14px 0 6px; padding: 13px; font-size: 14.5px; }
 .gen-btn:disabled { opacity: .55; }
+
+/* Review has up to 50 question cards, so keep its actions pinned to the
+   viewport instead of making the teacher scroll to the end to save. */
+.review-screen { padding-bottom: 112px; }
+.review-actions {
+  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 30;
+  width: min(100%, 760px); display: flex; gap: 8px;
+  padding: 10px var(--pad-x) calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--glass-solid); border-top: 1px solid var(--border);
+  box-shadow: 0 -16px 32px -24px rgba(0, 0, 0, 0.6);
+}
+.review-actions .btn { min-height: 46px; margin: 0; justify-content: center; }
+.review-add { flex: 0 0 auto; padding: 0 14px; font-size: 12.5px; }
+.review-save { flex: 1 1 auto; }
 
 /* The setup page is long on a phone; keep the primary action above the fixed
    bottom nav instead of letting it sit under the system navigation bar. */

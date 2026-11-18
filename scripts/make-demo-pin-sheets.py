@@ -131,26 +131,22 @@ window.renderSheet = async (profile) => {
       disk(c.x, c.y, P.pinR * 0.85, INK)
     }
 
-    // footer band: non-scanned helper + teacher score box. Keep it below the
+    // footer band: non-scanned helper + blank score box. Keep it below the
     // last bubble row (y=312) and left of the QR (x=500), so the OMR geometry
     // and the code's quiet zone are untouched.
     const footY = f.y + 322, footH = 116
     rect(f.x + 8, footY, 250, footH, { stroke: '#9ca3af', lw: 0.6 })
-    text('How to shade', f.x + 14, footY + 12, 6.5, DARK, 'left', false, true)
-    ring(f.x + 20, footY + 27, 4.6, INK)
-    disk(f.x + 20, footY + 27, 4.1, INK)
-    text('Shade one letter per item.', f.x + 30, footY + 30, 6.5, DARK)
-    text('Erase changes completely.', f.x + 14, footY + 48, 6.5, GRAY)
-    text('Keep the QR and corner marks clear.', f.x + 14, footY + 64, 6, GRAY)
-    text('One answer per item.', f.x + 14, footY + 80, 6.5, GRAY)
+    text('How to shade', f.x + 14, footY + 15, 10.5, DARK, 'left', false, true)
+    ring(f.x + 20, footY + 34, 5, INK)
+    disk(f.x + 20, footY + 34, 4.4, INK)
+    text('Shade one letter per item.', f.x + 30, footY + 37, 9, DARK, 'left', false, true)
+    text('Erase changes completely.', f.x + 14, footY + 59, 8.8, DARK)
+    text('Keep the QR and corner marks clear.', f.x + 14, footY + 79, 8.8, DARK)
+    text('One answer per item.', f.x + 14, footY + 99, 8.8, DARK)
 
     rect(f.x + 266, footY, 204, footH, { stroke: '#9ca3af', lw: 0.6 })
-    text('For teacher use', f.x + 272, footY + 12, 6.5, DARK, 'left', false, true)
-    text('Score: ______ / 50', f.x + 272, footY + 30, 6.5, DARK)
-    text('Percentage: ______ %%', f.x + 272, footY + 46, 6.5, DARK)
-    text('Checked by: __________', f.x + 272, footY + 62, 6.5, DARK)
-    text('Remarks: _____________', f.x + 272, footY + 78, 6.5, GRAY)
-    text('Date: ________________', f.x + 272, footY + 94, 6.5, GRAY)
+    text('Score', f.x + 272, footY + 15, 10.5, DARK, 'left', false, true)
+    text('/50', f.x + 368, footY + 80, 36, DARK, 'center', false, true)
 
     // QR (stable QZD2 demo payload) + footer
     const qr = spec.pinQrRect(half)

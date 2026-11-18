@@ -350,6 +350,8 @@ export class CreatePage {
     this.items.set(next);
   }
   addItem() {
+    // The printed sheet is fixed at 50 items; do not let the editor grow past it.
+    if (this.items().length >= MAX_ITEMS) return;
     this.items.set([...this.items(), { n: this.items().length + 1, question: '', options: ['', '', '', ''], answerIndex: 0 }]);
   }
 

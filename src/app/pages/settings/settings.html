@@ -100,35 +100,6 @@
       </div>
     </div>
 
-    <div class="section-title"><span class="set-sec-ico" [innerHTML]="'download' | ico"></span>Backup &amp; restore</div>
-    <div class="card" style="padding:16px">
-      @if (showNudge) {
-        <div class="backup-nudge">
-          <span class="bn-icon" [innerHTML]="'alert' | ico"></span>
-          <div class="bn-text">
-            <div class="bn-title">{{ lastBackup ? 'Backup is over 30 days old' : 'No backup yet' }}</div>
-            <div class="bn-sub">{{ docCount }} document{{ docCount === 1 ? '' : 's' }} stored only on this device</div>
-          </div>
-        </div>
-      }
-      <p class="muted" style="font-size:13px;line-height:1.55;margin-bottom:14px">
-        Your data lives only on this device. Export a backup file regularly — if the app is uninstalled or the phone is reset, local data is gone.
-      </p>
-      <button class="btn btn-primary" id="export-btn" (click)="exportBackup()" data-tooltip="Download all data as a single JSON file"><span [innerHTML]="'download' | ico"></span> Export backup (.json)</button>
-      <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="importInput.click()" data-tooltip="Restore from a previously exported backup"><span [innerHTML]="'database' | ico"></span> Import backup</button>
-      <input type="file" #importInput accept=".json,application/json" aria-label="Import backup file" hidden (change)="onImportPicked($event)" />
-      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
-      <div class="label" style="margin-bottom:4px">Encrypted backup — safe for your own cloud storage</div>
-      <p class="muted" style="font-size:12.5px;line-height:1.5;margin:0 0 12px">
-        A passphrase-protected backup (AES-GCM). Unreadable without your passphrase,
-        so you can keep it in Google Drive or anywhere — no server, no account.
-      </p>
-      <button class="btn btn-primary" (click)="exportEncrypted()" data-tooltip="Download a passphrase-encrypted backup"><span [innerHTML]="'lock' | ico"></span> Encrypted backup</button>
-      <button class="btn btn-secondary" style="margin-top:10px;width:100%" (click)="encImportInput.click()" data-tooltip="Restore from an encrypted backup file"><span [innerHTML]="'database' | ico"></span> Restore encrypted backup</button>
-      <input type="file" #encImportInput accept=".json,application/json" aria-label="Import encrypted backup file" hidden (change)="onEncImportPicked($event)" />
-      <p class="faint" style="font-size:12px;margin-top:12px">{{ usageLine() }}</p>
-    </div>
-
     <div class="section-title"><span class="set-sec-ico" [innerHTML]="'zap' | ico"></span>Demo data</div>
     <div class="card">
       <div class="demo-actions">

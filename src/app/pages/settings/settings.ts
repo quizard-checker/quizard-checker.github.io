@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -30,6 +30,7 @@ export class SettingsPage implements OnInit {
   private confirm = inject(ConfirmService);
   readonly guide = inject(GuideService);
   private location = inject(Location);
+  private cdr = inject(ChangeDetectorRef);
   readonly demoSheets = [
     { file: 'demo/pin-sheet-ivan.png', label: 'Perfect — Ivan (50/50)', url: assetUrl('demo/pin-sheet-ivan.png') },
     { file: 'demo/pin-sheet-joy.png', label: 'Missed two — Joy (48/50)', url: assetUrl('demo/pin-sheet-joy.png') },
@@ -157,6 +158,10 @@ export class SettingsPage implements OnInit {
       || await getAccount(getActiveAccountId() || '')
       || (this.accounts.length ? await getAccount(this.accounts[0].id) : null);
     this.account = acc || null;
+    // The account rows load asynchronously; under zoneless change detection
+    // the initial "No active account" render must be marked dirty so the
+    // loaded profile actually replaces it.
+    this.cdr.markForCheck();
   }
 
   setSkipIntro(on: boolean) { saveSettings({ skipIntro: on }); this.refreshSettings(); this.toast.toast(on ? 'Intro will be skipped' : 'Intro plays on launch'); }
