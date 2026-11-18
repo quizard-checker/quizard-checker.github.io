@@ -4,9 +4,9 @@
       @if (stage() === 'review') {
         <button class="icon-btn" (click)="backFromReview()" aria-label="Back" [innerHTML]="'chevronLeft' | ico"></button>
       } @else if (stage() === 'export') {
-        <button class="icon-btn" (click)="backHome()" aria-label="Back to Home" [innerHTML]="'chevronLeft' | ico"></button>
+        <button class="icon-btn" (click)="backToClass()" [attr.aria-label]="quizClass() ? 'Back to class roster' : 'Back to Home'" [innerHTML]="'chevronLeft' | ico"></button>
       } @else if (stage() === 'setup') {
-        <button class="icon-btn" (click)="backHome()" aria-label="Back to Home" [innerHTML]="'chevronLeft' | ico"></button>
+        <button class="icon-btn" (click)="backToClass()" [attr.aria-label]="quizClass() ? 'Back to class roster' : 'Back to Home'" [innerHTML]="'chevronLeft' | ico"></button>
       }
       <span class="mark" [innerHTML]="'logo' | ico"></span>Create
     </div>
@@ -277,7 +277,7 @@
   }
   @if (stage() === 'export') {
     <div class="screen lib-screen">
-      <button class="qf-back" (click)="backHome()" data-tooltip="Back to Home"><span [innerHTML]="'chevronLeft' | ico"></span> All classes</button>
+      <button class="qf-back" (click)="backToClass()" [attr.data-tooltip]="quizClass() ? 'Back to class roster' : 'Back to Home'"><span [innerHTML]="'chevronLeft' | ico"></span> {{ quizClass() ? 'Back to class' : 'All classes' }}</button>
       <div class="hero lib-hero">
         <div class="hero-ico" [innerHTML]="'fileText' | ico"></div>
         <div>

@@ -472,11 +472,16 @@ export class CreatePage {
     }
   }
 
-  backHome() {
+  backToClass() {
     this.keyPickOpen.set(false);
     this.classPickOpen.set(false);
     this.copyPickOpen.set(false);
-    this.router.navigateByUrl('/tabs/home');
+    // Quizzes are opened from a class roster; return there instead of dumping
+    // the teacher on Home. Fall back only when the class no longer exists.
+    const cls = this.quizClassId()
+      ? this.classList().find(c => c.id === this.quizClassId())
+      : null;
+    void this.router.navigateByUrl(cls ? `/tabs/classes/${cls.id}` : '/tabs/home');
   }
 
 
