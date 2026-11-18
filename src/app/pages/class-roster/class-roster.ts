@@ -1,11 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+﻿import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { getClass, listSheets, listQuizzes, saveClass } from '../../core/engine/storage.js';
 import { buildGradebook, isStudentSheet } from '../../core/engine/gradebook.js';
 import { diffRoster, parseRoster, generatePins, isValidPin } from '../../core/engine/roster.js';
 import { readClassFile } from '../../core/engine/class-file.js';
-import { exportPinListPdf } from '../../core/engine/export.js';
 import { bannerTheme, bannerAvatar, fmtDateLong } from '../../shared/helpers.js';
 import { quizTitle } from '../../core/engine/quiz-classes.js';
 import { ToastService } from '../../core/services/toast.service';
@@ -24,10 +23,10 @@ interface StudentRecord {
 }
 
 // Class page: a themed banner (same gradient the class wears on the Classes
-// page) over three tabs — Classwork quizzes, the student roster, and the
+// page) over three tabs â€” Classwork quizzes, the student roster, and the
 // gradebook (students down, quizzes across, latest score per cell). Tapping a
 // student opens their full answer review; Edit roster opens an inline sheet
-// right here — no hand-off to another tab.
+// right here â€” no hand-off to another tab.
 @Component({
   selector: 'app-class-roster',
   imports: [IonContent, IcoPipe],
@@ -41,7 +40,7 @@ export class ClassRosterPage {
   cls = signal<any>(null);
   bannerTheme = bannerTheme;
   bannerAvatar = bannerAvatar;
-  // Creation date on the Classwork/Scores cards — not the scan date, so a
+  // Creation date on the Classwork/Scores cards â€” not the scan date, so a
   // quiz made in September still reads September even if papers come later.
   readonly dateOf = fmtDateLong;
   missing = signal(false);
@@ -56,7 +55,7 @@ export class ClassRosterPage {
     this.tab.set(t);
   }
   // Replace rewrites the whole list (box prefilled); Add appends just the new
-  // names a teacher pastes or uploads — real classes arrive in batches.
+  // names a teacher pastes or uploads â€” real classes arrive in batches.
   rosterMode = signal<'replace' | 'add'>('replace');
   paste = signal('');
   private sheets = signal<any[]>([]);
@@ -70,17 +69,17 @@ export class ClassRosterPage {
 
   readonly checkedCount = computed(() => this.sheets().length);
 
-  // Banner sub-line: subject · grade — section · N students · N checked,
+  // Banner sub-line: subject Â· grade â€” section Â· N students Â· N checked,
   // skipping whatever the class doesn't have.
   readonly metaOf = (c: any): string => {
     const parts: string[] = [];
     if (c?.subject) parts.push(c.subject);
-    const gs = [c?.grade, c?.section].filter(Boolean).join(' — ');
+    const gs = [c?.grade, c?.section].filter(Boolean).join(' â€” ');
     if (gs) parts.push(gs);
     const n = c?.students?.length || 0;
     parts.push(`${n} student${n === 1 ? '' : 's'}`);
     if (this.checkedCount()) parts.push(`${this.checkedCount()} checked`);
-    return parts.join(' · ');
+    return parts.join(' Â· ');
   };
 
   // Students down, quizzes across, the latest score in each cell. A class with
@@ -93,7 +92,7 @@ export class ClassRosterPage {
   }));
 
   // Classwork: quizzes assigned to this class, plus any with scanned papers
-  // here — card-ready for the top of the page.
+  // here â€” card-ready for the top of the page.
   readonly classwork = computed(() => {
     const c = this.cls();
     if (!c) return [];
@@ -127,7 +126,7 @@ export class ClassRosterPage {
     this.router.navigateByUrl('/tabs/checking');
   }
 
-  // ── Scores tab: quiz first, then that quiz's full student list ───────────
+  // â”€â”€ Scores tab: quiz first, then that quiz's full student list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Same rhythm as Classwork: a card per quiz, tap one to see every student's
   // score for it. A quiz deleted after its papers were checked keeps a card
   // (its gradebook column still exists), so scanned results never vanish.
@@ -206,7 +205,7 @@ export class ClassRosterPage {
   closeScores() { this.scoreQuizId.set(null); }
   goScan() { this.router.navigate(['/tabs/checking']); }
 
-  // ── Student PINs (for the generic PIN answer sheets) ──────────────────────
+  // â”€â”€ Student PINs (for the generic PIN answer sheets) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Every student gets a 5-digit PIN; they write + shade it on their half
   // sheet and the scanner routes the paper back to them.
   pinEditOpen = signal(false);
@@ -236,29 +235,6 @@ export class ClassRosterPage {
     this.cls.set(record);
     this.pinEditOpen.set(false);
     this.toast.toast(`PIN ${pin} saved for ${st.name}`);
-  }
-
-  async generatePinsNow() {
-    const cls = this.cls();
-    if (!cls) return;
-    const { students, assigned } = generatePins(cls.students || []);
-    if (!assigned) { this.toast.toast('Every student already has a PIN.'); return; }
-    const record = await saveClass({ ...cls, students });
-    this.cls.set(record);
-    this.toast.toast(`${assigned} PIN${assigned === 1 ? '' : 's'} assigned`);
-  }
-
-  async printPinList() {
-    const cls = this.cls();
-    if (!cls) return;
-    try {
-      await exportPinListPdf(cls);
-      this.toast.toast('PIN list exported — hand each student their PIN');
-    } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (/cancel/i.test(msg)) return;
-      this.toast.toast('Could not export the PIN list' + (msg ? ' — ' + msg : ''), true);
-    }
   }
 
   openQuiz(id: string) {
@@ -343,7 +319,7 @@ export class ClassRosterPage {
     });
   }
 
-  // Edit roster stays on this page: the sheet just edits the student list —
+  // Edit roster stays on this page: the sheet just edits the student list â€”
   // name, grade and section stay as they are. saveClass keeps each student's
   // sheet number pinned to them (matched by name) even after the edit, and a
   // student removed from the list keeps their stored scan results in Reports.
@@ -367,7 +343,7 @@ export class ClassRosterPage {
   setPaste(value: string) { this.paste.set(value); }
 
   // In Add mode the parse splits into genuinely new names and ones already on
-  // the roster (or repeated within the same paste) — the dupes are kept, never
+  // the roster (or repeated within the same paste) â€” the dupes are kept, never
   // re-added, so a careless double paste can't create twin students.
   readonly addPreview = computed(() => this.rosterMode() === 'add'
     ? diffRoster(parseRoster(this.paste()).students, (this.cls()?.students || []).map((s: any) => s.name))
@@ -395,7 +371,7 @@ export class ClassRosterPage {
     if (!cls) return;
     const parsed = parseRoster(this.paste());
     if (this.rosterMode() === 'add') {
-      // Append only the names the roster doesn't have yet — existing students
+      // Append only the names the roster doesn't have yet â€” existing students
       // are untouched, so their sheet numbers and scan history stay put.
       const { fresh, dupes } = this.addPreview();
       if (!fresh.length) {
@@ -403,7 +379,7 @@ export class ClassRosterPage {
         return;
       }
       // Spread the whole class so school year, archived state and any other
-      // fields survive a roster edit — saveClass replaces the record wholesale.
+      // fields survive a roster edit â€” saveClass replaces the record wholesale.
       // New students get a PIN (generatePins fills only the missing ones), so
       // generic PIN sheets route to them without a manual registration pass.
       const merged = generatePins([
@@ -420,7 +396,7 @@ export class ClassRosterPage {
       });
       this.cls.set(record);
       this.rosterOpen.set(false);
-      this.toast.toast(`${fresh.length} student${fresh.length === 1 ? '' : 's'} added to “${cls.name}”${dupes ? ` · ${dupes} already on the roster` : ''}`);
+      this.toast.toast(`${fresh.length} student${fresh.length === 1 ? '' : 's'} added to â€œ${cls.name}â€${dupes ? ` Â· ${dupes} already on the roster` : ''}`);
       return;
     }
     if (!parsed.students.length) {
@@ -429,7 +405,7 @@ export class ClassRosterPage {
     }
     const record = await saveClass({
       ...cls,
-      // a replaced roster still ends up fully pinned — generatePins keeps any
+      // a replaced roster still ends up fully pinned â€” generatePins keeps any
       // PIN the surviving students already had and fills only the missing ones
       students: generatePins(parsed.students.map((s: any): any => ({
         name: s.name,
@@ -439,6 +415,6 @@ export class ClassRosterPage {
     });
     this.cls.set(record);
     this.rosterOpen.set(false);
-    this.toast.toast(`${parsed.students.length} student${parsed.students.length === 1 ? '' : 's'} saved to “${cls.name}”`);
+    this.toast.toast(`${parsed.students.length} student${parsed.students.length === 1 ? '' : 's'} saved to â€œ${cls.name}â€`);
   }
 }

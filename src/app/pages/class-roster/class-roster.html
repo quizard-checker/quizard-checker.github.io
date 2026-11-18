@@ -72,8 +72,6 @@
         @if (students().length) {
         <div class="cr-actions">
           <button class="btn btn-secondary" (click)="openRoster()"><span [innerHTML]="'pencil' | ico"></span> Edit roster</button>
-          <button class="btn btn-secondary" (click)="generatePinsNow()"><span [innerHTML]="'refresh' | ico"></span> Generate PINs</button>
-          <button class="btn btn-secondary" (click)="printPinList()"><span [innerHTML]="'download' | ico"></span> Print PIN list</button>
         </div>
         <div class="roster-page-list" style="max-width:none">
             @for (st of students(); track st.id) {

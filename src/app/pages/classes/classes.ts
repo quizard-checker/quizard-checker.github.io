@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { listClasses, saveClass, deleteClass, getActiveAccountId, getAccount } from '../../core/engine/storage.js';
-import { parseRoster } from '../../core/engine/roster.js';
+import { parseRoster, generatePins } from '../../core/engine/roster.js';
 import { readClassFile } from '../../core/engine/class-file.js';
 import { findDuplicateClass } from '../../core/engine/class-identity.js';
 import { bannerTheme, bannerAvatar, currentSchoolYearStart, normalizeGrade, parseSchoolYear, schoolYearLabel, schoolYearOptions } from '../../shared/helpers.js';
@@ -198,6 +198,9 @@ export class ClassesPage {
       this.toast.toast('Paste or upload at least one student name', true);
       return;
     }
+    // Every class gets student PINs on creation, even when it comes from the
+    // Classes page rather than Home/roster editing.
+    students = generatePins(students).students;
     await saveClass({
       id: this.editingId() || undefined,
       name,
