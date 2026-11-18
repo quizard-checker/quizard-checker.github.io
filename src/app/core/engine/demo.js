@@ -24,7 +24,9 @@ function demoPrefix(accountId) {
 
 export function demoSummary() {
   const { classes, keys, quizzes, sheets } = DEMO_SNAPSHOT
-  return `${classes.length} classes · ${keys.length} keys · ${quizzes.length} quizzes · ${sheets.length} graded sheets`
+  // buildDemoWorld adds one shorter quiz so the variable-length PIN sheet is
+  // visible in the demo without changing the bundled snapshot.
+  return `${classes.length} classes · ${keys.length} keys · ${quizzes.length + 1} quizzes · ${sheets.length} graded sheets`
 }
 
 export function buildDemoWorld(accountId = '') {
@@ -68,6 +70,23 @@ export function buildDemoWorld(accountId = '') {
     createdAt: now - i * MINUTE,
     demo: true,
   }))
+
+  // A 35-item copy of the English quiz: its printed PIN sheet stops at 35 and
+  // leaves 36–50 blank, so the item-count behaviour is visible in Demo data.
+  const shortSource = DEMO_SNAPSHOT.quizzes.find(q => q.id === 'demo-quiz-2')
+  if (shortSource) {
+    quizzes.unshift({
+      ...clone(shortSource),
+      id: `${prefix}quiz-short`,
+      demoKey: 'demo-quiz-short',
+      title: 'Verb Tenses — 35-item demo',
+      classId: classIds.get(shortSource.classId) || undefined,
+      className: DEMO_SNAPSHOT.classes.find(c => c.id === shortSource.classId)?.name || '',
+      items: clone(shortSource.items || []).slice(0, 35).map((it, i) => ({ ...it, n: i + 1 })),
+      createdAt: now + MINUTE,
+      demo: true,
+    })
+  }
 
   const sheets = DEMO_SNAPSHOT.sheets.map((s, i) => ({
     ...clone(s),

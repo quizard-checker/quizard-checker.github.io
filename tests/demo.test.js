@@ -19,7 +19,7 @@ import {
 } from '../src/app/core/engine/storage.js'
 
 const TOTAL = DEMO_SNAPSHOT.classes.length + DEMO_SNAPSHOT.keys.length
-  + DEMO_SNAPSHOT.quizzes.length + DEMO_SNAPSHOT.sheets.length
+  + DEMO_SNAPSHOT.quizzes.length + 1 + DEMO_SNAPSHOT.sheets.length
 
 describe('bundled demo world', () => {
   let accountA
@@ -34,7 +34,7 @@ describe('bundled demo world', () => {
     const world = buildDemoWorld('account-a')
     expect(world.classes).toHaveLength(DEMO_SNAPSHOT.classes.length)
     expect(world.keys).toHaveLength(DEMO_SNAPSHOT.keys.length)
-    expect(world.quizzes).toHaveLength(DEMO_SNAPSHOT.quizzes.length)
+    expect(world.quizzes).toHaveLength(DEMO_SNAPSHOT.quizzes.length + 1)
     expect(world.sheets).toHaveLength(DEMO_SNAPSHOT.sheets.length)
 
     const classIds = new Set(world.classes.map(c => c.id))
@@ -52,6 +52,9 @@ describe('bundled demo world', () => {
     for (const rec of world.quizzes) expect(rec.demoKey).toBeTruthy()
     expect(world.classes.find(c => c.name === 'English 8-B')?.demoKey).toBe('demo-cls-eng')
     expect(world.quizzes.find(q => q.title === 'Verb Tenses')?.demoKey).toBe('demo-quiz-2')
+    const shortDemo = world.quizzes.find(q => q.demoKey === 'demo-quiz-short')
+    expect(shortDemo?.items).toHaveLength(35)
+    expect(shortDemo?.items.at(-1)?.n).toBe(35)
     // Every demo quiz is assigned to a real demo class, and every graded sheet
     // sits under the class its quiz belongs to.
     const english = world.classes.find(c => c.demoKey === 'demo-cls-eng')
@@ -95,7 +98,7 @@ describe('bundled demo world', () => {
 
     expect(await listClasses()).toHaveLength(DEMO_SNAPSHOT.classes.length + 1)
     expect(await listKeys()).toHaveLength(DEMO_SNAPSHOT.keys.length + 1)
-    expect(await listQuizzes()).toHaveLength(DEMO_SNAPSHOT.quizzes.length + 1)
+    expect(await listQuizzes()).toHaveLength(DEMO_SNAPSHOT.quizzes.length + 2)
     expect(await listSheets()).toHaveLength(DEMO_SNAPSHOT.sheets.length + 1)
 
     expect(await deleteDemoData()).toBe(TOTAL)
@@ -108,7 +111,7 @@ describe('bundled demo world', () => {
   it('summary matches the bundled counts', () => {
     expect(demoSummary()).toBe(
       `${DEMO_SNAPSHOT.classes.length} classes · ${DEMO_SNAPSHOT.keys.length} keys · `
-      + `${DEMO_SNAPSHOT.quizzes.length} quizzes · ${DEMO_SNAPSHOT.sheets.length} graded sheets`
+      + `${DEMO_SNAPSHOT.quizzes.length + 1} quizzes · ${DEMO_SNAPSHOT.sheets.length} graded sheets`
     )
   })
 
@@ -133,7 +136,7 @@ describe('bundled demo world', () => {
     for (const side of [a, b]) {
       expect(side.classes).toBe(DEMO_SNAPSHOT.classes.length)
       expect(side.keys).toBe(DEMO_SNAPSHOT.keys.length)
-      expect(side.quizzes).toBe(DEMO_SNAPSHOT.quizzes.length)
+      expect(side.quizzes).toBe(DEMO_SNAPSHOT.quizzes.length + 1)
       expect(side.sheets).toBe(DEMO_SNAPSHOT.sheets.length)
     }
     expect(a.quizIds.some(id => b.quizIds.includes(id))).toBe(false)
@@ -142,7 +145,7 @@ describe('bundled demo world', () => {
     setActiveAccount(accountB.id)
     expect(await deleteDemoData()).toBe(TOTAL)
     setActiveAccount(accountA.id)
-    expect((await listQuizzes())).toHaveLength(DEMO_SNAPSHOT.quizzes.length)
+    expect((await listQuizzes())).toHaveLength(DEMO_SNAPSHOT.quizzes.length + 1)
   })
 
   it('counts teacher records as profile data', async () => {
