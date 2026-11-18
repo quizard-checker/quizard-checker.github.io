@@ -156,6 +156,9 @@ export class CreatePage {
   quizClassId = signal<string | null>(null);
   quizClassNameSnap = signal('');
   classPickOpen = signal(false);
+  // A quiz opened from a class (roster/Home hand-off) or an existing quiz keeps
+  // that class. The picker is disabled so Review cannot silently reassign it.
+  classLocked = signal(false);
   readonly quizClass = computed(() => {
     const id = this.quizClassId();
     if (!id) return null;
@@ -176,6 +179,7 @@ export class CreatePage {
 
   pickClass(c: any) {
     if (!c) return;
+    if (this.classLocked()) return;
     // The class already owns its subject, so the quiz inherits it instead of
     // asking the teacher to pick the same thing twice.
     const subject = String(c.subject || '').trim();
@@ -223,7 +227,9 @@ export class CreatePage {
     const qp = this.route.snapshot.queryParamMap;
     const quizId = qp.get('quiz');
     const classParam = qp.get('class');
+    this.classLocked.set(false);
     if (quizId) {
+      this.classLocked.set(true);
       await this.openSaved(quizId);
       return;
     }
@@ -236,8 +242,11 @@ export class CreatePage {
     this.savedKeys.set(await listKeys());
     if (classParam) {
       const preset = this.classList().find(c => c.id === classParam);
-      if (preset) this.pickClass(preset);
-      if (this.assignableClasses().length === 1) this.pickClass(this.assignableClasses()[0]);
+      if (preset) {
+        this.pickClass(preset);
+        this.classLocked.set(true);
+      }
+      if (!preset && this.assignableClasses().length === 1) this.pickClass(this.assignableClasses()[0]);
     } else if (!this.quizClassId() && this.assignableClasses().length === 1) {
       this.pickClass(this.assignableClasses()[0]);
     }
