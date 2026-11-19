@@ -117,26 +117,43 @@
               @if (dup.archived) { Restore it from Archived classes instead. } @else { Use a different subject or section. }
             </p>
           }
-          <p class="sheet-label">Students <span class="faint">· one name per line</span></p>
-          <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Reyes, Miguel" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
-          <div class="file-actions">
-            <label class="btn btn-secondary file-btn">
-              <span [innerHTML]="'upload' | ico"></span> Upload Excel / CSV
-              <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" (change)="onFile($event)" hidden />
-            </label>
-          </div>
-          <p class="file-hint">Upload an Excel/CSV file with student names — one per row.</p>
-          @if (paste().trim()) {
-            <p class="parse-note">
-              {{ previewCount() }} student{{ previewCount() === 1 ? '' : 's' }} detected
-              @if (previewSkipped()) { · {{ previewSkipped() }} line{{ previewSkipped() === 1 ? '' : 's' }} skipped }
-            </p>
+          @if (!editingId() && copySources().length) {
+            <div class="copy-roster">
+              <p class="sheet-label">Copy students from another class</p>
+              <div class="copy-row">
+                <select class="text-input" aria-label="Copy students from a class" [value]="copySourceId()" (change)="copySourceId.set($any($event.target).value)">
+                  <option value="">Choose a class</option>
+                  @for (src of copySources(); track src.id) {
+                    <option [value]="src.id">{{ src.name }} · {{ src.students?.length || 0 }} students{{ src.archived ? ' · archived' : '' }}</option>
+                  }
+                </select>
+                <button class="btn btn-secondary" type="button" [disabled]="!copySource()" (click)="copyRosterFromSource()">Copy</button>
+              </div>
+              <p class="copy-hint">Copies names and Grade/Section/School year. Subject stays the new one.</p>
+            </div>
           }
-          @if (editingId() && editingRoster().length) {
-            <p class="faint" style="font-size:11.5px;margin:10px 0 0;text-align:center">
-              Student numbers stay with the student even if you edit the list:
-              {{ editingRoster().slice(0, 8).map(s => '#' + s.no + ' ' + s.name).join(' · ') }}{{ editingRoster().length > 8 ? ' …' : '' }}
-            </p>
+          @if (!editingId()) {
+            <p class="sheet-label">Students <span class="faint">· one name per line</span></p>
+            <textarea class="text-input roster-paste" rows="7" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Reyes, Miguel" [attr.aria-label]="'Student names'" [value]="paste()" (input)="setPaste($any($event.target).value)"></textarea>
+            <div class="file-actions">
+              <label class="btn btn-secondary file-btn">
+                <span [innerHTML]="'upload' | ico"></span> Upload Excel / CSV
+                <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" (change)="onFile($event)" hidden />
+              </label>
+            </div>
+            <p class="file-hint">Upload an Excel/CSV file with student names — one per row.</p>
+            @if (paste().trim()) {
+              <p class="parse-note">
+                {{ previewCount() }} student{{ previewCount() === 1 ? '' : 's' }} detected
+                @if (previewSkipped()) { · {{ previewSkipped() }} line{{ previewSkipped() === 1 ? '' : 's' }} skipped }
+              </p>
+            }
+            @if (editingRoster().length) {
+              <p class="faint" style="font-size:11.5px;margin:10px 0 0;text-align:center">
+                Student numbers stay with the student even if you edit the list:
+                {{ editingRoster().slice(0, 8).map(s => '#' + s.no + ' ' + s.name).join(' · ') }}{{ editingRoster().length > 8 ? ' …' : '' }}
+              </p>
+            }
           }
           <div class="org-sheet-actions">
             <button class="btn btn-secondary" (click)="closeSheet()">Cancel</button>

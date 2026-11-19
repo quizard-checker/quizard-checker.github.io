@@ -259,6 +259,23 @@ export class ClassRosterPage {
     this.toast.toast(`Deleted ${q.title}`);
   }
 
+  async removeStudent(st: any, ev: Event) {
+    ev.stopPropagation();
+    const cls = this.cls();
+    if (!cls || !st?.id) return;
+    const ok = await this.confirm.confirm(
+      'Remove student?',
+      `Remove “${st.name}” from ${cls.name}? Past scanned scores are kept.`,
+      'Remove student',
+      st.name,
+    );
+    if (!ok) return;
+    const students = (cls.students || []).filter((s: any) => s.id !== st.id);
+    const record = await saveClass({ ...cls, students });
+    this.cls.set(record);
+    this.toast.toast(`Removed ${st.name}`);
+  }
+
   // Row avatars: initials + a stable colour per student, so the roster reads
   // like a people list at a glance (same student always wears the same tint).
   private static readonly AVA_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#14b8a6', '#a855f7', '#ef4444', '#3b82f6', '#ec4899'];
@@ -344,7 +361,11 @@ export class ClassRosterPage {
   openRoster() {
     const cls = this.cls();
     if (!cls) return;
-    this.setMode('replace');
+    this.rosterMode.set('add');
+    // Show everyone already on the roster, then let the teacher append new
+    // names below. Add-only means an existing line is never removed here;
+    // removal happens from the trash button in the Students tab.
+    this.paste.set((cls.students || []).map((s: any) => s.name).join('\n'));
     this.rosterOpen.set(true);
   }
 

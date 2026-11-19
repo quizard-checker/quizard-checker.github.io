@@ -41,7 +41,12 @@ export class HomePage {
   yearAnchor = signal(currentSchoolYearStart());
   yearPickerOpen = signal(false);
   paste = signal('');
+  copySourceId = signal('');
 
+  readonly copySources = computed(() =>
+    this.classes().filter(c => c.id !== this.editingId() && (c.students?.length || 0) > 0));
+  readonly copySource = computed(() =>
+    this.copySources().find(c => c.id === this.copySourceId()) || null);
   readonly previewCount = computed(() => parseRoster(this.paste()).students.length);
   readonly classSubjects = computed(() =>
     [...new Set(this.classes().map(x => x.subject).filter(Boolean))]);
@@ -146,6 +151,7 @@ export class HomePage {
     this.schoolYear.set(parseSchoolYear(cls?.schoolYear) || schoolYearLabel(anchor));
     this.yearPickerOpen.set(false);
     this.paste.set('');
+    this.copySourceId.set('');
     this.sheetOpen.set(true);
   }
 
@@ -185,6 +191,35 @@ export class HomePage {
     } finally {
       input.value = '';
     }
+  }
+
+  copyRosterFromSource() {
+    const src = this.copySource();
+    if (!src) return;
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const student of src.students || []) {
+      const name = String(student?.name || '').trim();
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+    if (!names.length) {
+      this.toast.toast('That class has no student names to copy', true);
+      return;
+    }
+    this.paste.set(names.join('\n'));
+    if (src.grade) this.grade.set(normalizeGrade(src.grade));
+    if (src.section) this.section.set(src.section);
+    const year = parseSchoolYear(src.schoolYear);
+    if (year) {
+      this.schoolYear.set(year);
+      this.yearAnchor.set(Number(year.slice(0, 4)));
+    }
+    this.copySourceId.set('');
+    this.toast.toast(
+      `Copied ${names.length} student${names.length === 1 ? '' : 's'} from ${src.name}`);
   }
 
   async saveSheet() {
